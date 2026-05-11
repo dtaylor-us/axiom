@@ -205,14 +205,31 @@ jobs:
           kubectl get daemonset -n kube-system aks-secrets-store-provider-azure
           echo "Azure Key Vault provider DaemonSet present (AKS add-on)."
 
-          # ── cert-manager ClusterIssuer ────────────────────────────────────
-          echo "=== cert-manager ClusterIssuer ==="
-          if kubectl get clusterissuer letsencrypt-prod &>/dev/null; then
-            echo "ClusterIssuer letsencrypt-prod already exists."
-          else
-            echo "Creating ClusterIssuer letsencrypt-prod..."
-            CERT_EMAIL="${{ secrets.CERT_MANAGER_EMAIL || 'admin@example.com' }}"
-            kubectl apply -f - <<EOF
+          # ── cert-manager ClusterIssuers ───────────────────────────────────
+          echo "=== cert-manager ClusterIssuers ==="
+          CERT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
+          kubectl apply -f - <<EOF
+          apiVersion: cert-manager.io/v1
+          kind: ClusterIssuer
+          metadata:
+            name: letsencrypt-staging
+          spec:
+            acme:
+              server: https://acme-staging-v02.api.letsencrypt.org/directory
+              email: ${CERT_EMAIL}
+              privateKeySecretRef:
+                name: letsencrypt-staging-account-key
+              solvers:
+                - http01:
+                    ingress:
+                      class: nginx
+                      ingressTemplate:
+                        metadata:
+                          annotations:
+                            nginx.ingress.kubernetes.io/ssl-redirect: "false"
+                            nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+          EOF
+          kubectl apply -f - <<EOF
           apiVersion: cert-manager.io/v1
           kind: ClusterIssuer
           metadata:
@@ -222,14 +239,18 @@ jobs:
               server: https://acme-v02.api.letsencrypt.org/directory
               email: ${CERT_EMAIL}
               privateKeySecretRef:
-                name: letsencrypt-prod
+                name: letsencrypt-prod-account-key
               solvers:
                 - http01:
                     ingress:
                       class: nginx
+                      ingressTemplate:
+                        metadata:
+                          annotations:
+                            nginx.ingress.kubernetes.io/ssl-redirect: "false"
+                            nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
           EOF
-            echo "ClusterIssuer created."
-          fi
+          echo "ClusterIssuers applied."
 
           # ── archon-secrets status (informational) ─────────────────────────
           echo "=== archon-secrets ==="

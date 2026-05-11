@@ -42,6 +42,8 @@ export function ChatView() {
   } = useConversation();
   const canReattach = useStore((s) => s.canReattach);
   const lastStageCompleted = useStore((s) => s.lastStageCompleted);
+  const pipelineHasGaps = useStore((s) => s.pipelineHasGaps);
+  const pipelineGaps = useStore((s) => s.pipelineGaps);
 
   /* Auto-scroll on new content */
   useEffect(() => {
@@ -272,6 +274,39 @@ export function ChatView() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
+            {/* Pipeline gap banner — shown when optional stages were skipped */}
+            {pipelineHasGaps && !isStreaming && (
+              <div
+                className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3"
+                data-testid="pipeline-gap-banner"
+              >
+                <svg
+                  className="w-4 h-4 text-amber-500 mt-0.5 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-amber-800">
+                    Architecture generated with partial analysis
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    {pipelineGaps.length} optional stage{pipelineGaps.length !== 1 ? 's' : ''} could
+                    not complete. The architecture is based on the stages that succeeded. You can
+                    refine your requirements and run again for a more complete result.
+                  </p>
+                </div>
               </div>
             )}
 

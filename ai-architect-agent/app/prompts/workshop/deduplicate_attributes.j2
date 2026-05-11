@@ -1,0 +1,70 @@
+You are a quality attribute taxonomy expert reviewing a list of elicited quality attributes for a software system.
+
+Your task: identify semantic duplicates, aliases, and sub-attributes that should be merged into canonical quality attribute groups.
+
+SYSTEM CONTEXT:
+  System: {{ system_name or "unknown" }}
+  Workshop phase: {{ workshop_phase }}
+
+ATTRIBUTES TO REVIEW:
+{{ attributes | tojson(indent=2) }}
+
+CANONICAL QUALITY ATTRIBUTES (the only valid top-level categories):
+  availability, performance, security, modifiability, scalability,
+  testability, deployability, usability, interoperability, data_integrity,
+  auditability, recoverability, cost, other
+
+DEDUPLICATION RULES:
+  1. "resilience", "fault tolerance", "high availability" are aliases of "availability"
+  2. "latency", "throughput", "response time" are sub-concerns of "performance"
+  3. "disaster recovery", "backup and restore", "RTO/RPO" are sub-concerns of "recoverability"
+  4. "authentication", "authorisation", "encryption" are sub-concerns of "security"
+  5. "logging", "traceability", "monitoring", "observability" are sub-concerns of "auditability"
+  6. "maintainability", "extensibility" are aliases of "modifiability"
+  7. Two attributes with the same canonical category AND overlapping descriptions are duplicates
+  8. An attribute is a sub-concern (not a duplicate) when its scope is clearly narrower
+     than the canonical category — e.g. "encryption at rest" is narrower than "security"
+  9. Do NOT merge attributes when they have distinct scenario response measures
+     (e.g. "99.9% uptime" and "recovery in < 4 hours" target different outcomes)
+
+CONSOLIDATION RULES (semantic merges):
+  Only merge attributes when they would be addressed by EXACTLY the same design decisions.
+  If two attributes would require different architectural tactics to achieve them,
+  they are distinct and must NOT be merged.
+
+  Examples of attributes that look similar but are distinct:
+    Availability vs Recoverability — different tactics (redundancy vs checkpoint/restart)
+    Performance vs Scalability — different tactics (optimisation vs horizontal partitioning)
+    Auditability vs Observability — different artifacts (audit logs vs operational metrics)
+    Data Integrity vs Security — different concerns (correctness vs access control)
+
+  When in doubt, keep them separate. Over-merging destroys architectural signal.
+  Under-merging can be corrected later. Over-merging cannot be recovered from.
+
+NON-QA CONCERNS to identify (these should be separated, not merged):
+  Process/team concerns: team size, staffing, technical debt, agile process
+  Pure business concerns: time-to-market, feature completeness, vendor lock-in
+  Regulatory/compliance labels: GDPR, HIPAA, ISO 27001 (keep as sub-concern of auditability or security, not standalone)
+  Infrastructure topology: multi-region, on-premise (these are tactics, not quality attributes)
+
+Return JSON only. No markdown, no preamble:
+{
+  "merge_groups": [
+    {
+      "primary_attribute_id": "string — keep this attribute as the canonical",
+      "absorbed_attribute_ids": ["string", ...],
+      "canonical_category": "string — one of the 14 canonical categories",
+      "sub_concerns": ["string", ...],
+      "merge_rationale": "string — one sentence explaining the merge"
+    }
+  ],
+  "unchanged_attributes": ["string — attribute_id", ...],
+  "non_qa_reclassifications": [
+    {
+      "attribute_id": "string",
+      "name": "string",
+      "description": "string",
+      "reason": "string — why this is not a measurable QA"
+    }
+  ]
+}

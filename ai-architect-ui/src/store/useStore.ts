@@ -94,6 +94,8 @@ interface ConversationSlice {
   runStatus: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'COMPLETED_WITH_GAPS' | null;
   canReattach: boolean;
   lastStageCompleted: string | null;
+  pipelineHasGaps: boolean;
+  pipelineGaps: unknown[];
   setConversationId: (id: string) => void;
   loadConversation: (id: string, messages: ChatMessage[]) => void;
   setStreaming: (v: boolean) => void;
@@ -149,6 +151,8 @@ export const useStore = create<AppStore>((set, get) => ({
   runStatus: null,
   canReattach: false,
   lastStageCompleted: null,
+  pipelineHasGaps: false,
+  pipelineGaps: [],
 
   setConversationId: (id) => {
     persistConversationId(id);
@@ -168,6 +172,8 @@ export const useStore = create<AppStore>((set, get) => ({
       runStatus: null,
       canReattach: false,
       lastStageCompleted: null,
+      pipelineHasGaps: false,
+      pipelineGaps: [],
     })),
   setStreaming: (v) => set({ isStreaming: v }),
   setError: (msg) => set({ error: msg }),
@@ -181,6 +187,8 @@ export const useStore = create<AppStore>((set, get) => ({
       overrideWarning: null,
       canReattach: false,
       lastStageCompleted: null,
+      pipelineHasGaps: false,
+      pipelineGaps: [],
     })),
   appendChunk: (text) =>
     set((s) => ({ streamingText: s.streamingText + text })),
@@ -228,10 +236,12 @@ export const useStore = create<AppStore>((set, get) => ({
               set({ overrideWarning: warning });
             }
           }
+          const stageStatus =
+            event.payload?.status === 'completed_with_gaps' ? 'completed_with_gaps' : 'complete';
           set({
             stages: state.stages.map((s) =>
               s.name === event.stage
-                ? { ...s, status: 'complete', payload: event.payload }
+                ? { ...s, status: stageStatus, payload: event.payload }
                 : s,
             ),
             lastStageCompleted: event.stage,
@@ -259,6 +269,8 @@ export const useStore = create<AppStore>((set, get) => ({
           pipelineVersion: s.pipelineVersion + 1,
           runStatus: 'COMPLETED',
           canReattach: false,
+          pipelineHasGaps: event.payload?.has_gaps === true,
+          pipelineGaps: (event.payload?.pipeline_gaps as unknown[]) ?? [],
         }));
         break;
 
@@ -309,5 +321,7 @@ export const useStore = create<AppStore>((set, get) => ({
       runStatus: null,
       canReattach: false,
       lastStageCompleted: null,
+      pipelineHasGaps: false,
+      pipelineGaps: [],
     })),
 }));

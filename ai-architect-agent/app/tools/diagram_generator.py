@@ -18,11 +18,14 @@ import json
 import logging
 
 from app.llm.client import LLMClient
+from app.llm.schemas import SCHEMAS
 from app.models.context import (
     ArchitectureContext, Diagram, DiagramType
 )
 from app.prompts.loader import load_prompt
 from app.tools.base import BaseTool, ToolExecutionException
+
+_STAGE_SINGLE = "diagram_generation_single"
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +71,11 @@ class DiagramGeneratorTool(BaseTool):
     async def run(
         self, context: ArchitectureContext
     ) -> ArchitectureContext:
-        """Select diagram types and generate detailed Mermaid source.
+        """Select diagram types and generate one Mermaid diagram per type.
+
+        Each diagram type is generated in a dedicated LLM call so the model
+        focuses entirely on one diagram at a time.  Partial success is
+        preferred — only raises if ALL types fail.
 
         Args:
             context: Pipeline state — reads architecture_design
@@ -79,7 +86,7 @@ class DiagramGeneratorTool(BaseTool):
 
         Raises:
             ToolExecutionException: If architecture_design is empty,
-                LLM returns invalid JSON, or all diagrams fail validation.
+                or all diagram types fail generation/validation.
         """
         if not context.architecture_design:
             raise ToolExecutionException(
@@ -105,44 +112,27 @@ class DiagramGeneratorTool(BaseTool):
             context.conversation_id
         )
 
-        prompt = load_prompt(
-            "diagram_generator",
-            parsed_entities=context.parsed_entities,
-            architecture_design=context.architecture_design,
-            characteristics=context.characteristics,
-            selected_diagram_types=[t.value for t in selected_types],
-        )
+        failed_types: list[str] = []
+        validated: list[Diagram] = []
 
-        raw = await self.llm_client.complete(
-            prompt, response_format="json"
-        )
+        for diagram_type in selected_types:
+            diagram = await self._generate_single_diagram(diagram_type, context)
+            if diagram is not None:
+                validated.append(diagram)
+            else:
+                failed_types.append(diagram_type.value)
+                logger.warning(
+                    "Diagram type %s failed generation. conversation_id=%s",
+                    diagram_type.value, context.conversation_id,
+                )
 
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            logger.error(
-                "DiagramGenerator LLM returned invalid JSON: %s",
-                raw[:500],
-            )
+        if not validated:
             raise ToolExecutionException(
-                f"Diagram generator returned invalid JSON: {exc}. "
-                f"Raw: {raw[:200]}"
-            ) from exc
-
-        raw_diagrams = parsed.get("diagrams", [])
-        if not raw_diagrams:
-            raise ToolExecutionException(
-                "Diagram generator returned empty diagrams list."
+                f"All diagram types failed generation. "
+                f"Requested types: {[t.value for t in selected_types]}"
             )
-
-        validated = self._validate_diagrams(
-            raw_diagrams, selected_types
-        )
 
         context.diagrams = validated
-
-        # Populate backward-compatible fields for any code
-        # still referencing the Phase 3 flat string properties.
         context.mermaid_component_diagram = context.get_diagram(
             DiagramType.C4_CONTAINER
         )
@@ -151,14 +141,102 @@ class DiagramGeneratorTool(BaseTool):
         )
 
         logger.info(
-            "Diagram generation complete: %d diagrams produced. "
-            "types=%s conversation_id=%s",
-            len(validated),
+            "Diagram generation complete: %d/%d diagrams produced. "
+            "types=%s failed_types=%s conversation_id=%s",
+            len(validated), len(selected_types),
             [d.type.value for d in validated],
-            context.conversation_id
+            failed_types,
+            context.conversation_id,
         )
 
         return context
+
+    async def _generate_single_diagram(
+        self,
+        diagram_type: DiagramType,
+        context: ArchitectureContext,
+    ) -> Diagram | None:
+        """Generate a single Mermaid diagram for the given type.
+
+        Args:
+            diagram_type: The diagram type to generate.
+            context: Current pipeline context.
+
+        Returns:
+            Validated Diagram instance, or None if generation/validation failed.
+        """
+        prompt = load_prompt(
+            "diagram_generator_single",
+            diagram_type=diagram_type.value,
+            parsed_entities=context.parsed_entities,
+            architecture_design=context.architecture_design,
+            characteristics=context.characteristics,
+        )
+
+        try:
+            raw = await self.llm_client.complete(
+                prompt,
+                response_format="json",
+                output_schema=SCHEMAS.get(_STAGE_SINGLE),
+                schema_name=_STAGE_SINGLE,
+            )
+        except Exception as exc:
+            logger.warning(
+                "LLM call failed for diagram type %s: %s",
+                diagram_type.value, exc,
+            )
+            return None
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "JSON parse failed for diagram type %s, attempting repair. error=%s",
+                diagram_type.value, exc,
+            )
+            try:
+                raw = await self.attempt_repair(
+                    original_prompt=prompt,
+                    failed_response=raw,
+                    error_description=f"Invalid JSON: {exc}",
+                    output_schema=SCHEMAS.get(_STAGE_SINGLE),
+                    schema_name=_STAGE_SINGLE,
+                )
+                parsed = json.loads(raw)
+            except Exception as repair_exc:
+                logger.warning(
+                    "Repair failed for diagram type %s: %s",
+                    diagram_type.value, repair_exc,
+                )
+                return None
+
+        # Inject the expected type so _rejection_reason can validate prefix
+        parsed.setdefault("type", diagram_type.value)
+        parsed.setdefault("diagram_id", diagram_type.value)
+
+        reason = self._rejection_reason(parsed)
+        if reason:
+            logger.warning(
+                "Diagram type %s rejected after generation: %s",
+                diagram_type.value, reason,
+            )
+            return None
+
+        try:
+            return Diagram(
+                diagram_id=diagram_type.value,
+                type=diagram_type,
+                title=parsed.get("title", ""),
+                description=parsed.get("description", ""),
+                mermaid_source=parsed.get("mermaid_source", ""),
+                characteristic_addressed=parsed.get("characteristic_addressed", ""),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Diagram model construction failed for type %s: %s",
+                diagram_type.value, exc,
+            )
+            return None
 
     def _select_diagram_types(
         self,

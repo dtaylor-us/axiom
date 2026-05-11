@@ -11,11 +11,14 @@ NetArchTest, PyTestArch, or custom CI checks) via LLM code generation.
 
 import logging
 import json
+from app.llm.schemas import SCHEMAS
 from app.tools.base import BaseTool, ToolExecutionException
 from app.models.context import ArchitectureContext, AdlBlock, AdlMetadata
 from app.prompts.loader import load_prompt
 
 logger = logging.getLogger(__name__)
+
+_STAGE = "adl_generation"
 
 # Valid ADL keywords per the Richards specification.
 # Any block using keywords outside this set is rejected.
@@ -86,16 +89,33 @@ class ADLGeneratorV2Tool(BaseTool):
         )
 
         raw = await self.llm_client.complete(
-            prompt, response_format="json"
+            prompt,
+            response_format="json",
+            output_schema=SCHEMAS.get(_STAGE),
+            schema_name=_STAGE,
         )
 
+        repair_attempted = False
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as e:
-            raise ToolExecutionException(
-                f"ADL generator returned invalid JSON: {e}. "
-                f"Raw response: {raw[:200]}"
+            logger.warning(
+                "ADLGenerator JSON parse failed, attempting repair. error=%s", e
             )
+            repair_attempted = True
+            raw = await self.attempt_repair(
+                original_prompt=prompt,
+                failed_response=raw,
+                error_description=f"Invalid JSON: {e}",
+                output_schema=SCHEMAS.get(_STAGE),
+                schema_name=_STAGE,
+            )
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as e2:
+                raise ToolExecutionException(
+                    f"Stage output could not be parsed after repair attempt. error={e2}"
+                ) from e2
 
         if not isinstance(parsed, list):
             raise ToolExecutionException(

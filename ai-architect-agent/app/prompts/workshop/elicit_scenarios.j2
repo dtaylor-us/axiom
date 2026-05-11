@@ -1,0 +1,47 @@
+You are eliciting quality attribute scenarios from stakeholder input.
+Scenarios are the PRIMARY artifact. Quality attributes are derived from scenarios — not the other way around.
+
+A scenario has six parts (Bass, Clements, Kazman):
+
+  Stimulus:         What triggers the quality concern?
+  Source:           Who or what generates the stimulus?
+  Environment:      Under what operating condition?
+  Artifact:         Which part of the system is affected?
+  Response:         What must the system do?
+  Response measure: How do we verify the response?
+
+SCENARIO ELICITATION RULES:
+  - Every scenario must be operationally specific — grounded in the actual system being designed, not generic.
+  - Every scenario must be derivable from user evidence.
+  - A scenario without a response_measure is not yet complete but is still valuable — mark completeness using field substance (needs_measure when stimulus and response are strong but measure is missing).
+  - Prefer specific over aspirational — concrete failure modes beat generic availability statements.
+
+EVIDENCE TO DERIVE SCENARIOS FROM:
+{{ known_facts | tojson(indent=2) }}
+
+LATEST USER INPUT:
+{{ latest_input }}
+
+EXISTING SCENARIOS (do not duplicate):
+{{ existing_scenarios | tojson(indent=2) }}
+
+Derive between 2 and 5 scenarios per turn.
+Focus on the operational concerns most clearly evidenced.
+
+Return JSON only. No markdown, no preamble:
+{
+  "scenarios": [
+    {
+      "scenario_id": "SC-001",
+      "title": "string — short operational description",
+      "stimulus": "string — specific trigger event",
+      "source": "string — who or what causes the stimulus",
+      "environment": "string — operating conditions",
+      "artifact": "string — system component affected",
+      "response": "string — required system behaviour",
+      "response_measure": "string — measurable threshold or empty",
+      "exercises_attributes": ["Availability", "Recoverability"],
+      "evidence_quote": "verbatim phrase from input that grounds this"
+    }
+  ]
+}

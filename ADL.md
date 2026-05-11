@@ -53,6 +53,9 @@ Each ADL block is self-contained and can be independently converted into an exec
 | ADL-027  | API Gateway         | Tactic write path enforcement  | Custom fitness function via grep    | Hard        |
 | ADL-028  | Agent Orchestration | Tactic catalog enforcement     | Custom fitness function via Semgrep | Hard        |
 | ADL-033  | Infra               | HTTPS enforcement on ingress   | Custom fitness function via grep    | Hard        |
+| ADL-034  | Agent Orchestration | Structured output schema enforcement | Custom fitness function via pytest | Hard        |
+| ADL-057  | ai-architect-api    | Workshop session boundary      | Custom fitness function (bash)    | Hard        |
+| ADL-058  | ai-architect-agent  | Workshop module isolation      | pytest + bash (adl-037/038.sh)   | Hard        |
 
 ## ADL blocks
 
@@ -700,6 +703,211 @@ ASSERT(IngressValues   CONTAINS ISSUER_REFERENCE)
 ASSERT(IngressTemplate CONTAINS TLS_BLOCK)
 ```
 
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-034: AGENT ORCHESTRATION — STRUCTURED OUTPUT SCHEMA ENFORCEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES Custom fitness function via pytest
+DESCRIPTION Ensures every tool that calls llm_client.complete() with response_format="json"
+             also passes output_schema and schema_name sourced from app.llm.schemas.SCHEMAS.
+             Inline schema definitions inside tool classes are prohibited.
+PROMPT Based on this pseudo-code, write a pytest test that imports every module from app.tools,
+       inspects the source code of each tool's run() method, and verifies:
+       (1) Every call to self.llm_client.complete() that includes response_format="json" also
+           includes output_schema=SCHEMAS.get(...) and schema_name= arguments.
+       (2) No tool module defines a dict or class with a "properties" key outside of
+           app/llm/schemas.py (i.e. no inline JSON schema definitions).
+       Test function name: test_all_tools_pass_output_schema.
+
+DEFINE SYSTEM AI Architect Assistant
+  DEFINE SERVICE Agent Orchestration Service AS app
+  DEFINE COMPONENT SchemaRegistry AS app.llm.schemas.SCHEMAS
+  DEFINE \$TOOLS AS {app.tools.requirement_parser, app.tools.challenge_engine,
+                    app.tools.scenario_modeler, app.tools.characteristic_reasoner,
+                    app.tools.conflict_analyzer, app.tools.tactics_advisor,
+                    app.tools.architecture_generator, app.tools.buy_vs_build_analyzer,
+                    app.tools.diagram_generator, app.tools.trade_off_engine,
+                    app.tools.adl_generator, app.tools.weakness_analyzer,
+                    app.tools.fmea_analyzer}
+
+FOREACH \$T IN \$TOOLS DO
+  ASSERT(\$T DEPENDS ON SchemaRegistry)
+  ASSERT(\$T has NO inline schema definitions)
+END
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-035: AGENT ORCHESTRATION — SINGLE REPAIR ATTEMPT PER STAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES Custom fitness function via pytest
+DESCRIPTION Ensures each tool is allowed exactly one call to attempt_repair() per run()
+             invocation. A second repair attempt would mask persistent model failures
+             and increase latency without improving output quality.
+PROMPT Based on this pseudo-code, write a pytest test that for each tool in app.tools:
+       (1) Mocks llm_client.complete() to raise json.JSONDecodeError on the first call
+           and return valid JSON on the second call.
+       (2) Verifies attempt_repair() is called exactly once.
+       (3) Repeats with attempt_repair() also failing — verifies ToolExecutionException
+           is raised without a second call to attempt_repair().
+       Test function name: test_single_repair_attempt_per_stage.
+
+DEFINE SYSTEM AI Architect Assistant
+  DEFINE SERVICE Agent Orchestration Service AS app
+  DEFINE COMPONENT BaseTool AS app.tools.base.BaseTool
+  DEFINE CONST MAX_REPAIR_ATTEMPTS AS 1
+
+ASSERT(BaseTool.attempt_repair CALLED AT MOST MAX_REPAIR_ATTEMPTS PER run())
+ASSERT(BaseTool.attempt_repair RAISES ToolExecutionException ON LLMCallException)
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-036: AGENT ORCHESTRATION — SUPPORTING STAGE RESILIENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES Custom fitness function via pytest
+DESCRIPTION Ensures supporting stage failures record a gap in context.pipeline_gaps and
+             allow the pipeline to continue, while core stage failures abort immediately
+             with an ERROR event. CORE_STAGES = {requirement_parsing, requirement_challenge,
+             characteristic_inference, architecture_generation}.
+PROMPT Based on this pseudo-code, write a pytest test that:
+       (1) Mocks a supporting stage node to raise ToolExecutionException.
+       (2) Runs run_pipeline() and collects all yielded NDJSON chunks.
+       (3) Asserts STAGE_COMPLETE with status="completed_with_gaps" is emitted.
+       (4) Asserts subsequent stages still emit STAGE_COMPLETE (pipeline continued).
+       (5) Asserts COMPLETE payload contains has_gaps=true and a non-empty pipeline_gaps.
+       (6) Repeats with a core stage raising ToolExecutionException.
+       (7) Asserts ERROR is emitted and no further STAGE_COMPLETE events follow.
+       Test function name: test_supporting_stage_resilience.
+
+DEFINE SYSTEM AI Architect Assistant
+  DEFINE SERVICE Agent Orchestration Service AS app
+  DEFINE COMPONENT Graph AS app.pipeline.graph
+  DEFINE CONST CORE_STAGES AS {requirement_parsing, requirement_challenge,
+                                characteristic_inference, architecture_generation}
+  DEFINE CONST SUPPORTING_STAGES AS ORDERED_STAGES - CORE_STAGES
+
+ASSERT(SUPPORTING_STAGES failure EMITS "STAGE_COMPLETE" WITH status="completed_with_gaps")
+ASSERT(SUPPORTING_STAGES failure ALLOWS pipeline continuation)
+ASSERT(CORE_STAGES failure EMITS "ERROR" AND HALTS pipeline)
+ASSERT(COMPLETE payload CONTAINS has_gaps AND pipeline_gaps)
+```
+
+---
+
+ADL-037: WORKSHOP MODULE ISOLATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES pytest test_workshop_isolation.py + fitness/adl-037-workshop-isolation.sh
+DESCRIPTION Ensures that app.workshop does not import from app.pipeline or app.tools.
+             The Quality Attribute Workshop is a pre-architecture elicitation module.
+             It must be independently testable, deployable, and auditable without any
+             dependency on the pipeline orchestration or tool registry.
+ENFORCEMENT Automated: pytest parametrised AST import scanner (tests/unit/workshop/test_workshop_isolation.py)
+             Automated: bash grep scanner (fitness/adl-037-workshop-isolation.sh)
+
+DEFINE SYSTEM AI Architect Assistant
+  DEFINE MODULE Workshop AS app.workshop
+  DEFINE MODULE Pipeline AS app.pipeline
+  DEFINE MODULE Tools AS app.tools
+
+ASSERT(Workshop MUST NOT IMPORT Pipeline)
+ASSERT(Workshop MUST NOT IMPORT Tools)
+ASSERT(Workshop MAY IMPORT app.llm.client)
+ASSERT(Workshop MAY IMPORT app.llm.schemas)
+ASSERT(Workshop MAY IMPORT app.prompts)
+
+---
+
+ADL-038: WORKSHOP GAP-BEFORE-ELICIT ORDERING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES fitness/adl-038-gap-before-elicit.sh
+DESCRIPTION Ensures that in the LangGraph graph built by QualityAttributeWorkshopAgent,
+             the identify_gaps node is always wired BEFORE elicit_scenarios.
+             This encodes the "ask before you assert" invariant at the graph-construction
+             level: information gaps must be identified before operational scenarios are
+             elicited as primary artifacts.
+ENFORCEMENT Automated: bash line-number check (fitness/adl-038-gap-before-elicit.sh)
+
+DEFINE SYSTEM AI Architect Assistant
+  DEFINE COMPONENT WorkshopAgent AS app.workshop.agent.QualityAttributeWorkshopAgent
+  DEFINE GRAPH WorkshopGraph AS WorkshopAgent._build_graph()
+  DEFINE NODE IdentifyGaps AS identify_gaps_node
+  DEFINE NODE ElicitScenarios AS elicit_scenarios_node
+
+ASSERT(WorkshopGraph EDGE IdentifyGaps → ElicitScenarios EXISTS)
+ASSERT(WorkshopGraph EDGE IdentifyGaps PRECEDES EDGE ElicitScenarios → ANY)
+
+---
+
+ADL-041: SCENARIO-FIRST GRAPH ORDERING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES pytest tests/unit/workshop/test_adl_workshop_order.py::test_scenario_before_attributes
+DESCRIPTION elicit_scenarios_node MUST appear before infer_attributes_from_scenarios_node
+             in app/workshop/agent.py graph edge definitions (QAW scenario-primary flow).
+ENFORCEMENT Automated: pytest inspects agent.py source order
+
+DEFINE SYSTEM AI Architect Assistant AS app
+DEFINE COMPONENT WorkshopAgent AS app.workshop.agent
+DEFINE CONST SCENARIO_NODE AS "elicit_scenarios"
+DEFINE CONST ATTRIBUTE_NODE AS "infer_attributes_from_scenarios"
+
+ASSERT(WorkshopAgent CONTAINS SCENARIO_NODE)
+ASSERT(WorkshopAgent CONTAINS ATTRIBUTE_NODE)
+
+---
+
+ADL-042: SCENARIO COMPLETENESS ENFORCED BY COMPUTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES pytest tests/unit/workshop/test_adl_scenario_completeness.py::test_empty_scenario_not_complete
+DESCRIPTION QAScenario.compute_completeness MUST override LLM-provided completeness labels
+             so empty scenarios cannot be marked complete after model initialisation.
+ENFORCEMENT Automated: pytest on WorkshopContext model
+
+DEFINE SYSTEM AI Architect Assistant AS app
+DEFINE COMPONENT QAScenario AS app.workshop.context.QAScenario
+
+ASSERT(QAScenario CONTAINS compute_completeness)
+
+---
+
+ADL-039: WORKSHOP ATTRIBUTE CAP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES pytest tests/unit/workshop/test_consolidation.py::test_max_attributes_constant_is_12
+         pytest tests/unit/workshop/test_consolidation.py::test_cap_enforced_at_max_attributes
+DESCRIPTION ConsolidationEngine enforces a hard cap of MAX_ATTRIBUTES = 12 on the
+             quality attribute list. This prevents context explosion and ensures each
+             attribute has enough token budget for grounded scenario generation.
+             Attributes trimmed by the cap are chosen by lowest importance first.
+ENFORCEMENT Automated: pytest assertion on MAX_ATTRIBUTES constant and cap behaviour
+
+DEFINE CONSTANT MaxAttributes AS consolidator.MAX_ATTRIBUTES
+
+ASSERT(MaxAttributes == 12)
+ASSERT(ConsolidationEngine.consolidate RUNS AFTER infer_attributes_from_scenarios WHEN COUNT ≥ MIN)
+ASSERT(ConsolidationEngine.consolidate RUNS AFTER generate_from_current_evidence)
+ASSERT(len(WorkshopContext.attributes) <= MaxAttributes) AFTER EVERY CONSOLIDATION
+
+---
+
+ADL-040: NON-QA CONCERN SEPARATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES pytest tests/unit/workshop/test_consolidation.py::test_non_qa_separated
+         pytest tests/unit/workshop/test_taxonomy.py
+DESCRIPTION ConsolidationEngine._separate_non_qa must run on every consolidation pass,
+             moving non-QA concerns (regulatory constraints, organisational concerns,
+             delivery pressure) from WorkshopContext.attributes to
+             WorkshopContext.non_qa_concerns.
+             Non-QA concerns are tracked for the record but must not appear in the
+             attribute list used for scenario generation or pipeline submission.
+ENFORCEMENT Automated: pytest checks that 'gdpr' is not in attributes after consolidation
+
+DEFINE SET NonQaConcepts AS taxonomy.NON_QA_CONCEPTS
+DEFINE LIST QaAttributes AS WorkshopContext.attributes
+DEFINE LIST NonQaList AS WorkshopContext.non_qa_concerns
+
+ASSERT(NonQaConcepts INTERSECTION QaAttributes.names == EMPTY) AFTER EVERY CONSOLIDATION
+ASSERT(ConsolidationEngine._separate_non_qa CALLED WITHIN consolidate())
+
 ## Enforcement levels
 
 | Block ID | Enforcement | Rationale |
@@ -733,3 +941,10 @@ ASSERT(IngressTemplate CONTAINS TLS_BLOCK)
 | ADL-027  | Hard        | Tactics must only be written through TacticsService.saveTactics() called from ChatService.doOnComplete(). A second write path would create duplicate records and race conditions with the pipeline streaming response. |
 | ADL-028  | Hard        | Tactic names must live in the Jinja2 catalog template, not hardcoded in Python. Inline names bypass the Bass/Clements/Kazman catalog constraint and make the tool unauditable. |
 | ADL-033  | Hard        | Serving the application over HTTP exposes user sessions, JWT tokens, and architecture data in plaintext. The ssl-redirect annotation and a valid CA issuer (letsencrypt-staging or letsencrypt-prod) are both required. CI must fail if either is removed. Self-signed certificates are not acceptable; they produce the same browser warning as HTTP-only deployment. |
+| ADL-034  | Hard        | Every tool that calls llm_client.complete() with JSON output must pass output_schema and schema_name sourced from app.llm.schemas.SCHEMAS. Inline schema definitions are prohibited. A missing schema falls silently back to unstructured JSON, defeating the contract and allowing malformed payloads to propagate through the pipeline. |
+| ADL-035  | Hard        | Each tool is allowed exactly one repair attempt per run() invocation. A second repair would mask persistent model failures and increase latency without improving quality. The repair must pass the same output_schema so the provider can still enforce structure. |
+| ADL-036  | Hard        | Supporting stage failures must not abort the pipeline. Recording the gap in context.pipeline_gaps and continuing allows users to receive a partial architecture rather than a blank result. CORE_STAGES failures must still hard-abort because their outputs are prerequisites for all downstream stages. |
+| ADL-037  | Hard        | The workshop module must not import from app.pipeline or app.tools. Importing from the pipeline would couple an elicitation tool to orchestration logic, making the workshop impossible to test in isolation and introducing a dependency inversion. Any pipeline tool import would drag in LLM schemas, tool registry, and RAG infrastructure that the workshop does not need. |
+| ADL-038  | Hard        | The identify_gaps node must always precede the elicit_attributes node in the workshop LangGraph. If attributes were elicited before gaps were identified, the agent would assert quality properties without gathering sufficient evidence — violating the "ask before you assert" principle that is the methodological foundation of the SEI QAW approach. |
+| ADL-039  | Hard        | MAX_ATTRIBUTES must equal 12. ConsolidationEngine must enforce this cap after every elicitation and every generation. Exceeding this cap allows context explosion and dilutes the quality of each attribute's scenario grounding. Attributes trimmed by the cap are chosen by lowest importance first. |
+| ADL-040  | Hard        | ConsolidationEngine._separate_non_qa must run on every consolidation pass. Non-QA concerns (regulatory, organisational, delivery) must be moved to WorkshopContext.non_qa_concerns and excluded from the attribute count. Mixing non-QA concerns with quality attributes inflates the apparent attribute count and confuses scenario generation. |

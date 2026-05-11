@@ -280,6 +280,18 @@ class ArchitectureContext(BaseModel):
     # Cost tracking — populated by LLM client via cost_tracker
     token_usage: dict[str, Any] = Field(default_factory=dict)
 
+    # Phase 2 — pipeline gap tracking
+    pipeline_gaps: list[dict] = Field(default_factory=list)
+    # Each entry records a supporting stage that failed after repair.
+    # Structure per entry:
+    #   stage_name: str — the stage that failed
+    #   error: str — truncated error message (max 300 chars)
+    #   repair_attempted: bool — whether attempt_repair() was called
+    #   artifacts_preserved: list[str] — context fields still valid
+
+    has_gaps: bool = False
+    # True when at least one supporting stage recorded a gap above.
+
     @property
     def selected_architecture_style(self) -> str:
         """Returns the selected architecture style name or empty string."""

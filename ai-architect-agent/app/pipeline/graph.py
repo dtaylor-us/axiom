@@ -9,6 +9,7 @@ from langgraph.graph import StateGraph, END
 from pydantic import BaseModel
 
 from app.models import ArchitectureContext
+from app.tools.base import ToolExecutionException
 from app.observability import (
     pipeline_span, increment_active_runs, decrement_active_runs,
     record_stage_duration,
@@ -58,6 +59,15 @@ ORDERED_STAGES: list[str] = [
 ]
 
 _STAGE_SET: set[str] = set(ORDERED_STAGES)
+
+# Stages whose failure aborts the pipeline with ERROR.
+# All other stages record a gap and let the pipeline continue.
+CORE_STAGES: frozenset[str] = frozenset({
+    "requirement_parsing",
+    "requirement_challenge",
+    "characteristic_inference",
+    "architecture_generation",
+})
 
 _NODE_FN_MAP = {
     "requirement_parsing": requirement_parsing,
@@ -141,11 +151,10 @@ async def run_pipeline(
         raise RuntimeError("Pipeline graph not compiled — call compile_pipeline() first")
 
     async def _pipeline_chunks() -> AsyncIterator[str]:
-        """Yield NDJSON chunks produced by the compiled LangGraph."""
+        """Yield NDJSON chunks produced by the sequential pipeline executor."""
         nonlocal context
-        initial_state: PipelineState = {"context": context}
 
-        # Emit STAGE_START for the first stage before graph execution begins
+        # Emit STAGE_START for the first stage before execution begins
         yield _chunk("STAGE_START", stage=ORDERED_STAGES[0])
 
         # Track per-stage wall-clock time for metrics
@@ -156,42 +165,88 @@ async def run_pipeline(
 
         increment_active_runs()
         try:
-            async for event in _compiled.astream(initial_state, stream_mode="updates"):
-                # event is dict[str, dict] — keys are node names, values are state updates
-                for node_name, update in event.items():
-                    if node_name not in _STAGE_SET:
-                        continue
+            state: dict = {"context": context}
+            for node_name in ORDERED_STAGES:
+                node_fn = _NODE_FN_MAP[node_name]
 
-                    # Record stage duration from the last STAGE_START to now
+                try:
+                    updated_state = await node_fn(state)
+                except ToolExecutionException as stage_exc:
                     elapsed = time.monotonic() - stage_start_time
                     record_stage_duration(node_name, elapsed)
 
-                    # Update context from node output
-                    if "context" in update:
-                        context = update["context"]
+                    if node_name in CORE_STAGES:
+                        logger.error(
+                            "Core stage %s failed — aborting pipeline. error=%s",
+                            node_name, stage_exc,
+                        )
+                        yield _chunk(
+                            "ERROR",
+                            content=f"Core stage {node_name} failed: {stage_exc}",
+                            payload={
+                                "error": str(stage_exc),
+                                "stage": node_name,
+                                "conversationId": context.conversation_id,
+                            },
+                        )
+                        return
 
-                    # Build enriched payload for STAGE_COMPLETE
+                    # Supporting stage — record gap and continue
+                    error_msg = str(stage_exc)[:300]
+                    gap = {
+                        "stage_name": node_name,
+                        "error": error_msg,
+                        "repair_attempted": True,
+                        "artifacts_preserved": _preserved_artifacts(context),
+                    }
+                    context.pipeline_gaps.append(gap)
+                    context.has_gaps = True
+                    logger.warning(
+                        "Supporting stage %s completed with gap. error=%s",
+                        node_name, error_msg,
+                    )
                     stage_payload: dict = _stage_payload(node_name, context)
-
+                    stage_payload["status"] = "completed_with_gaps"
+                    stage_payload["gap"] = gap
                     yield _chunk(
                         "STAGE_COMPLETE",
                         stage=node_name,
                         payload=stage_payload,
                     )
-
-                    # Emit STAGE_START for the next stage if there is one
                     idx = ORDERED_STAGES.index(node_name)
                     if idx + 1 < len(ORDERED_STAGES):
                         yield _chunk("STAGE_START", stage=ORDERED_STAGES[idx + 1])
                         stage_start_time = time.monotonic()
-        except Exception as exc:
-            logger.error("Pipeline error: %s", str(exc))
-            yield _chunk(
-                "ERROR",
-                content=f"Pipeline error: {str(exc)}",
-                payload={"error": str(exc), "conversationId": context.conversation_id},
-            )
-            return
+                    continue
+                except Exception as exc:
+                    logger.error("Pipeline error in stage %s: %s", node_name, str(exc))
+                    yield _chunk(
+                        "ERROR",
+                        content=f"Pipeline error: {str(exc)}",
+                        payload={"error": str(exc), "conversationId": context.conversation_id},
+                    )
+                    return
+
+                # Successful stage
+                elapsed = time.monotonic() - stage_start_time
+                record_stage_duration(node_name, elapsed)
+
+                if "context" in updated_state:
+                    context = updated_state["context"]
+                    state = {"context": context}
+
+                stage_payload = _stage_payload(node_name, context)
+
+                yield _chunk(
+                    "STAGE_COMPLETE",
+                    stage=node_name,
+                    payload=stage_payload,
+                )
+
+                idx = ORDERED_STAGES.index(node_name)
+                if idx + 1 < len(ORDERED_STAGES):
+                    yield _chunk("STAGE_START", stage=ORDERED_STAGES[idx + 1])
+                    stage_start_time = time.monotonic()
         finally:
             decrement_active_runs()
 
@@ -284,6 +339,8 @@ async def run_pipeline(
                 "tactics_already_addressed": sum(
                     1 for t in context.tactics if t.get("already_addressed")
                 ),
+                "has_gaps": context.has_gaps,
+                "pipeline_gaps": context.pipeline_gaps,
             },
         )
 
@@ -408,6 +465,8 @@ def _stage_payload(stage: str, context: ArchitectureContext) -> dict:
     elif stage == "diagram_generation":
         payload["diagram_count"] = len(context.diagrams)
         payload["diagram_types"] = [d.type.value for d in context.diagrams]
+        payload["generation_method"] = "per_type_sequential"
+        payload["failed_types"] = []
         payload["diagrams"] = [
             {
                 "diagram_id": d.diagram_id,
@@ -453,6 +512,22 @@ def _stage_payload(stage: str, context: ArchitectureContext) -> dict:
         payload["recommendation_count"] = len(context.improvement_recommendations)
 
     return payload
+
+
+def _preserved_artifacts(context: ArchitectureContext) -> list[str]:
+    """Return the names of context artifacts populated so far."""
+    checks = [
+        ("parsed_entities", bool(context.parsed_entities)),
+        ("characteristics", bool(context.characteristics)),
+        ("architecture_design", bool(context.architecture_design)),
+        ("tactics", bool(context.tactics)),
+        ("diagrams", bool(context.diagrams)),
+        ("adl_blocks", bool(context.adl_blocks)),
+        ("trade_offs", bool(context.trade_offs)),
+        ("weaknesses", bool(context.weaknesses)),
+        ("fmea_risks", bool(context.fmea_risks)),
+    ]
+    return [name for name, populated in checks if populated]
 
 
 async def _store_design_safe(

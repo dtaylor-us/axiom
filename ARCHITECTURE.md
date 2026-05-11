@@ -416,6 +416,95 @@ ASSERT sseemitter_timeout {
   keepalive comments preventing proxy timeouts.
 }
 
+---
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTRACT HARDENING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DEFINE contract_hardening_intent {
+  Every pipeline stage that produces JSON output MUST pass a
+  Pydantic-derived JSON schema to the LLM provider via the
+  provider-native structured output mechanism.
+  Schema enforcement exists to reduce silent garbage-in
+  propagation through the pipeline.
+  A single repair attempt is allowed per stage before the
+  stage is declared failed.
+}
+
+ASSERT structured_output_enforcement {
+  Every tool that calls llm_client.complete() with
+  response_format="json" MUST also pass output_schema and
+  schema_name from app.llm.schemas.SCHEMAS.
+  SCHEMAS is the single source of truth — schemas must not be
+  defined inline inside tool classes.
+  Schema keys MUST match stage names used in ORDERED_STAGES.
+}
+
+ASSERT provider_schema_enforcement {
+  When output_schema is provided and the LLM provider is NOT ollama:
+    — The provider MUST be called with {"type": "json_schema",
+      "json_schema": {"name": schema_name, "strict": true, "schema": ...}}
+      via LangChain's .bind(response_format=...) before .ainvoke().
+  When the provider is ollama:
+    — Falls back to {"type": "json_object"} and logs DEBUG.
+    — REASON: Ollama does not support json_schema response format.
+  When the provider rejects the strict schema (heuristic on error message):
+    — Falls back to {"type": "json_object"}.
+    — Logs WARNING with schema_enforcement_fallback=True attribute.
+    — REASON: Allows graceful degradation for providers with partial support.
+}
+
+ASSERT single_repair_per_stage {
+  When a tool's JSON parse fails after the initial LLM call,
+  BaseTool.attempt_repair() MUST be called exactly once.
+  attempt_repair() constructs a targeted repair prompt including:
+    — The first 500 characters of the failed response.
+    — The specific JSON parse error.
+    — The original task description.
+  The repair call MUST pass the same output_schema and schema_name.
+  If the repair call itself fails with LLMCallException,
+  ToolExecutionException is raised immediately — no second repair.
+  If the repaired JSON still fails to parse, ToolExecutionException
+  is raised with the parse error — no further attempts.
+}
+
+ASSERT supporting_stage_resilience {
+  The pipeline MUST NOT abort when a supporting stage fails.
+  CORE_STAGES = {requirement_parsing, requirement_challenge,
+                 characteristic_inference, architecture_generation}
+  All other stages are SUPPORTING stages.
+  When a SUPPORTING stage raises ToolExecutionException:
+    — The gap is recorded in context.pipeline_gaps.
+    — context.has_gaps is set to True.
+    — The stage emits STAGE_COMPLETE with status="completed_with_gaps".
+    — The pipeline continues to the next stage.
+  When a CORE stage raises ToolExecutionException:
+    — The pipeline emits ERROR and halts immediately.
+  The COMPLETE event MUST include has_gaps and pipeline_gaps fields.
+}
+
+ASSERT diagram_generation_per_type {
+  DiagramGeneratorTool MUST generate diagrams via one LLM call
+  per selected diagram type (_generate_single_diagram per type).
+  A single batch call for all types is PROHIBITED.
+  REASON: Focused per-type calls improve diagram quality by
+  giving the model full context budget for each diagram.
+  Partial success is preferred — only raise if ALL types fail.
+  diagram_generation STAGE_COMPLETE payload MUST include
+  generation_method="per_type_sequential" and failed_types=[...].
+}
+
+ASSERT gap_visibility_in_ui {
+  The UI MUST display an amber warning indicator on any stage
+  whose STAGE_COMPLETE payload has status="completed_with_gaps".
+  The UI MUST display a banner when the COMPLETE event has
+  has_gaps=true, informing the user that some optional stages
+  were skipped and the architecture is based on partial analysis.
+  The warning MUST be visually distinct from both the success
+  state and the ERROR state.
+}
+
 ## PIPELINE DEFINITION
 
 DEFINE pipeline ArchonPipeline {
@@ -806,4 +895,162 @@ When generating code for this project, Copilot MUST:
    — use messages.structured_output JSONB for all other output types.
 8. Never skip the X-Internal-Secret validation in the agent endpoint.
 9. Never set open-in-view to true.
+---
+
+## QUALITY ATTRIBUTE WORKSHOP
+
+The Quality Attribute Workshop (QAW) is a first-class, separately bounded module
+within Archon. It implements the SEI QAW methodology (CMU/SEI-2001-TR-020) and
+the scenario elicitation framework from Bass, Clements, Kazman "Software
+Architecture in Practice" 4th ed.
+
+### Module boundaries
+
+ASSERT: app.workshop MUST NOT import from app.pipeline.
+  Rationale: The workshop is a pre-architecture elicitation tool. Coupling it to
+  the pipeline would create a dependency inversion and compromise testability.
+
+ASSERT: app.workshop MUST NOT import from app.tools.
+  Rationale: The workshop uses only the shared LLM client. No RAG, ADR lookup,
+  cost-estimator, or other pipeline tools are permitted inside workshop modules.
+
+ASSERT: In the LangGraph graph built by QualityAttributeWorkshopAgent._build_graph(),
+  the identify_gaps node MUST appear before elicit_scenarios in the edge sequence.
+  Rationale: ADL-038 — "ask before you assert". Gaps must be identified before
+  scenarios are elicited so that the agent never treats speculation as evidence.
+
+ASSERT scenario_primary_artifact {
+  MUST elicit scenarios as primary artifacts using elicit_scenarios_node before
+    inferring attributes.
+  MUST infer quality attributes from scenarios using infer_attributes_from_scenarios_node —
+    not directly from keywords or elicitation categories alone.
+  MUST NOT mark a scenario as complete unless stimulus, response, and response_measure
+    fields meet substance thresholds — enforced by QAScenario.compute_completeness().
+  MUST surface scenarios as first-class UI artifacts in a dedicated Scenarios tab.
+  The old elicit_attributes_node approach of deriving attributes directly from context
+    is permanently retired.
+}
+
+ASSERT gap_reconciliation {
+  MUST model gaps as confidence-scored uncertainty windows with resolution_confidence
+    in the range 0.0–1.0.
+  MUST run GapReconciler after every identify_gaps call (reconcile_gaps node).
+  MUST evaluate accumulated evidence across all turns — not only the latest input —
+    when scoring gaps.
+  MUST narrow residual_question when confidence ≥ 0.5.
+  MUST NOT keep asking the original broad gap question when residual_question has been set.
+  Boolean filled is derived from resolution_confidence and priority thresholds — never set
+    as a standalone persisted flag (legacy JSON is migrated on load).
+}
+
+ASSERT consolidation_threshold {
+  MUST NOT run ConsolidationEngine when attribute count is below
+    MIN_ATTRIBUTES_FOR_CONSOLIDATION (6).
+  MUST NOT merge attributes that require different architectural tactics to achieve,
+    even if they are related.
+  Distinct attributes that must never be merged:
+    Availability and Recoverability; Performance and Scalability; Auditability and
+    Observability; Data Integrity and Security.
+}
+
+ASSERT attribute_consolidation {
+  ConsolidationEngine MUST run after infer_attributes_from_scenarios when the attribute
+    count meets MIN_ATTRIBUTES_FOR_CONSOLIDATION, and after every call to
+    generate_from_current_evidence when the same threshold is met.
+  Rationale: Without consolidation the attribute list grows unchecked — aliases accumulate,
+  semantically equivalent concerns are tracked separately, and the cap is not enforced.
+
+  ConsolidationEngine._separate_non_qa MUST move non-measurable concerns
+    (regulatory constraints, team-size concerns, delivery pressure) out of
+    context.attributes and into context.non_qa_concerns.
+  Rationale: Non-QA concerns inflate the attribute count and confuse the LLM
+  when it reads the attribute list.
+
+  The consolidation node MUST appear after infer_attributes_from_scenarios and before
+    check_transition in the sequence:
+    analyze_input → identify_gaps → reconcile_gaps → elicit_scenarios →
+    infer_attributes_from_scenarios → consolidation → check_transition → generate_response
+}
+
+ASSERT context_budget {
+  MAX_CONTEXT_TOKENS = 60,000 (character-count / 4 proxy).
+  When the estimated context size exceeds this, prepare_context_for_prompt
+  MUST switch to the summarised view rather than passing the full context.
+  Rationale: Prevents silent context truncation at the LLM boundary.
+
+  MAX_SINGLE_INPUT_CHARS = 3,000. When a single user input exceeds this,
+  a warning MUST be surfaced in the UI (amber banner). Input is not blocked.
+  Rationale: Very long inputs degrade question quality and fill the context
+  budget in a single turn.
+}
+
+ASSERT phase_transition {
+  Phase transition MUST be evidence-based, not turn-count-based.
+  The following table defines the minimum evidence required:
+
+  input_analysis      → business_context:      first turn complete (always advance)
+  business_context    → usage_context:          all business_context gaps filled
+  usage_context       → technical_context:      all usage_context gaps filled
+  technical_context   → risk_priority:          all technical_context gaps filled
+  risk_priority       → scenario_brainstorm:    zero critical open gaps
+                                                OR (≥3 confirmed/inferred attrs
+                                                AND ≤2 critical open AND turn ≥ 4)
+  scenario_brainstorm → scenario_refinement:    ≥3 attributes with partial+ scenarios
+  scenario_refinement → attribute_consolidation: ≥5 attributes with partial+ scenarios
+  attribute_consolidation → validation:         LLM signal only
+  validation          → complete:               LLM signal only
+
+  MUST NOT advance phase based on turn count alone.
+}
+
+ASSERT user_controlled_generation {
+  MUST expose generate action after the first conversation turn
+    — never gated on gap count or completion level
+
+  MUST provide a readiness assessment before generation
+    — the user makes an informed decision, not a blind one
+
+  MUST generate from whatever evidence exists when requested
+    — the generate endpoint MUST NOT return 4xx based on
+      gap count or elicitation confidence level
+
+  MUST keep the session open after generation
+    — is_complete MUST NOT be set to true by the generate action
+    — the user continues refining, the session stays active
+
+  MUST mark attributes as stale when new input arrives
+    after a generation — attributes_stale = true
+
+  MUST label generated attributes with the generation pass
+    number — attributes from pass 1 vs pass 2 must be
+    distinguishable in the UI
+
+  MUST show the ReadinessModal when the user previews
+    before generating — the modal is informational, not a gate
+
+  MUST present "Generate now anyway" and "Keep going" as
+    equal weight actions in the ReadinessModal — neither is
+    primary, neither is discouraged
+}
+
+### Persistence model
+
+Spring Boot owns all workshop persistence.
+- workshop_sessions: one row per session; context_json JSONB holds full WorkshopContext.
+- workshop_attributes: denormalised mirror of confirmed attributes (queryable by confidence/importance).
+- workshop_messages: append-only conversation record (one row per turn).
+
+The Python agent is stateless. Spring Boot sends the full context_json on every
+turn and receives an updated context back. This means the agent can be restarted
+or scaled horizontally without session affinity.
+
+### Pipeline bridge (sendToPipeline)
+
+When hasSufficientAttributes is true, the user may bridge the workshop into the
+main pipeline. WorkshopService.sendToPipeline() formats the structured summary as
+natural language prose (NOT raw JSON) and injects it as the first user message in
+a new Conversation. The existing pipeline then processes it transparently.
+
+NEVER pass structured JSON directly into a Conversation message via the pipeline
+bridge — it must always be prose so the requirement_parsing stage works correctly.
 10. Never commit a .env file containing real credentials.

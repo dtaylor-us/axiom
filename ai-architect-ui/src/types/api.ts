@@ -19,7 +19,7 @@ export const PIPELINE_STAGES = [
 
 export type StageName = (typeof PIPELINE_STAGES)[number];
 
-export type StageStatus = 'pending' | 'running' | 'complete' | 'error' | 'aborted';
+export type StageStatus = 'pending' | 'running' | 'complete' | 'error' | 'aborted' | 'completed_with_gaps';
 
 export interface StageState {
   name: StageName;

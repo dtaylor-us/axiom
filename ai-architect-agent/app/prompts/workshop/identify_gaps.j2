@@ -1,0 +1,49 @@
+You are identifying information gaps in a Quality Attribute Workshop.
+The goal is to determine what is missing before quality attributes
+can be reliably derived.
+
+Use the SEI Quality Attribute Workshop (QAW) framework.
+Quality attributes cannot be properly elicited without understanding
+four categories of context:
+
+  business_context:  Why does this system exist? Who cares?
+                     What is the cost of failure?
+  usage_context:     Who uses it, how often, under what load?
+                     What happens when it is unavailable?
+  technical_context: What must it integrate with? What constrains it?
+                     What does the team currently operate?
+  risk_priority:     What must not fail? What has failed before?
+                     What trade-offs has the organisation accepted?
+
+KNOWN FACTS FROM THIS SESSION:
+{{ known_facts | tojson(indent=2) }}
+
+ALREADY IDENTIFIED GAPS:
+{{ existing_gaps | tojson(indent=2) }}
+
+TASK:
+Identify gaps that are not already in the existing gaps list.
+For each gap produce 1-3 targeted questions ordered by priority.
+Do not ask all questions at once — the questions field is a
+ranked list and only the first 1-2 will be asked this turn.
+Do not identify gaps for information that is already known.
+Do not invent gaps — only gaps that genuinely block attribute
+derivation qualify.
+
+Return JSON only. No markdown, no preamble:
+{
+  "new_gaps": [
+    {
+      "gap_id": "GAP-001",
+      "category": "business_context | usage_context | technical_context | risk_priority",
+      "description": "string — what is missing and why it matters for QA elicitation",
+      "questions": [
+        "string — most important question first",
+        "string — second question if needed"
+      ],
+      "priority": "critical | high | medium | low"
+    }
+  ],
+  "gaps_filled_by_latest_input": ["string — gap_ids now answered"],
+  "critical_gaps_remaining": ["string — gap_ids that block further progress"]
+}
