@@ -473,6 +473,34 @@ async def reconcile_gaps_node(
     return await reconciler.reconcile(state)
 
 
+async def resolve_attribute_questions_node(
+    state: WorkshopContext,
+    config: RunnableConfig,
+) -> WorkshopContext:
+    """
+    Resolves open questions on existing attributes from
+    accumulated evidence.
+
+    Runs BEFORE elicit_scenarios so that scenario extraction
+    builds on up-to-date attribute state.
+
+    This node is responsible for the answer-to-artifact binding
+    that makes the workshop a feedback loop rather than a
+    one-way questionnaire.
+    """
+    resolver = (config.get("configurable") or {}).get("resolver")
+    if resolver is None:
+        return state
+
+    attributes_with_questions = [
+        a for a in state.attributes if a.open_questions
+    ]
+    if not attributes_with_questions:
+        return state
+
+    return await resolver.resolve(state)
+
+
 async def elicit_scenarios_node(
     state: WorkshopContext,
     config: RunnableConfig,
@@ -499,13 +527,23 @@ async def elicit_scenarios_node(
     latest_input: str = (config.get("configurable") or {}).get("latest_input", "")
 
     known_facts = _extract_known_facts(state)
+    evidence_digest: list[dict[str, object]] = []
+    for i, raw in enumerate(state.raw_inputs):
+        evidence_digest.append({
+            "turn": i + 1,
+            "content": raw[:2000],
+        })
+
     existing_snapshot = [s.model_dump(mode="json") for s in state.scenarios]
+    existing_ids = {s.scenario_id for s in state.scenarios}
 
     prompt = load_prompt(
         "workshop/elicit_scenarios",
         known_facts=known_facts,
+        all_evidence=evidence_digest,
         latest_input=latest_input,
         existing_scenarios=existing_snapshot,
+        existing_scenario_ids=sorted(existing_ids),
     )
 
     try:
@@ -524,6 +562,8 @@ async def elicit_scenarios_node(
         if not isinstance(raw_sc, dict):
             continue
         sid = raw_sc.get("scenario_id") or f"SC-{uuid.uuid4().hex[:6].upper()}"
+        if sid in by_id:
+            continue
         try:
             ws = WorkshopScenario(
                 scenario_id=sid,
@@ -667,7 +707,14 @@ async def infer_attributes_from_scenarios_node(
             new_conf = "tentative"
         idx = id_index[aid]
         cur = new_attributes[idx]
-        new_attributes[idx] = cur.model_copy(update={"confidence": new_conf})
+        upgrade_parts = [
+            f"confidence upgraded to {new_conf}",
+        ]
+        new_attributes[idx] = cur.model_copy(update={
+            "confidence": new_conf,
+            "last_update_summary": "; ".join(upgrade_parts),
+            "last_updated_turn": state.current_turn,
+        })
 
     out = state.model_copy(update={"attributes": new_attributes})
     logger.debug(

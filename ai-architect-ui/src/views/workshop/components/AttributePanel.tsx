@@ -20,7 +20,6 @@ interface Props {
   sendingToPipeline: boolean;
   generationCount: number;
   sessionAttributesStale: boolean;
-  onScrollToGenerate?: () => void;
 }
 
 export function AttributePanel({
@@ -30,9 +29,16 @@ export function AttributePanel({
   sendingToPipeline,
   generationCount,
   sessionAttributesStale,
-  onScrollToGenerate,
 }: Props) {
   const { confirmed, inferred, tentative } = countByConfidence(attributes);
+  const totalOpenQuestions = attributes.reduce(
+    (sum, a) => sum + (a.openQuestions?.length ?? 0),
+    0,
+  );
+  const totalResolvedQuestions = attributes.reduce(
+    (sum, a) => sum + (a.questionsResolvedCount ?? 0),
+    0,
+  );
   const title =
     generationCount > 0
       ? `Quality attributes — Pass ${generationCount}`
@@ -52,6 +58,9 @@ export function AttributePanel({
             {confirmed} confirmed · {inferred} inferred · {tentative} tentative
           </p>
         )}
+        <p className="text-[11px] text-gray-500 mt-1">
+          {totalResolvedQuestions} questions resolved · {totalOpenQuestions} still open
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
@@ -65,7 +74,6 @@ export function AttributePanel({
             key={attr.attributeId}
             attribute={attr}
             sessionAttributesStale={sessionAttributesStale}
-            onScrollToGenerate={onScrollToGenerate}
           />
         ))}
       </div>

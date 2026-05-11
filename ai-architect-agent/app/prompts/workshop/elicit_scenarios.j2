@@ -16,16 +16,60 @@ SCENARIO ELICITATION RULES:
   - A scenario without a response_measure is not yet complete but is still valuable — mark completeness using field substance (needs_measure when stimulus and response are strong but measure is missing).
   - Prefer specific over aspirational — concrete failure modes beat generic availability statements.
 
-EVIDENCE TO DERIVE SCENARIOS FROM:
+IMPLICIT SCENARIO RECOGNITION:
+Stakeholders rarely describe scenarios in structured form.
+They describe them as:
+
+Incident stories: "Last year we had an outage where..."
+Fear statements: "If X happens we need Y..."
+Operational descriptions: "During peak load we see..."
+Failure examples: "The problem is when A causes B..."
+
+You MUST recognise these as scenarios and extract the
+six parts even when the user did not use QAW terminology.
+Example implicit scenario:
+User said: "When there is a telemetry spike during a
+major infrastructure outage the platform has to keep
+ingesting data and showing dashboards. Critical alerts
+must appear within five seconds."
+Extract as:
+Stimulus:        Telemetry spike coinciding with infrastructure failure
+Source:          Cascading infrastructure incident
+Environment:     Peak operational incident, compute and storage instability
+Artifact:        Alert ingestion and dashboard rendering pipeline
+Response:        Platform continues ingesting, correlates alerts,
+maintains dashboard visibility
+Response measure: Critical alerts visible within 5 seconds
+Search ALL evidence turns for implicit scenarios, not just
+the latest input. The earliest turns often contain the richest
+failure stories.
+
+DEDUPLICATION:
+Do not re-derive a scenario that is already in
+existing_scenarios. Check existing_scenario_ids before
+creating a new one. If a scenario is already captured but
+incomplete, enrich fields only via merge semantics implied by
+non-duplicate scenario_id — if the id already exists, skip
+creating another row (the graph keeps the first artifact).
+
+EVIDENCE TO DERIVE SCENARIOS FROM (structured facts):
 {{ known_facts | tojson(indent=2) }}
+
+ALL ACCUMULATED EVIDENCE (search all turns for scenarios):
+{% for item in all_evidence %}
+Turn {{ item.turn }}: {{ item.content }}
+{% endfor %}
 
 LATEST USER INPUT:
 {{ latest_input }}
 
+EXISTING SCENARIO IDS (do not create duplicates with these ids):
+{{ existing_scenario_ids | tojson(indent=2) }}
+
 EXISTING SCENARIOS (do not duplicate):
 {{ existing_scenarios | tojson(indent=2) }}
 
-Derive between 2 and 5 scenarios per turn.
+Derive between 0 and 5 new scenarios per turn (fewer is fine when evidence is thin).
 Focus on the operational concerns most clearly evidenced.
 
 Return JSON only. No markdown, no preamble:

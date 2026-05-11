@@ -23,13 +23,11 @@ const COMPLETENESS_PCT: Record<string, number> = {
 interface Props {
   attribute: QualityAttribute;
   sessionAttributesStale?: boolean;
-  onScrollToGenerate?: () => void;
 }
 
 export function AttributeCard({
   attribute,
   sessionAttributesStale = false,
-  onScrollToGenerate,
 }: Props) {
   const badgeClass = CONFIDENCE_BADGE[attribute.confidence] ?? 'bg-gray-100 text-gray-600 ring-gray-200';
   const importanceScore = IMPORTANCE_SCORE[attribute.importance] ?? 5;
@@ -57,21 +55,25 @@ export function AttributeCard({
             {attribute.name}
           </p>
           <p className="text-[11px] text-gray-500">{attribute.category}</p>
-          {(passLabel || (sessionAttributesStale && fp != null)) ? (
-            <p className="text-[10px] text-gray-400 mt-0.5">
-              {passLabel}
-              {sessionAttributesStale && fp != null ? (
-                <>
-                  {passLabel ? ' · ' : null}
-                  <button
-                    type="button"
-                    onClick={onScrollToGenerate}
-                    className="text-amber-700 hover:text-amber-900 font-medium"
-                  >
-                    may be outdated ↻
-                  </button>
-                </>
+          {passLabel ? (
+            <p className="text-[10px] text-gray-400 mt-0.5">{passLabel}</p>
+          ) : null}
+          {attribute.lastUpdateSummary ? (
+            <p className="text-[10px] text-emerald-700 mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0">
+              <span aria-hidden="true">✓</span>
+              <span>Updated: {attribute.lastUpdateSummary}</span>
+              {attribute.lastUpdatedTurn != null && attribute.lastUpdatedTurn > 0 ? (
+                <span className="text-gray-400">
+                  · Turn {attribute.lastUpdatedTurn}
+                </span>
               ) : null}
+            </p>
+          ) : null}
+          {sessionAttributesStale &&
+          !attribute.lastUpdateSummary &&
+          fp != null ? (
+            <p className="text-[10px] text-amber-700 mt-0.5">
+              New context available — continue to update this attribute
             </p>
           ) : null}
         </div>

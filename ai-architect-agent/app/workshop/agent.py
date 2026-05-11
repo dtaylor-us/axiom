@@ -40,10 +40,12 @@ from app.workshop.context import (
 )
 from app.workshop.consolidator import ConsolidationEngine
 from app.workshop.gap_reconciler import GapReconciler
+from app.workshop.resolver import AttributeQuestionResolver
 from app.workshop.nodes import (
     analyze_input_node,
     identify_gaps_node,
     reconcile_gaps_node,
+    resolve_attribute_questions_node,
     elicit_scenarios_node,
     infer_attributes_from_scenarios_node,
     consolidation_node,
@@ -166,6 +168,12 @@ def _build_elicited_attribute_from_generation(
         evidence_quotes=quotes,
         scenarios=[scenario],
         open_questions=oq,
+        resolved_answers=list(existing.resolved_answers) if existing else [],
+        questions_resolved_count=(
+            existing.questions_resolved_count if existing else 0
+        ),
+        last_update_summary=existing.last_update_summary if existing else "",
+        last_updated_turn=existing.last_updated_turn if existing else 0,
         derived_in_turn=derived_in_turn,
         first_generation_pass=first_gp,
         last_generation_pass=generation_pass,
@@ -193,6 +201,7 @@ class QualityAttributeWorkshopAgent:
         self._llm_client = llm_client
         self._consolidator = ConsolidationEngine(llm_client)
         self._reconciler = GapReconciler(llm_client)
+        self._resolver = AttributeQuestionResolver(llm_client)
         self._graph = self._build_graph()
 
     def _build_graph(self) -> object:
@@ -200,9 +209,9 @@ class QualityAttributeWorkshopAgent:
         Build the LangGraph conversation graph.
 
         Node ordering is intentional and enforced by ADL-038 / scenario-first QAW:
-          analyze_input → identify_gaps → reconcile_gaps → elicit_scenarios →
-          infer_attributes_from_scenarios → consolidation → check_transition →
-          generate_response → END
+          analyze_input → identify_gaps → reconcile_gaps → resolve_questions →
+          elicit_scenarios → infer_attributes_from_scenarios → consolidation →
+          check_transition → generate_response → END
 
         identify_gaps MUST precede scenario elicitation so the agent cannot
         treat speculation as evidence.
@@ -212,6 +221,7 @@ class QualityAttributeWorkshopAgent:
         graph.add_node("analyze_input", analyze_input_node)
         graph.add_node("identify_gaps", identify_gaps_node)
         graph.add_node("reconcile_gaps", reconcile_gaps_node)
+        graph.add_node("resolve_questions", resolve_attribute_questions_node)
         graph.add_node("elicit_scenarios", elicit_scenarios_node)
         graph.add_node(
             "infer_attributes_from_scenarios",
@@ -224,7 +234,8 @@ class QualityAttributeWorkshopAgent:
         graph.set_entry_point("analyze_input")
         graph.add_edge("analyze_input", "identify_gaps")
         graph.add_edge("identify_gaps", "reconcile_gaps")
-        graph.add_edge("reconcile_gaps", "elicit_scenarios")
+        graph.add_edge("reconcile_gaps", "resolve_questions")
+        graph.add_edge("resolve_questions", "elicit_scenarios")
         graph.add_edge("elicit_scenarios", "infer_attributes_from_scenarios")
         graph.add_edge("infer_attributes_from_scenarios", "consolidation")
         graph.add_edge("consolidation", "check_transition")
@@ -269,6 +280,7 @@ class QualityAttributeWorkshopAgent:
                 "latest_input": user_input,
                 "consolidator": self._consolidator,
                 "reconciler":   self._reconciler,
+                "resolver":     self._resolver,
             },
         }
 

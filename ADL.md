@@ -870,6 +870,37 @@ ASSERT(QAScenario CONTAINS compute_completeness)
 
 ---
 
+ADL-043: ANSWER-ARTIFACT BINDING NODE IN GRAPH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES pytest tests/unit/workshop/test_resolver_wired_in_graph.py::test_resolver_wired_in_graph
+        fitness/adl-043-resolver-order.sh
+DESCRIPTION Assert resolve_questions node appears in the workshop graph and is wired between
+             reconcile_gaps and elicit_scenarios (answer-to-artifact binding).
+ENFORCEMENT Automated: pytest inspects agent.py source; bash checks edge strings.
+
+DEFINE SYSTEM AIArchitect AS app
+DEFINE COMPONENT WorkshopAgent AS app.workshop.agent
+DEFINE CONST RESOLVE_NODE AS "resolve_questions"
+
+ASSERT(WorkshopAgent CONTAINS RESOLVE_NODE)
+
+---
+
+ADL-044: SCENARIO EXTRACTION USES FULL EVIDENCE HISTORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES fitness/adl-044-scenario-full-evidence.sh
+DESCRIPTION Assert that elicit_scenarios prompt template receives all_evidence so scenario
+             extraction searches the full conversation history, not only the latest turn.
+ENFORCEMENT Automated: bash script greps app/prompts/workshop/elicit_scenarios.j2 for all_evidence.
+
+DEFINE SYSTEM AIArchitect AS app
+DEFINE COMPONENT ScenarioPrompt AS app/prompts/workshop/elicit_scenarios.j2
+DEFINE CONST FULL_EVIDENCE_VAR AS "all_evidence"
+
+ASSERT(ScenarioPrompt CONTAINS FULL_EVIDENCE_VAR)
+
+---
+
 ADL-039: WORKSHOP ATTRIBUTE CAP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES pytest tests/unit/workshop/test_consolidation.py::test_max_attributes_constant_is_12

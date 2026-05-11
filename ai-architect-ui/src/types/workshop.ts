@@ -92,6 +92,13 @@ export interface WorkshopScenario {
   completeness: string;
 }
 
+export interface ResolvedAnswer {
+  question: string;
+  answer: string;
+  resolvedInTurn: number;
+  evidenceQuote: string;
+}
+
 export interface QualityAttribute {
   attributeId: string;
   name: string;
@@ -102,6 +109,10 @@ export interface QualityAttribute {
   scenarioCompleteness: string;
   openQuestions: string[];
   evidenceQuotes: string[];
+  resolvedAnswers?: ResolvedAnswer[];
+  questionsResolvedCount?: number;
+  lastUpdateSummary?: string;
+  lastUpdatedTurn?: number;
   firstGenerationPass?: number | null;
   lastGenerationPass?: number | null;
 }

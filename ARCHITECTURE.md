@@ -915,9 +915,12 @@ ASSERT: app.workshop MUST NOT import from app.tools.
   cost-estimator, or other pipeline tools are permitted inside workshop modules.
 
 ASSERT: In the LangGraph graph built by QualityAttributeWorkshopAgent._build_graph(),
-  the identify_gaps node MUST appear before elicit_scenarios in the edge sequence.
+  the identify_gaps node MUST appear before elicit_scenarios in the edge sequence,
+  and reconcile_gaps → resolve_questions → elicit_scenarios MUST preserve that order.
   Rationale: ADL-038 — "ask before you assert". Gaps must be identified before
   scenarios are elicited so that the agent never treats speculation as evidence.
+  Answers must bind to existing attributes (resolve_questions) before new scenarios
+  are elicited so structured state stays consistent.
 
 ASSERT scenario_primary_artifact {
   MUST elicit scenarios as primary artifacts using elicit_scenarios_node before
@@ -968,8 +971,48 @@ ASSERT attribute_consolidation {
 
   The consolidation node MUST appear after infer_attributes_from_scenarios and before
     check_transition in the sequence:
-    analyze_input → identify_gaps → reconcile_gaps → elicit_scenarios →
+    analyze_input → identify_gaps → reconcile_gaps → resolve_questions → elicit_scenarios →
     infer_attributes_from_scenarios → consolidation → check_transition → generate_response
+}
+
+ASSERT answer_artifact_binding {
+  MUST run AttributeQuestionResolver after gap reconciliation
+    and before scenario elicitation on every turn that has attributes with open questions.
+  resolve_questions node MUST search ALL accumulated evidence,
+    not just the latest turn's input.
+  When a question on an attribute is resolved:
+    MUST remove it from open_questions
+    MUST add the answer to resolved_answers
+    MUST update the relevant scenario field if applicable
+    MUST recompute scenario completeness after field update (via QAScenario model lifecycle)
+    MUST set last_update_summary on the attribute
+    MUST increment questions_resolved_count
+    MUST NOT leave open_questions growing indefinitely —
+    any question answerable from accumulated evidence MUST
+    be resolved by this node when the resolver LLM pass succeeds.
+  The resolve_questions graph step runs whenever the pipeline executes —
+    answer binding is not skipped by workshop phase when open questions exist.
+}
+
+ASSERT scenario_extraction {
+  MUST search ALL accumulated evidence for implicit scenarios —
+    not only the latest turn's input.
+  MUST recognise implicit scenarios in:
+    incident stories, fear statements, operational descriptions,
+    and failure examples.
+  elicit_scenarios prompt MUST receive all_evidence (full
+    turn history) not just known_facts or latest_input alone.
+  MUST NOT re-derive a scenario that is already in existing_scenarios (same scenario_id).
+}
+
+ASSERT completeness_invariant {
+  QAScenario.compute_completeness MUST be reflected after construction via model_post_init —
+    this is enforced by ADL-042 tests.
+  MUST recompute completeness after every scenario field
+    update in resolve_questions, elicit_scenarios, and infer_attributes nodes
+    (QAScenario post-init or explicit field rebuild).
+  No Python code in app/workshop should assign completeness = 'complete' as a string
+    literal except inside compute_completeness / model lifecycle — enforced by CI grep.
 }
 
 ASSERT context_budget {

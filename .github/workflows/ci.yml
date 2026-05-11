@@ -74,6 +74,25 @@ jobs:
           OPENAI_API_KEY: test-key-not-used-in-unit-tests
         run: pytest tests/unit/ -v
 
+      - name: Verify no direct completeness assignment
+        working-directory: ai-architect-agent
+        run: |
+          VIOLATIONS=$(grep -rn \
+            'completeness\s*=\s*["'"'"']complete["'"'"']' \
+            app/workshop/ \
+            --include="*.py" \
+            | grep -v "compute_completeness" \
+            | grep -v "def compute_completeness" \
+            | grep -v "# " \
+            || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "ERROR: Direct completeness='complete' assignment found:"
+            echo "$VIOLATIONS"
+            echo "All completeness must be set via compute_completeness()"
+            exit 1
+          fi
+          echo "No illicit completeness='complete' assignments in workshop"
+
       - name: Integration tests
         working-directory: ai-architect-agent
         env:

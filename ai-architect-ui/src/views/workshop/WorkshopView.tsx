@@ -286,10 +286,6 @@ export function WorkshopView({ onNavigateToChat, initialSessionId, onSessionCrea
     setLoading(false);
   };
 
-  const scrollToGeneratePanel = () => {
-    generatePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  };
-
   const handlePreviewReadiness = async () => {
     if (!sessionId) return;
     setPreviewLoading(true);
@@ -541,7 +537,6 @@ export function WorkshopView({ onNavigateToChat, initialSessionId, onSessionCrea
                 sendingToPipeline={sendingToPipeline}
                 generationCount={generationCount}
                 sessionAttributesStale={attributesStale}
-                onScrollToGenerate={scrollToGeneratePanel}
               />
             ) : (
               <div className="p-4 space-y-3">

@@ -2,6 +2,7 @@ package com.aiarchitect.api.workshop.controller;
 
 import com.aiarchitect.api.workshop.dto.AttributeSummaryDto;
 import com.aiarchitect.api.workshop.dto.GenerationReadinessDto;
+import com.aiarchitect.api.workshop.dto.AttributeResolutionDto;
 import com.aiarchitect.api.workshop.dto.QualityAttributeDto;
 import com.aiarchitect.api.workshop.dto.WorkshopGenerationResponseDto;
 import com.aiarchitect.api.workshop.dto.WorkshopMessageDto;
@@ -110,6 +111,18 @@ public class WorkshopController {
 
         return ResponseEntity.ok(
                 workshopService.getAttributes(id, userId, confidence));
+    }
+
+    /**
+     * GET /api/v1/workshop/sessions/{id}/resolutions
+     * Resolution traceability: which answers resolved which attribute questions.
+     */
+    @GetMapping("/{id}/resolutions")
+    public ResponseEntity<List<AttributeResolutionDto>> getResolutions(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal String userId) {
+
+        return ResponseEntity.ok(workshopService.getResolutions(id, userId));
     }
 
     /**

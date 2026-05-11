@@ -104,6 +104,19 @@ class QAScenario(BaseModel):
         self.completeness = self.compute_completeness()
 
 
+class ResolvedAnswer(BaseModel):
+    """
+    Traceable resolution of one open question against workshop evidence.
+
+    Stored on ``ElicitedAttribute`` so the UI and API can show what was
+    inferred from which user language.
+    """
+    question: str
+    answer: str
+    resolved_in_turn: int
+    evidence_quote: str = ""
+
+
 class WorkshopScenario(BaseModel):
     """
     A QA scenario as a first-class workshop artifact.
@@ -171,6 +184,14 @@ class ElicitedAttribute(BaseModel):
     scenarios: list[QAScenario] = Field(default_factory=list)
     open_questions: list[str] = Field(default_factory=list)
     # Questions still needed to fully ground this attribute
+    resolved_answers: list[ResolvedAnswer] = Field(default_factory=list)
+    # Structured answers to previously open questions (traceability)
+    questions_resolved_count: int = 0
+    # Running total of resolutions applied — monotonic across the session
+    last_update_summary: str = ""
+    # Plain-English description of the most recent change to this attribute
+    last_updated_turn: int = 0
+    # Conversation turn that last modified resolution fields
     derived_in_turn: int = 0
     # Which conversation turn produced this attribute
     first_generation_pass: int | None = None

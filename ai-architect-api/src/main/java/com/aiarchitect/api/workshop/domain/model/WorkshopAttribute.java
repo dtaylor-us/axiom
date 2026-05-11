@@ -114,6 +114,27 @@ public class WorkshopAttribute {
     @Column
     private Integer lastGenerationPass;
 
+    /**
+     * Structured resolutions for previously open questions (JSON array of objects).
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    @Builder.Default
+    private String resolvedAnswers = "[]";
+
+    /** Monotonic count of question resolutions applied on this attribute. */
+    @Column(nullable = false)
+    @Builder.Default
+    private int questionsResolvedCount = 0;
+
+    /** Human-readable summary of the latest attribute update (resolution or inference). */
+    @Column
+    private String lastUpdateSummary;
+
+    /** Workshop turn number associated with {@link #lastUpdateSummary}. */
+    @Column
+    private Integer lastUpdatedTurn;
+
     @CreationTimestamp
     @Column(nullable = false)
     private Instant createdAt;

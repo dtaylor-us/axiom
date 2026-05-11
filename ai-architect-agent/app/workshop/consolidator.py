@@ -25,7 +25,7 @@ import logging
 
 from app.llm.client import LLMClient
 from app.prompts.loader import load_prompt
-from app.workshop.context import ElicitedAttribute, WorkshopContext
+from app.workshop.context import ElicitedAttribute, ResolvedAnswer, WorkshopContext
 from app.workshop.taxonomy import (
     CANONICAL_ATTRIBUTES,
     is_non_qa_concern,
@@ -496,12 +496,35 @@ def _merge_pair(
         dict.fromkeys(primary.open_questions + secondary.open_questions)
     )
 
+    merged_resolved_map: dict[str, ResolvedAnswer] = {}
+    for r in primary.resolved_answers + secondary.resolved_answers:
+        prev = merged_resolved_map.get(r.question)
+        if prev is None or r.resolved_in_turn >= prev.resolved_in_turn:
+            merged_resolved_map[r.question] = r
+    merged_resolved = list(merged_resolved_map.values())
+    merged_q_count = max(
+        primary.questions_resolved_count,
+        secondary.questions_resolved_count,
+        len(merged_resolved),
+    )
+
+    last_turn = max(primary.last_updated_turn, secondary.last_updated_turn)
+    last_summary = (
+        primary.last_update_summary
+        if primary.last_updated_turn >= secondary.last_updated_turn
+        else secondary.last_update_summary
+    )
+
     return primary.model_copy(update={
-        "confidence":      better_confidence,
-        "importance":      better_importance,
-        "evidence_quotes": merged_quotes,
-        "scenarios":       merged_scenarios,
-        "open_questions":  merged_questions,
+        "confidence":               better_confidence,
+        "importance":               better_importance,
+        "evidence_quotes":          merged_quotes,
+        "scenarios":                merged_scenarios,
+        "open_questions":           merged_questions,
+        "resolved_answers":         merged_resolved,
+        "questions_resolved_count": merged_q_count,
+        "last_update_summary":      last_summary,
+        "last_updated_turn":        last_turn,
     })
 
 

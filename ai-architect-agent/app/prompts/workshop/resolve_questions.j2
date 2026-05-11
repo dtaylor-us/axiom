@@ -1,0 +1,65 @@
+You are resolving open questions on quality attributes by
+searching accumulated workshop evidence for answers.
+For each attribute with open questions, search ALL accumulated
+evidence for answers. An answer does not need to directly
+quote the question — it needs to provide the information
+the question was asking for.
+ACCUMULATED EVIDENCE (all turns):
+{{ accumulated_evidence | tojson(indent=2) }}
+LATEST USER INPUT:
+{{ latest_input }}
+ATTRIBUTES WITH OPEN QUESTIONS:
+{{ attributes_with_questions | tojson(indent=2) }}
+RESOLUTION RULES:
+Mark a question resolved when the accumulated evidence
+provides the information it was asking for, even if the
+user did not directly answer it.
+Example:
+Question: "What metrics measure scalability?"
+Evidence: "Measures include throughput, concurrent alerts,
+and scaling efficiency"
+→ Resolved. Extract the metrics as new evidence quotes.
+For each resolved question also determine:
+1. Which scenario field the answer contributes to:
+stimulus, source, environment, artifact,
+response, or response_measure
+2. The structured answer text for that field
+3. Whether the resolution upgrades attribute confidence
+Do not mark a question resolved if only partially answered.
+If "what is the RTO?" is asked and only "recovery must be
+fast" is provided — not resolved, too vague.
+Do not invent answers. If the evidence does not contain the
+answer, do not resolve the question.
+For each resolution, include "resolved_answer_entries" with:
+question (exact or matching open question text), answer (summary from evidence),
+evidence_quote (short verbatim phrase from user evidence).
+Return JSON only. No markdown, no preamble:
+{
+"resolutions": [
+{
+"attribute_id":        "string",
+"resolved_questions":  ["exact question text that is now answered"],
+"resolved_answer_entries": [
+  {"question": "string", "answer": "string", "evidence_quote": "string"}
+],
+"new_evidence_quotes": ["verbatim phrases from evidence"],
+"scenario_updates": {
+"response_measure": "string — if answer provides a measure",
+"response":         "string — if answer describes required behaviour",
+"environment":      "string — if answer describes conditions",
+"stimulus":         "string — if answer describes the trigger"
+},
+"confidence_upgrade":  "confirmed | inferred | tentative | null",
+"resolution_notes":    "string — brief explanation of what was resolved"
+}
+],
+"unresolved_summary": [
+{
+"attribute_id": "string",
+"still_open":   ["questions still without answers in evidence"]
+}
+]
+}
+Only include attributes in resolutions when at least one
+question was resolved or a scenario field was updated from evidence.
+Do not include attributes where nothing changed.

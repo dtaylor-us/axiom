@@ -13,7 +13,9 @@ import com.aiarchitect.api.workshop.dto.AttributePreviewDto;
 import com.aiarchitect.api.workshop.dto.AttributeSummaryDto;
 import com.aiarchitect.api.workshop.dto.GenerationReadinessDto;
 import com.aiarchitect.api.workshop.dto.HighValueGapDto;
+import com.aiarchitect.api.workshop.dto.AttributeResolutionDto;
 import com.aiarchitect.api.workshop.dto.QualityAttributeDto;
+import com.aiarchitect.api.workshop.dto.ResolvedAnswerDto;
 import com.aiarchitect.api.workshop.dto.WorkshopGenerationResponseDto;
 import com.aiarchitect.api.workshop.dto.WorkshopSessionDto;
 import com.aiarchitect.api.workshop.client.WorkshopAgentClient;
@@ -209,6 +211,41 @@ public class WorkshopService {
                 ? attributeRepo.findBySessionIdAndConfidenceOrderByImportanceAsc(sessionId, confidence)
                 : attributeRepo.findBySessionIdOrderByImportanceAscNameAsc(sessionId);
         return attrs.stream().map(this::toAttributeDto).toList();
+    }
+
+    /**
+     * Returns the resolution traceability for a workshop session:
+     * which answers resolved which attribute questions, with evidence quotes.
+     */
+    @Transactional(readOnly = true)
+    public List<AttributeResolutionDto> getResolutions(UUID sessionId, String userId) {
+        WorkshopSession session = requireSession(sessionId, userId);
+        JsonNode ctx;
+        try {
+            ctx = objectMapper.readTree(session.getContextJson());
+        } catch (Exception e) {
+            return List.of();
+        }
+        JsonNode attrs = ctx.path("attributes");
+        if (!attrs.isArray()) {
+            return List.of();
+        }
+        List<AttributeResolutionDto> out = new ArrayList<>();
+        for (JsonNode a : attrs) {
+            List<ResolvedAnswerDto> resolved = parseResolvedAnswersNode(a.path("resolved_answers"));
+            List<String> open = parseStringListFromJsonArray(a.path("open_questions"));
+            String aid = a.path("attribute_id").asText("");
+            String name = a.path("name").asText("");
+            int resolvedCount = a.path("questions_resolved_count").asInt(resolved.size());
+            out.add(new AttributeResolutionDto(
+                    aid,
+                    name,
+                    resolved,
+                    open,
+                    resolvedCount,
+                    open.size()));
+        }
+        return out;
     }
 
     /**
@@ -510,6 +547,16 @@ public class WorkshopService {
                 ? a.path("description").asText()
                 : null;
 
+        JsonNode raNode = a.path("resolved_answers");
+        String resolvedJson = raNode.isArray() ? raNode.toString() : "[]";
+        int qResolved = a.path("questions_resolved_count").asInt(0);
+        String lastSummary = a.hasNonNull("last_update_summary")
+                ? a.path("last_update_summary").asText(null)
+                : null;
+        Integer lastTurn = a.hasNonNull("last_updated_turn")
+                ? a.path("last_updated_turn").asInt()
+                : null;
+
         return WorkshopAttribute.builder()
                 .session(session)
                 .attributeId(a.path("attribute_id").asText(UUID.randomUUID().toString()))
@@ -526,6 +573,10 @@ public class WorkshopService {
                         : a.path("derived_in_turn").asInt())
                 .firstGenerationPass(firstGp)
                 .lastGenerationPass(lastGp)
+                .resolvedAnswers(resolvedJson)
+                .questionsResolvedCount(qResolved)
+                .lastUpdateSummary(lastSummary)
+                .lastUpdatedTurn(lastTurn)
                 .build();
     }
 
@@ -787,8 +838,50 @@ public class WorkshopService {
                 parseStringList(a.getOpenQuestions()),
                 parseStringList(a.getEvidenceQuotes()),
                 a.getFirstGenerationPass(),
-                a.getLastGenerationPass()
+                a.getLastGenerationPass(),
+                parseResolvedAnswersJson(a.getResolvedAnswers()),
+                a.getQuestionsResolvedCount(),
+                a.getLastUpdateSummary(),
+                a.getLastUpdatedTurn()
         );
+    }
+
+    private List<ResolvedAnswerDto> parseResolvedAnswersJson(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode arr = objectMapper.readTree(json);
+            return parseResolvedAnswersNode(arr);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<ResolvedAnswerDto> parseResolvedAnswersNode(JsonNode arr) {
+        if (arr == null || !arr.isArray()) {
+            return List.of();
+        }
+        List<ResolvedAnswerDto> result = new ArrayList<>();
+        for (JsonNode x : arr) {
+            result.add(new ResolvedAnswerDto(
+                    x.path("question").asText(""),
+                    x.path("answer").asText(""),
+                    x.path("resolved_in_turn").asInt(0),
+                    x.path("evidence_quote").asText("")));
+        }
+        return result;
+    }
+
+    private List<String> parseStringListFromJsonArray(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (JsonNode n : node) {
+            result.add(n.asText(""));
+        }
+        return result;
     }
 
     private String computeScenarioCompleteness(String scenarioJson) {

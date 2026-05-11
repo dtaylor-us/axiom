@@ -45,5 +45,13 @@ public record QualityAttributeDto(
         Integer firstGenerationPass,
 
         /** Most recent generation pass that updated this attribute, if any. */
-        Integer lastGenerationPass
+        Integer lastGenerationPass,
+
+        List<ResolvedAnswerDto> resolvedAnswers,
+
+        int questionsResolvedCount,
+
+        String lastUpdateSummary,
+
+        Integer lastUpdatedTurn
 ) {}

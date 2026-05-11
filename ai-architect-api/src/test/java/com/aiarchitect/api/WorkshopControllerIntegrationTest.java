@@ -25,10 +25,11 @@ import java.util.UUID;
 import com.aiarchitect.api.workshop.dto.WorkshopSessionDto;
 import com.aiarchitect.api.workshop.dto.WorkshopTurnResponseDto;
 import com.aiarchitect.api.workshop.dto.AttributeSummaryDto;
-import com.aiarchitect.api.workshop.dto.QualityAttributeDto;
 import com.aiarchitect.api.workshop.dto.GenerationReadinessDto;
 import com.aiarchitect.api.workshop.dto.WorkshopGenerationResponseDto;
 import com.aiarchitect.api.workshop.dto.WorkshopScenarioDto;
+import com.aiarchitect.api.workshop.dto.AttributeResolutionDto;
+import com.aiarchitect.api.workshop.dto.ResolvedAnswerDto;
 
 import java.time.Instant;
 
@@ -163,6 +164,27 @@ class WorkshopControllerIntegrationTest {
                 .expectStatus().isOk()
                 .expectBody()
                 .jsonPath("$.sessionId").isEqualTo(SESSION_ID.toString());
+    }
+
+    @Test
+    void getResolutions_returns200WithTraceability() {
+        AttributeResolutionDto row = new AttributeResolutionDto(
+                "QA-001",
+                "Scalability",
+                List.of(new ResolvedAnswerDto("What metrics?", "Throughput", 2, "50k/min")),
+                List.of("Still open?"),
+                1,
+                1);
+        when(workshopService.getResolutions(eq(SESSION_ID), any())).thenReturn(List.of(row));
+
+        webTestClient.get().uri("/api/v1/workshop/sessions/" + SESSION_ID + "/resolutions")
+                .header("Authorization", "Bearer " + validToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$[0].attributeId").isEqualTo("QA-001")
+                .jsonPath("$[0].resolvedCount").isEqualTo(1)
+                .jsonPath("$[0].openCount").isEqualTo(1);
     }
 
     @Test
