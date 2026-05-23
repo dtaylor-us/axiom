@@ -15,27 +15,22 @@ from app.models import ArchitectureContext
 from app.pipeline import graph as pipeline_graph
 
 
-class _FakeCompiledGraph:
-    """Test double for LangGraph compiled pipeline."""
-
-    def __init__(self, gate: asyncio.Event, ctx: ArchitectureContext) -> None:
-        self._gate = gate
-        self._ctx = ctx
-
-    async def astream(self, initial_state, stream_mode: str = "updates"):
-        # Do not yield any stage updates until gate is opened.
-        await self._gate.wait()
-        yield {"requirement_parsing": {"context": self._ctx}}
-
-
 @pytest.mark.asyncio
 async def test_run_pipeline_emits_heartbeat_comments_during_stage_execution(monkeypatch):
     """Heartbeat comments must be emitted before a long stage completes."""
     ctx = ArchitectureContext(conversation_id="c1", raw_requirements="r1")
     gate = asyncio.Event()
 
-    monkeypatch.setattr(pipeline_graph, "_compiled", _FakeCompiledGraph(gate, ctx))
+    async def _blocking_stage(state):
+        """Simulate a long-running stage by blocking until the gate is opened."""
+        await gate.wait()
+        return state
+
+    # _compiled must be non-None to pass run_pipeline's startup guard.
+    monkeypatch.setattr(pipeline_graph, "_compiled", object())
     monkeypatch.setattr(pipeline_graph, "HEARTBEAT_INTERVAL_SECONDS", 0.01)
+    # Patch only the first stage to block; the generator is closed before other stages run.
+    monkeypatch.setitem(pipeline_graph._NODE_FN_MAP, "requirement_parsing", _blocking_stage)
 
     gen = pipeline_graph.run_pipeline(ctx)
 
@@ -52,10 +47,8 @@ async def test_run_pipeline_emits_heartbeat_comments_during_stage_execution(monk
 async def test_heartbeat_task_is_cancelled_after_pipeline_completes(monkeypatch):
     """Heartbeat task must stop after pipeline completes."""
     ctx = ArchitectureContext(conversation_id="c1", raw_requirements="r1")
-    gate = asyncio.Event()
-    gate.set()
 
-    monkeypatch.setattr(pipeline_graph, "_compiled", _FakeCompiledGraph(gate, ctx))
+    monkeypatch.setattr(pipeline_graph, "_compiled", object())
     monkeypatch.setattr(pipeline_graph, "HEARTBEAT_INTERVAL_SECONDS", 0.01)
 
     gen = pipeline_graph.run_pipeline(ctx)

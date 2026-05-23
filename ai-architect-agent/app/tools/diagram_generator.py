@@ -217,9 +217,9 @@ class DiagramGeneratorTool(BaseTool):
                     "Repair failed for diagram type %s: %s",
                     diagram_type.value, repair_exc,
                 )
-                raise ToolExecutionException(
-                    f"invalid JSON for diagram type {diagram_type.value}"
-                ) from repair_exc
+                # Return None so run() treats this type as a partial failure
+                # rather than aborting the entire diagram generation run.
+                return None
 
         if isinstance(parsed, dict) and "diagrams" in parsed:
             raw_diagrams = parsed.get("diagrams", [])

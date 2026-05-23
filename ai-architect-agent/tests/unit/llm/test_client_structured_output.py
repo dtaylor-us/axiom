@@ -133,29 +133,26 @@ class TestStructuredOutputEnforcement:
         import logging
         client, mock_chat = openai_client
 
-        # First bind raises a schema rejection error
         rejection_exc = ValueError("json_schema strict mode not supported")
-        mock_bound_strict = MagicMock()
-        mock_bound_strict.ainvoke = AsyncMock(side_effect=rejection_exc)
-
-        # Second bind (json_object fallback) succeeds
-        mock_bound_fallback = MagicMock()
         mock_response = MagicMock()
         mock_response.content = '{"result": "ok"}'
         mock_response.usage_metadata = {}
-        mock_bound_fallback.ainvoke = AsyncMock(return_value=mock_response)
 
-        mock_chat.bind = MagicMock(
-            side_effect=[mock_bound_strict, mock_bound_fallback]
-        )
+        # Patch _invoke directly to bypass tenacity's retry decorator.
+        # This isolates complete()'s schema fallback logic from the retry mechanism.
+        async def _mock_invoke(prompt, response_format_param=None):
+            if response_format_param and response_format_param.get("type") == "json_schema":
+                raise rejection_exc
+            return mock_response
 
-        with caplog.at_level(logging.WARNING, logger="app.llm.client"):
-            result = await client.complete(
-                "test prompt",
-                response_format="json",
-                output_schema=SAMPLE_SCHEMA,
-                schema_name="test_stage",
-            )
+        with patch.object(client, "_invoke", side_effect=_mock_invoke):
+            with caplog.at_level(logging.WARNING, logger="app.llm.client"):
+                result = await client.complete(
+                    "test prompt",
+                    response_format="json",
+                    output_schema=SAMPLE_SCHEMA,
+                    schema_name="test_stage",
+                )
 
         assert result == '{"result": "ok"}'
         assert any("schema_enforcement_fallback" in r.message for r in caplog.records) or \

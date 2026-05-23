@@ -71,7 +71,7 @@ class TestAttemptRepair:
         # The long response should appear truncated in the prompt
         assert "x" * 500 in prompt_arg
         assert "x" * 501 not in prompt_arg
-        assert "[truncated...]" in prompt_arg
+        assert "[truncated, total=" in prompt_arg
 
     async def test_repair_includes_error_description_in_prompt(self, tool, mock_llm):
         """attempt_repair() includes the error description in the repair prompt."""

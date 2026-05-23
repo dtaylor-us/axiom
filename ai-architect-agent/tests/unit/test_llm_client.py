@@ -18,6 +18,9 @@ class TestLLMClientComplete:
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key", "LLM_PROVIDER": "openai"}):
             with patch("app.llm.client.ChatOpenAI") as mock_cls:
                 self.mock_chat = MagicMock()
+                # _invoke calls self._llm.bind(...) then ainvoke() on the result.
+                # Make bind() return the same mock so ainvoke is always self.mock_chat.ainvoke.
+                self.mock_chat.bind.return_value = self.mock_chat
                 mock_cls.return_value = self.mock_chat
                 self.client = LLMClient()
                 yield
