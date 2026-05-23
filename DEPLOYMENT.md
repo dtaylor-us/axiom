@@ -55,8 +55,10 @@ change and an agent restart.
 | CPU | None | `qwen3:8b` | `qwen3:8b` | Emergency fallback |
 
 Tier 2 is the recommended development configuration. Apple Silicon with
-16GB+ unified memory works well as a Tier 2 equivalent because Ollama uses
-Metal automatically.
+16GB+ unified memory works well as a Tier 2 equivalent when Ollama runs
+natively on macOS because Ollama uses Metal automatically. The Docker Compose
+service is CPU-safe by default so it also starts on machines without the
+NVIDIA container runtime.
 
 #### First-time setup
 
@@ -124,6 +126,12 @@ concurrently. Reduce it to `1` if you observe VRAM pressure.
 
 `OLLAMA_TEMPERATURE=0.1` is set low for structured output reliability. Keep it
 at or below `0.3` for pipeline runs.
+
+For Linux machines with the NVIDIA container runtime installed, GPU passthrough
+can be enabled by adding a local Compose override for the `ollama` service with
+an NVIDIA device reservation. Do not add that reservation to the default
+compose file; Docker Desktop and CPU-only hosts fail startup when the `nvidia`
+driver is not available.
 
 #### Expected Tier 2 performance
 
