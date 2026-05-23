@@ -377,7 +377,7 @@ class TestDiagramGeneratorRun:
 
     async def test_raises_on_invalid_json(self, tool, context_with_design, mock_llm):
         mock_llm.complete.return_value = "not-json"
-        with pytest.raises(ToolExecutionException, match="invalid JSON"):
+        with pytest.raises(ToolExecutionException, match="failed generation"):
             await tool.run(context_with_design)
 
     async def test_raises_on_empty_diagrams_list(self, tool, context_with_design, mock_llm):

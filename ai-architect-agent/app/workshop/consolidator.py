@@ -273,7 +273,9 @@ class ConsolidationEngine:
         )
 
         try:
-            raw = await self._llm.complete(prompt, response_format="json")
+            raw = await self._llm.complete(
+                prompt, response_format="json", stage_name="consolidate"
+            )
             result = json.loads(raw)
         except Exception:
             logger.warning(
@@ -594,4 +596,3 @@ def completeness_score(attribute: ElicitedAttribute) -> float:
     )
     evidence_factor = min(len(attribute.evidence_quotes) / 3.0, 1.0)
     return best * (0.7 + 0.3 * evidence_factor)
-

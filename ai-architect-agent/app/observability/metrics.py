@@ -42,17 +42,33 @@ def setup_metrics() -> None:
     if _meter_provider is not None:
         return
 
-    otlp_endpoint = os.getenv(
-        "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"
-    )
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+    is_otel_disabled = os.getenv("OTEL_SDK_DISABLED", "").lower() == "true"
 
-    exporter = OTLPMetricExporter(endpoint=otlp_endpoint)
-    # Export every 15 seconds — fast enough for local dev,
-    # not so fast that it overwhelms a production collector.
-    reader = PeriodicExportingMetricReader(
-        exporter, export_interval_millis=15_000
-    )
-    _meter_provider = MeterProvider(metric_readers=[reader])
+    metric_readers = []
+    if is_otel_disabled or not otlp_endpoint:
+        logger.info(
+            "OTel metrics using no-op provider. Set "
+            "OTEL_EXPORTER_OTLP_ENDPOINT to enable metric export."
+        )
+    else:
+        try:
+            exporter = OTLPMetricExporter(endpoint=otlp_endpoint)
+            # Export every 15 seconds in production where an endpoint is set.
+            metric_readers.append(
+                PeriodicExportingMetricReader(
+                    exporter, export_interval_millis=15_000
+                )
+            )
+        except Exception as exc:
+            logger.warning(
+                "OTel metrics exporter setup failed. endpoint=%s error=%s. "
+                "Falling back to no-op provider.",
+                otlp_endpoint,
+                str(exc),
+            )
+
+    _meter_provider = MeterProvider(metric_readers=metric_readers)
     metrics.set_meter_provider(_meter_provider)
 
     meter = metrics.get_meter("ai_architect.agent")
@@ -74,6 +90,19 @@ def setup_metrics() -> None:
     )
 
     logger.info("OTel metrics initialised. endpoint=%s", otlp_endpoint)
+
+
+def get_meter(name: str) -> metrics.Meter:
+    """
+    Return a named meter.
+
+    Args:
+        name: Meter namespace.
+
+    Returns:
+        OpenTelemetry meter for the provided namespace.
+    """
+    return metrics.get_meter(name)
 
 
 def increment_active_runs() -> None:

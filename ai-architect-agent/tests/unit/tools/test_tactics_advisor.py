@@ -179,7 +179,7 @@ class TestLlmCall:
         """run() raises ToolExecutionException when LLM returns invalid JSON."""
         mock_llm.complete.return_value = "this is not json at all"
 
-        with pytest.raises(ToolExecutionException, match="invalid JSON"):
+        with pytest.raises(ToolExecutionException, match="repair attempt"):
             await tool.run(context_with_chars)
 
 

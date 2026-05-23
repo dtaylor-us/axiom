@@ -221,7 +221,7 @@ class TestWeaknessAnalyzerTool:
         """run() raises ToolExecutionException on invalid JSON from LLM."""
         mock_llm.complete.return_value = "{{broken"
 
-        with pytest.raises(ToolExecutionException, match="invalid JSON"):
+        with pytest.raises(ToolExecutionException, match="repair attempt"):
             await tool.run(rich_context)
 
     async def test_filters_weakness_with_invalid_severity(

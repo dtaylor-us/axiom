@@ -110,6 +110,7 @@ class BuyVsBuildAnalyzerTool(BaseTool):
             response_format="json",
             output_schema=SCHEMAS.get(_STAGE),
             schema_name=_STAGE,
+            stage_name=_STAGE,
         )
 
         repair_attempted = False
@@ -126,6 +127,7 @@ class BuyVsBuildAnalyzerTool(BaseTool):
                 error_description=f"Invalid JSON: {exc}",
                 output_schema=SCHEMAS.get(_STAGE),
                 schema_name=_STAGE,
+                stage_name=_STAGE,
             )
             try:
                 parsed = json.loads(raw)
@@ -236,4 +238,3 @@ class BuyVsBuildAnalyzerTool(BaseTool):
             return "conflict_explanation must be non-blank when conflicts_with_user_preference is true"
 
         return None
-

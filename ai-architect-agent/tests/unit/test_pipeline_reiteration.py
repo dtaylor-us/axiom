@@ -33,7 +33,7 @@ def mock_registry():
         "tactics_advisor",
     ]:
         tool = AsyncMock()
-        tool.run = AsyncMock(side_effect=lambda ctx, n=name: ctx)
+        tool.run = AsyncMock(side_effect=_mock_tool_run(name))
 
         async def _exec(ctx, _t=tool):
             return await _t.run(ctx)
@@ -41,6 +41,22 @@ def mock_registry():
         tool.execute = AsyncMock(side_effect=_exec)
         tools[name] = tool
     return tools
+
+
+def _mock_tool_run(name: str):
+    """Return a tool side effect that preserves pipeline prerequisites."""
+    def _run(ctx: ArchitectureContext) -> ArchitectureContext:
+        if name == "characteristic_reasoner":
+            ctx.characteristics = [{"name": "availability"}]
+        if name == "architecture_generator":
+            ctx.architecture_design = {
+                "style_selection": {"selected_style": "service-based"},
+                "components": [],
+                "interactions": [],
+            }
+        return ctx
+
+    return _run
 
 
 @pytest.fixture

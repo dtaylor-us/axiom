@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -623,7 +623,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -639,7 +639,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -649,7 +649,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -743,8 +743,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">130x</span>
+<span class="cline-any cline-yes">130x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1040,7 +1040,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">70x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1167,12 +1167,12 @@
  * This view is static by design: it explains what Archon is, outlines the staged
  * pipeline, and provides a clear entry point into a new architecture session.
  */
-export function <span class="fstat-no" title="function not covered" >HomeView({</span>
+export function HomeView({
   onStartSession,
 }: {
   onStartSession: () =&gt; void;
 }) {
-  const PIPELINE = <span class="cstat-no" title="statement not covered" >[</span>
+  const PIPELINE = [
     { id: '01', name: 'Requirement parsing' },
     { id: '02', name: 'Requirement challenge' },
     { id: '03', name: 'Scenario modelling' },
@@ -1188,7 +1188,7 @@ export function <span class="fstat-no" title="function not covered" >HomeView({<
     { id: '12', name: 'Architecture review' },
   ] as const;
 &nbsp;
-  const artifacts = <span class="cstat-no" title="statement not covered" >[</span>
+  const artifacts = [
     'Architecture diagrams (C4 container plus type-selected Mermaid)',
     'Trade-off record with documented decisions and scale testing',
     'Mark Richards ADL specification with executable governance rules',
@@ -1198,7 +1198,7 @@ export function <span class="fstat-no" title="function not covered" >HomeView({<
     'Buy vs build decisions with named alternatives',
   ] as const;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="h-full overflow-y-auto" data-testid="home-view"&gt;
       &lt;div className="max-w-5xl mx-auto p-6 md:p-10"&gt;
         &lt;header
@@ -1291,9 +1291,9 @@ export function <span class="fstat-no" title="function not covered" >HomeView({<
 &nbsp;
               &lt;div className="mt-3 rounded-xl border border-gray-200 bg-white overflow-hidden"&gt;
                 &lt;ol className="divide-y divide-gray-100"&gt;
-                  {PIPELINE.<span class="fstat-no" title="function not covered" >map((s</span>) =&gt; {
-                    const isGovernance = <span class="cstat-no" title="statement not covered" >s.id === '12';</span>
-<span class="cstat-no" title="statement not covered" >                    return (</span>
+                  {PIPELINE.map((s) =&gt; {
+                    const isGovernance = s.id === '12';
+                    return (
                       &lt;li
                         key={s.id}
                         className={`px-4 py-3 flex items-start justify-between gap-3 ${
@@ -1588,8 +1588,8 @@ export function <span class="fstat-no" title="function not covered" >HomeView({<
               &lt;/div&gt;
               &lt;div className="mt-3 rounded-xl border border-gray-200 bg-white p-4"&gt;
                 &lt;ul className="space-y-2 text-sm text-gray-700"&gt;
-                  {artifacts.<span class="fstat-no" title="function not covered" >map((a</span>) =&gt; (
-<span class="cstat-no" title="statement not covered" >                    &lt;li key={a} className="flex gap-2"&gt;</span>
+                  {artifacts.map((a) =&gt; (
+                    &lt;li key={a} className="flex gap-2"&gt;
                       &lt;span className="text-gray-400 font-mono shrink-0" aria-hidden="true"&gt;
                         ✓
                       &lt;/span&gt;
@@ -1717,7 +1717,7 @@ export function <span class="fstat-no" title="function not covered" >HomeView({<
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-16T14:25:39.972Z
+                at 2026-05-23T12:00:42.652Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

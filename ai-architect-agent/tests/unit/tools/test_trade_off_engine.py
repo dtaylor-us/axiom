@@ -157,7 +157,7 @@ class TestTradeOffEngineTool:
         """run() raises ToolExecutionException on invalid JSON from LLM."""
         mock_llm.complete.return_value = "not valid json{{"
 
-        with pytest.raises(ToolExecutionException, match="invalid JSON"):
+        with pytest.raises(ToolExecutionException, match="repair attempt"):
             await tool.run(rich_context)
 
     async def test_filters_decisions_with_empty_optimises(

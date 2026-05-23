@@ -105,15 +105,14 @@ class TestCharacteristicReasoningEngineTool:
         with pytest.raises(ToolExecutionException, match="invalid JSON"):
             await tool.run(context_with_entities)
 
-    async def test_handles_empty_characteristics(
+    async def test_raises_on_repeated_empty_characteristics(
         self, tool, context_with_entities, mock_llm,
     ):
-        """run() handles LLM returning empty characteristics list."""
+        """run() raises when both LLM attempts return empty characteristics."""
         mock_llm.complete.return_value = json.dumps({"characteristics": []})
 
-        result = await tool.run(context_with_entities)
-
-        assert result.characteristics == []
+        with pytest.raises(ToolExecutionException, match="both attempts"):
+            await tool.run(context_with_entities)
 
     async def test_does_not_mutate_other_fields(
         self, tool, context_with_entities, mock_llm,

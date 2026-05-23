@@ -26,18 +26,14 @@ class TestSetupTracing:
         yield
         mod._tracer_provider = original
 
-    @patch("app.observability.tracing.OTLPSpanExporter")
-    @patch("app.observability.tracing.BatchSpanProcessor")
     @patch("app.observability.tracing.trace")
-    def test_setup_creates_provider(self, mock_trace, mock_proc, mock_exp):
+    def test_setup_creates_provider(self, mock_trace):
         """setup_tracing() creates a TracerProvider and sets it globally."""
         setup_tracing()
         mock_trace.set_tracer_provider.assert_called_once()
 
-    @patch("app.observability.tracing.OTLPSpanExporter")
-    @patch("app.observability.tracing.BatchSpanProcessor")
     @patch("app.observability.tracing.trace")
-    def test_setup_is_idempotent(self, mock_trace, mock_proc, mock_exp):
+    def test_setup_is_idempotent(self, mock_trace):
         """Calling setup_tracing() twice does not re-create the provider."""
         setup_tracing()
         setup_tracing()
@@ -45,17 +41,13 @@ class TestSetupTracing:
         mock_trace.set_tracer_provider.assert_called_once()
 
     @patch("app.observability.tracing.OTLPSpanExporter")
-    @patch("app.observability.tracing.BatchSpanProcessor")
     @patch("app.observability.tracing.trace")
-    def test_setup_reads_env_defaults(self, mock_trace, mock_proc, mock_exp):
-        """setup_tracing() falls back to localhost:4317 when env is unset."""
+    def test_setup_uses_no_exporter_when_env_is_unset(self, mock_trace, mock_exp):
+        """setup_tracing() does not export when endpoint is unset."""
         import os
         with patch.dict(os.environ, {}, clear=True):
             setup_tracing()
-        mock_exp.assert_called_once()
-        # Endpoint should be the default localhost
-        call_kwargs = mock_exp.call_args
-        assert "4317" in str(call_kwargs)
+        mock_exp.assert_not_called()
 
 
 class TestGetTracer:

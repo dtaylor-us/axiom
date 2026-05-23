@@ -17,11 +17,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 
 from langchain_core.runnables import RunnableConfig
 
+from app.llm.budget import budget_json_list, get_input_budget
 from app.llm.client import LLMClient
 from app.prompts.loader import load_prompt
 from app.workshop.context import (
@@ -67,6 +69,12 @@ _CRITICAL_GAP_THRESHOLD = 0
 
 # Maximum prior turns included in the question-generation prompt (token budget).
 _RECENT_TURNS_WINDOW = 5
+
+_STAGE_ANALYZE_INPUT = "analyze_input"
+_STAGE_IDENTIFY_GAPS = "identify_gaps"
+_STAGE_ELICIT_SCENARIOS = "elicit_scenarios"
+_STAGE_INFER_ATTRIBUTES = "infer_attributes_from_scenarios"
+_STAGE_GENERATE_QUESTIONS = "generate_questions"
 
 # Consolidation merges aggressively when the list is tiny — wait for breadth first.
 MIN_ATTRIBUTES_FOR_CONSOLIDATION = 6
@@ -307,7 +315,11 @@ async def analyze_input_node(
     )
 
     try:
-        raw = await llm.complete(prompt, response_format="json")
+        raw = await llm.complete(
+            prompt,
+            response_format="json",
+            stage_name=_STAGE_ANALYZE_INPUT,
+        )
         analysis = json.loads(raw)
     except Exception:
         logger.warning(
@@ -372,7 +384,11 @@ async def identify_gaps_node(
     )
 
     try:
-        raw = await llm.complete(prompt, response_format="json")
+        raw = await llm.complete(
+            prompt,
+            response_format="json",
+            stage_name=_STAGE_IDENTIFY_GAPS,
+        )
         parsed = json.loads(raw)
     except Exception:
         logger.warning(
@@ -538,6 +554,17 @@ async def elicit_scenarios_node(
             "turn": i + 1,
             "content": raw[:2000],
         })
+    provider = os.getenv("LLM_PROVIDER", "ollama")
+    num_ctx = int(os.getenv("OLLAMA_NUM_CTX_FAST", "8192"))
+    input_budget = get_input_budget(
+        _STAGE_ELICIT_SCENARIOS, provider, num_ctx
+    )
+    budgeted_evidence = budget_json_list(
+        evidence_digest,
+        max_tokens=input_budget,
+        stage_name=_STAGE_ELICIT_SCENARIOS,
+        item_label="all_evidence",
+    )
 
     existing_snapshot = [
         s.model_dump(mode="json") for s in state.deduplicated_scenarios
@@ -547,14 +574,18 @@ async def elicit_scenarios_node(
     prompt = load_prompt(
         "workshop/elicit_scenarios",
         known_facts=known_facts,
-        all_evidence=evidence_digest,
+        all_evidence=budgeted_evidence,
         latest_input=latest_input,
         existing_scenarios=existing_snapshot,
         existing_scenario_ids=sorted(existing_ids),
     )
 
     try:
-        raw = await llm.complete(prompt, response_format="json")
+        raw = await llm.complete(
+            prompt,
+            response_format="json",
+            stage_name=_STAGE_ELICIT_SCENARIOS,
+        )
         parsed = json.loads(raw)
     except Exception:
         logger.warning(
@@ -648,7 +679,11 @@ async def infer_attributes_from_scenarios_node(
     )
 
     try:
-        raw = await llm.complete(prompt, response_format="json")
+        raw = await llm.complete(
+            prompt,
+            response_format="json",
+            stage_name=_STAGE_INFER_ATTRIBUTES,
+        )
         parsed = json.loads(raw)
     except Exception:
         logger.warning(
@@ -1127,21 +1162,54 @@ async def generate_response_node(
         for a in state.attributes
         if a.confidence == "tentative"
     ]
+    provider = os.getenv("LLM_PROVIDER", "ollama")
+    num_ctx = int(os.getenv("OLLAMA_NUM_CTX_PRIMARY", "16384"))
+    input_budget = get_input_budget(
+        _STAGE_GENERATE_QUESTIONS, provider, num_ctx
+    )
+    budgeted_turns = budget_json_list(
+        [t.model_dump() for t in recent_turns],
+        max_tokens=input_budget // 3,
+        stage_name=_STAGE_GENERATE_QUESTIONS,
+        item_label="turns",
+    )
+    budgeted_gaps = budget_json_list(
+        open_gaps_summary,
+        max_tokens=input_budget // 4,
+        stage_name=_STAGE_GENERATE_QUESTIONS,
+        item_label="gaps",
+    )
+    budgeted_attributes = budget_json_list(
+        tentative_attributes,
+        max_tokens=input_budget // 3,
+        stage_name=_STAGE_GENERATE_QUESTIONS,
+        item_label="attributes",
+    )
+    budgeted_scenarios = budget_json_list(
+        [s.model_dump() for s in state.deduplicated_scenarios],
+        max_tokens=input_budget // 4,
+        stage_name=_STAGE_GENERATE_QUESTIONS,
+        item_label="scenarios",
+    )
 
     prompt = load_prompt(
         "workshop/generate_questions",
         workshop_phase=state.workshop_phase,
         session_summary=_build_session_summary(state),
-        recent_turns=[t.model_dump() for t in recent_turns],
+        recent_turns=budgeted_turns,
         filled_gaps=[g.model_dump() for g in filled_gaps_list],
-        open_gaps=open_gaps_summary,
-        tentative_attributes=tentative_attributes,
+        open_gaps=budgeted_gaps,
+        tentative_attributes=budgeted_attributes,
         last_user_input=latest_input,
-        workshop_scenarios=[s.model_dump() for s in state.deduplicated_scenarios],
+        workshop_scenarios=budgeted_scenarios,
     )
 
     try:
-        raw = await llm.complete(prompt, response_format="json")
+        raw = await llm.complete(
+            prompt,
+            response_format="json",
+            stage_name=_STAGE_GENERATE_QUESTIONS,
+        )
         response_data = json.loads(raw)
     except Exception:
         logger.error(

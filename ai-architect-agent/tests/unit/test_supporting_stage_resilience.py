@@ -19,6 +19,14 @@ from app.tools.base import ToolExecutionException
 def _passthrough_node(name: str):
     """Return an async node function that passes state through unchanged."""
     async def _node(state: dict) -> dict:
+        if name == "characteristic_inference":
+            state["context"].characteristics = [{"name": "availability"}]
+        if name == "architecture_generation":
+            state["context"].architecture_design = {
+                "style_selection": {"selected_style": "service-based"},
+                "components": [],
+                "interactions": [],
+            }
         return state
     _node.__name__ = name
     return _node
@@ -221,4 +229,27 @@ class TestCoreStageAbort:
         unexpected = completed_stages & set(stages_after_core)
         assert not unexpected, (
             f"Stages {unexpected} emitted STAGE_COMPLETE after core stage failure in '{core_stage}'"
+        )
+
+
+class TestArchitectureGenerationGuard:
+    """The pipeline aborts clearly when characteristics are missing."""
+
+    @pytest.mark.asyncio
+    async def test_architecture_generation_guard_emits_informative_error(
+        self, ctx, monkeypatch, _passthrough_all
+    ):
+        """Missing characteristics before architecture_generation emits ERROR."""
+        node_map = dict(_passthrough_all)
+        node_map["characteristic_inference"] = _passthrough_node(
+            "missing_characteristics"
+        )
+        monkeypatch.setattr(pipeline_graph, "_NODE_FN_MAP", node_map)
+
+        chunks = await _collect_chunks(ctx)
+        error_chunks = [c for c in chunks if c.get("type") == "ERROR"]
+
+        assert error_chunks
+        assert "Architecture generation requires inferred characteristics" in (
+            error_chunks[0]["payload"]["error"]
         )

@@ -269,7 +269,7 @@ class TestFMEAPlusTool:
         """run() raises ToolExecutionException on invalid JSON from LLM."""
         mock_llm.complete.return_value = "{{broken json"
 
-        with pytest.raises(ToolExecutionException, match="invalid JSON"):
+        with pytest.raises(ToolExecutionException, match="repair attempt"):
             await tool.run(rich_context)
 
     async def test_filters_invalid_severity(

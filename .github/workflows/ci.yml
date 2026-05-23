@@ -26,6 +26,9 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ github.token }}
 
       - uses: actions/setup-java@v4
         with:
@@ -56,6 +59,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ github.token }}
 
       - uses: actions/setup-python@v5
         with:
@@ -97,6 +103,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ github.token }}
 
       - uses: actions/setup-node@v4
         with:
@@ -117,6 +126,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ github.token }}
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -138,6 +150,9 @@ jobs:
     needs: [test-api, test-agent, test-ui]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ github.token }}
 
       - name: Build API image
         run: docker build ai-architect-api -f ai-architect-api/Dockerfile -t test/api:ci

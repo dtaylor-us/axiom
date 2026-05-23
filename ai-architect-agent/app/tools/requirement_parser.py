@@ -32,6 +32,7 @@ class RequirementParserTool(BaseTool):
             response_format="json",
             output_schema=SCHEMAS.get(_STAGE),
             schema_name=_STAGE,
+            stage_name=_STAGE,
         )
 
         repair_attempted = False
@@ -48,6 +49,7 @@ class RequirementParserTool(BaseTool):
                 error_description=f"Invalid JSON: {e}",
                 output_schema=SCHEMAS.get(_STAGE),
                 schema_name=_STAGE,
+                stage_name=_STAGE,
             )
             try:
                 parsed = json.loads(raw)

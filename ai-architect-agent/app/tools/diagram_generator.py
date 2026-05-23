@@ -188,6 +188,7 @@ class DiagramGeneratorTool(BaseTool):
                 response_format="json",
                 output_schema=SCHEMAS.get(_STAGE_SINGLE),
                 schema_name=_STAGE_SINGLE,
+                stage_name=_STAGE_SINGLE,
             )
         except Exception as exc:
             logger.warning(
@@ -210,6 +211,7 @@ class DiagramGeneratorTool(BaseTool):
                     error_description=f"Invalid JSON: {exc}",
                     output_schema=SCHEMAS.get(_STAGE_SINGLE),
                     schema_name=_STAGE_SINGLE,
+                    stage_name=_STAGE_SINGLE,
                 )
                 parsed = json.loads(raw)
             except Exception as repair_exc:
@@ -217,9 +219,9 @@ class DiagramGeneratorTool(BaseTool):
                     "Repair failed for diagram type %s: %s",
                     diagram_type.value, repair_exc,
                 )
-                raise ToolExecutionException(
-                    f"invalid JSON for diagram type {diagram_type.value}"
-                ) from repair_exc
+                # Return None so run() treats this type as a partial failure
+                # rather than aborting the entire diagram generation run.
+                return None
 
         if isinstance(parsed, dict) and "diagrams" in parsed:
             raw_diagrams = parsed.get("diagrams", [])
@@ -338,7 +340,7 @@ class DiagramGeneratorTool(BaseTool):
             "Return only the corrected Mermaid source."
         )
         repaired_raw = await self.llm_client.complete(
-            repair_prompt, response_format="text"
+            repair_prompt, response_format="text", stage_name=_STAGE_SINGLE
         )
         repaired_source = repaired_raw.strip()
         if repaired_source.startswith("```"):

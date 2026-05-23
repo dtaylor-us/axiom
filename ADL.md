@@ -61,6 +61,8 @@ Each ADL block is self-contained and can be independently converted into an exec
 | ADL-063  | ai-architect-api    | Send-to-pipeline includes all attributes | ArchUnit Java library | Hard        |
 | ADL-064  | ai-architect-api/ui | Idempotency key on pipeline submission | Custom fitness function via grep | Hard        |
 | ADL-065  | ai-architect-agent  | Scenario deduplication before pipeline | PyTestArch Python library | Hard        |
+| ADL-069  | ai-architect-agent  | LLM provider abstraction       | PyTestArch Python library         | Hard        |
+| ADL-070  | ai-architect-agent  | stage_name required on LLM calls | Custom fitness function via grep | Hard        |
 
 ## ADL blocks
 
@@ -1166,6 +1168,44 @@ DEFINE COMPONENT GovernanceScorePrompt
 
 ASSERT(GovernanceScorePrompt CONTAINS "score_evidence")
 
+---
+
+ADL-069: LLM PROVIDER ABSTRACTION — NO DIRECT API CALLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES PyTestArch Python library
+DESCRIPTION Assert that no module outside app.llm imports from openai or
+            makes direct HTTP calls to the Ollama API.
+PROMPT "Write a PyTestArch test verifying that no module in app.tools or
+        app.workshop imports from 'openai' or 'httpx' directly. All LLM calls
+        must go through app.llm.client. Tests: test_tools_no_openai_import and
+        test_workshop_no_direct_llm_calls."
+
+DEFINE SYSTEM AIArchitect AS app
+DEFINE DOMAIN Tools AS app.tools
+DEFINE DOMAIN Workshop AS app.workshop
+DEFINE COMPONENT LLMClient AS app.llm.client
+
+ASSERT(Tools has NO DEPENDENCY ON openai)
+ASSERT(Workshop has NO DEPENDENCY ON httpx)
+
+---
+
+ADL-070: STAGE_NAME REQUIRED ON ALL LLMCLIENT CALLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES Custom fitness function via grep
+DESCRIPTION Assert that every call to llm_client.complete() in the codebase
+            passes a stage_name argument.
+PROMPT "Write a bash script that searches app/tools/ and app/workshop/ for
+        calls to llm_client.complete( and verifies each call includes
+        'stage_name=' as a keyword argument. Exit 1 with the file and line if
+        any call is missing stage_name. Rule:
+        aiarchitect-llm-stage-name-required."
+
+DEFINE SYSTEM AIArchitect AS app
+DEFINE CONST STAGE_NAME_PARAM AS "stage_name="
+
+ASSERT(LLMClient CONTAINS STAGE_NAME_PARAM)
+
 ## Enforcement levels
 
 | Block ID | Enforcement | Rationale |
@@ -1216,3 +1256,5 @@ ASSERT(GovernanceScorePrompt CONTAINS "score_evidence")
 | ADL-066  | Hard        | Buy/adopt decisions are architecture decisions. If they are not propagated as canonical constraints, downstream artifacts contradict the sourcing decision and lose traceability. |
 | ADL-067  | Hard        | Undefined interaction protocol or purpose fields produce broken diagrams and unusable interoperability analysis. Invalid interactions must be rejected before storage. |
 | ADL-068  | Hard        | Governance scoring must be grounded in artifact counts and expose evidence strings. Static scores across different systems are a scoring engine failure. |
+| ADL-069  | Hard        | Direct provider imports outside app.llm would bypass the provider switch and scatter LLM credentials across modules. |
+| ADL-070  | Hard        | Stage names drive Ollama model-tier selection and latency budgeting; missing names silently route calls to the wrong model. |

@@ -56,6 +56,7 @@ class BaseTool(ABC):
         error_description: str,
         output_schema: dict | None = None,
         schema_name: str = "tool_output",
+        stage_name: str | None = None,
     ) -> str:
         """Make one targeted repair attempt after a validation failure.
 
@@ -73,6 +74,8 @@ class BaseTool(ABC):
             output_schema: JSON schema for structured output enforcement on
                 the repair call. Passed through to llm_client.complete().
             schema_name: Name for the json_schema object in the repair call.
+            stage_name: Stage name for model tier selection. Defaults to
+                schema_name so repair uses the same tier as the failed call.
 
         Returns:
             The repair response string. The caller is responsible for
@@ -111,6 +114,7 @@ class BaseTool(ABC):
                 response_format="json",
                 output_schema=output_schema,
                 schema_name=schema_name,
+                stage_name=stage_name or schema_name,
             )
         except LLMCallException as e:
             raise ToolExecutionException(

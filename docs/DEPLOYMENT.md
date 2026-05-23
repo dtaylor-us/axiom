@@ -39,6 +39,144 @@ Estimated total setup time: **45–60 minutes**.
 
 ## Development
 
+### Local Development with Ollama
+
+Ollama runs all LLM inference locally using Apple Silicon GPU (Metal backend)
+for fast inference with zero API costs.
+
+#### CRITICAL: Ollama must run natively on macOS
+
+Do NOT run Ollama in Docker on macOS.
+
+Docker Desktop uses a Linux VM that cannot access the Apple Silicon GPU.
+Ollama inside Docker runs on CPU only, which is 5-10x slower than native and
+causes pipeline failures:
+
+- Stage timeouts from 8-12 tok/sec instead of 40-60 tok/sec
+- Empty responses from JSON schema overflow under memory pressure
+- `characteristic_inference` returning `{}` causing pipeline abort
+
+Running Ollama natively via Homebrew uses the Metal GPU backend automatically.
+No configuration is required.
+
+#### Setup (one time)
+
+1. Install Ollama natively:
+
+   ```bash
+   brew install ollama
+   brew services start ollama
+   ```
+
+2. Pull the models:
+
+   ```bash
+   ollama pull qwen3:14b
+   ollama pull qwen3:8b
+   ```
+
+3. Verify GPU inference is working:
+
+   ```bash
+   ollama run qwen3:8b "respond with the word hello"
+   ```
+
+   It should respond in under 2 seconds on M-series chips. If it takes 10+
+   seconds, check that the native Ollama service is running, not a Docker
+   version.
+
+4. Copy and configure `.env`:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   The default `OLLAMA_BASE_URL=http://host.docker.internal:11434` is correct.
+
+5. Start the application stack:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   Ollama is not in Compose. The agent container connects to native Ollama via
+   `host.docker.internal:11434`.
+
+6. Open the application:
+
+   ```text
+   http://localhost:3000
+   ```
+
+#### Hardware configuration by Mac model
+
+| Mac model | Unified memory | Primary model | Fast model |
+|---|---:|---|---|
+| M1 / M2 base | 8 GB | `qwen3:8b` | `qwen3:8b` |
+| M1 Pro / M2 Pro | 16 GB | `qwen3:14b` | `qwen3:8b` |
+| M1 Max / M2 Max | 32 GB | `qwen3:32b` | `qwen3:14b` |
+| M2 Ultra / M3 Max/Ultra | 64-192 GB | `qwen3:32b` | `qwen3:14b` |
+
+The default configuration targets M1 Pro / M2 Pro with 16GB. Adjust `.env` for
+other models.
+
+#### Expected performance (M2 Pro 16GB)
+
+| Stage | Model | Typical duration |
+|---|---|---:|
+| Requirement parsing | `qwen3:8b` | 10-20s |
+| Requirement challenge | `qwen3:14b` | 25-50s |
+| Characteristic inference | `qwen3:14b` | 20-40s |
+| Architecture generation | `qwen3:14b` | 45-90s |
+| Full pipeline run | mixed | 8-15 minutes |
+
+CPU-only inference multiplies these times by 5-10x. Stages can fail with empty
+responses rather than complete.
+
+#### Switching between Ollama and OpenAI
+
+Edit `.env`:
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-key-here
+```
+
+Restart the agent:
+
+```bash
+docker compose restart agent
+```
+
+#### Troubleshooting
+
+Pipeline fails at `requirement_challenge` or `characteristic_inference`:
+
+```bash
+curl http://localhost:11434/api/tags
+```
+
+Check Activity Monitor. If "Virtual Machine Service for Docker" shows high CPU
+and Ollama shows 0.0 in the GPU column, Ollama is running in Docker instead of
+natively.
+
+Agent logs show UNIMPLEMENTED errors every 15 seconds:
+
+```bash
+grep OTEL_EXPORTER_OTLP_ENDPOINT .env
+```
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT=` empty in `.env` to disable local export.
+
+Ollama is not reachable from the agent container:
+
+```bash
+brew services list | grep ollama
+curl http://localhost:11434/api/tags
+```
+
+Docker Desktop resolves `host.docker.internal` automatically on macOS.
+
 ### Local password reset email testing
 
 To test password reset locally:

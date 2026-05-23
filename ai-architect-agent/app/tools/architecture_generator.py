@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
+from app.llm.budget import budget_json_list, get_input_budget
 from app.llm.client import LLMClient
 from app.llm.schemas import SCHEMAS
 from app.memory.store import MemoryStore
@@ -94,11 +96,24 @@ class ArchitectureGeneratorTool(BaseTool):
         target_scenario = (
             context.scenarios[0] if context.scenarios else {}
         )
+        provider = os.getenv("LLM_PROVIDER", "ollama")
+        num_ctx = int(os.getenv("OLLAMA_NUM_CTX_PRIMARY", "16384"))
+        input_budget = get_input_budget(_STAGE, provider, num_ctx)
+        budgeted_entities = _budget_parsed_entities(
+            context.parsed_entities,
+            max_tokens=input_budget // 3,
+        )
+        budgeted_characteristics = budget_json_list(
+            context.characteristics,
+            max_tokens=input_budget // 3,
+            stage_name=_STAGE,
+            item_label="characteristics",
+        )
 
         prompt = load_prompt(
             "architecture_generator",
-            parsed_entities=context.parsed_entities,
-            characteristics=context.characteristics,
+            parsed_entities=budgeted_entities,
+            characteristics=budgeted_characteristics,
             characteristic_conflicts=context.characteristic_conflicts,
             target_scenario=target_scenario,
             scenarios=context.scenarios,
@@ -113,6 +128,7 @@ class ArchitectureGeneratorTool(BaseTool):
             response_format="json",
             output_schema=SCHEMAS.get(_STAGE),
             schema_name=_STAGE,
+            stage_name=_STAGE,
         )
 
         repair_attempted = False
@@ -130,6 +146,7 @@ class ArchitectureGeneratorTool(BaseTool):
                 error_description=f"Invalid JSON: {exc}",
                 output_schema=SCHEMAS.get(_STAGE),
                 schema_name=_STAGE,
+                stage_name=_STAGE,
             )
             try:
                 result = json.loads(raw)
@@ -311,3 +328,36 @@ class ArchitectureGeneratorTool(BaseTool):
                 selected_style,
                 context.conversation_id,
             )
+
+
+def _budget_parsed_entities(
+    parsed_entities: dict,
+    max_tokens: int,
+) -> dict:
+    """
+    Budget list-valued parsed requirement sections.
+
+    Args:
+        parsed_entities: Requirement parser output.
+        max_tokens: Token budget for parsed requirement lists.
+
+    Returns:
+        Copy of parsed_entities with long lists truncated.
+    """
+    budgeted = dict(parsed_entities)
+    list_fields = [
+        key for key, value in parsed_entities.items()
+        if isinstance(value, list)
+    ]
+    if not list_fields:
+        return budgeted
+
+    per_field_budget = max(1, max_tokens // len(list_fields))
+    for key in list_fields:
+        budgeted[key] = budget_json_list(
+            parsed_entities[key],
+            max_tokens=per_field_budget,
+            stage_name=_STAGE,
+            item_label=f"parsed_entities.{key}",
+        )
+    return budgeted

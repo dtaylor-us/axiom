@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/26</span>
+                <span class='fraction'>26/26</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">84.61% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/26</span>
+                <span class='fraction'>22/26</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/25</span>
+                <span class='fraction'>25/25</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -181,37 +181,37 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -262,7 +262,7 @@ interface Props {
   panelRef?: RefObject&lt;HTMLDivElement | null&gt;;
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >GeneratePanel({</span>
+export function GeneratePanel({
   turnComplete,
   generationCount,
   attributesStale,
@@ -273,37 +273,37 @@ export function <span class="fstat-no" title="function not covered" >GeneratePan
   onGenerate,
   panelRef,
 }: Props) {
-<span class="cstat-no" title="statement not covered" >  if (!turnComplete) <span class="cstat-no" title="statement not covered" >return null;</span></span>
+  if (!turnComplete) return null;
 &nbsp;
-  const stateB = <span class="cstat-no" title="statement not covered" >generationCount &gt; 0 &amp;&amp; attributesStale;</span>
-  const stateC = <span class="cstat-no" title="statement not covered" >generationCount &gt; 0 &amp;&amp; !attributesStale;</span>
-  const stateA = <span class="cstat-no" title="statement not covered" >generationCount === 0;</span>
+  const stateB = generationCount &gt; 0 &amp;&amp; attributesStale;
+  const stateC = generationCount &gt; 0 &amp;&amp; !attributesStale;
+  const stateA = generationCount === 0;
 &nbsp;
-  let borderClass = <span class="cstat-no" title="statement not covered" >'border-gray-200 bg-white';</span>
-  let title = <span class="cstat-no" title="statement not covered" >'';</span>
-  let body = <span class="cstat-no" title="statement not covered" >'';</span>
-  let previewLabel = <span class="cstat-no" title="statement not covered" >'Preview what you\'d get →';</span>
-  let actionLabel = <span class="cstat-no" title="statement not covered" >'Generate ↓';</span>
+  let borderClass = 'border-gray-200 bg-white';
+  let title = '';
+  let body = '';
+  let previewLabel = 'Preview what you\'d get →';
+  let actionLabel = 'Generate ↓';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  if (stateB) {</span>
-<span class="cstat-no" title="statement not covered" >    borderClass = 'border-l-4 border-l-amber-400 border-y border-r border-amber-100/80 bg-amber-50/40';</span>
-<span class="cstat-no" title="statement not covered" >    title = '↻ New context available';</span>
-<span class="cstat-no" title="statement not covered" >    body =</span>
+  if (stateB) {
+    borderClass = 'border-l-4 border-l-amber-400 border-y border-r border-amber-100/80 bg-amber-50/40';
+    title = '↻ New context available';
+    body =
       'You have provided additional information since your last generation. Regenerate to update your quality attributes.';
-<span class="cstat-no" title="statement not covered" >    previewLabel = 'Preview changes →';</span>
-<span class="cstat-no" title="statement not covered" >    actionLabel = 'Regenerate ↓';</span>
-  } else if (<span class="cstat-no" title="statement not covered" >stateC) {</span>
-<span class="cstat-no" title="statement not covered" >    borderClass = 'border-l-4 border-l-emerald-500 border-y border-r border-emerald-100 bg-emerald-50/30';</span>
-<span class="cstat-no" title="statement not covered" >    title = `✓ Attributes generated (pass ${generationCount})`;</span>
-<span class="cstat-no" title="statement not covered" >    body = 'Continue providing context to refine them.';</span>
-<span class="cstat-no" title="statement not covered" >    previewLabel = 'Regenerate with new context ↓';</span>
-<span class="cstat-no" title="statement not covered" >    actionLabel = 'Regenerate with new context ↓';</span>
-  } else if (<span class="cstat-no" title="statement not covered" >stateA) {</span>
-<span class="cstat-no" title="statement not covered" >    title = 'Ready to generate?';</span>
-<span class="cstat-no" title="statement not covered" >    body = 'Generate quality attributes from your current evidence at any time.';</span>
+    previewLabel = 'Preview changes →';
+    actionLabel = 'Regenerate ↓';
+  } else if (stateC) {
+    borderClass = 'border-l-4 border-l-emerald-500 border-y border-r border-emerald-100 bg-emerald-50/30';
+    title = `✓ Attributes generated (pass ${generationCount})`;
+    body = 'Continue providing context to refine them.';
+    previewLabel = 'Regenerate with new context ↓';
+    actionLabel = 'Regenerate with new context ↓';
+  } else if (<span class="missing-if-branch" title="else path not taken" >E</span>stateA) {
+    title = 'Ready to generate?';
+    body = 'Generate quality attributes from your current evidence at any time.';
   }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div
       ref={panelRef}
       data-testid="workshop-generate-panel"
@@ -312,7 +312,7 @@ export function <span class="fstat-no" title="function not covered" >GeneratePan
       &lt;p className="text-[13px] font-semibold text-gray-900"&gt;{title}&lt;/p&gt;
       &lt;p className="text-[12px] text-gray-600 mt-1 leading-relaxed"&gt;{body}&lt;/p&gt;
       {stateC &amp;&amp; continuationPrompt ? (
-        &lt;p className="text-[11px] text-gray-500 mt-2 leading-relaxed border-t border-emerald-100/80 pt-2"&gt;
+<span class="branch-0 cbranch-no" title="branch not covered" >        &lt;p className="text-[11px] text-gray-500 mt-2 leading-relaxed border-t border-emerald-100/80 pt-2"&gt;</span>
           {continuationPrompt}
         &lt;/p&gt;
       ) : null}
@@ -324,7 +324,7 @@ export function <span class="fstat-no" title="function not covered" >GeneratePan
             disabled={previewLoading || generateLoading}
             className="w-full sm:w-auto rounded-xl border border-gray-300 bg-white px-3 py-2 text-[12px] font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 text-left sm:text-center"
           &gt;
-            {previewLoading ? 'Loading…' : previewLabel}
+            {previewLoading ? <span class="branch-0 cbranch-no" title="branch not covered" >'Loading…' : p</span>reviewLabel}
           &lt;/button&gt;
         )}
         &lt;button
@@ -333,7 +333,7 @@ export function <span class="fstat-no" title="function not covered" >GeneratePan
           disabled={generateLoading || previewLoading}
           className="w-full sm:w-auto rounded-xl border border-gray-300 bg-white px-3 py-2 text-[12px] font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 text-left sm:text-center"
         &gt;
-          {generateLoading ? 'Working…' : actionLabel}
+          {generateLoading ? <span class="branch-0 cbranch-no" title="branch not covered" >'Working…' : a</span>ctionLabel}
         &lt;/button&gt;
       &lt;/div&gt;
     &lt;/div&gt;
@@ -346,7 +346,7 @@ export function <span class="fstat-no" title="function not covered" >GeneratePan
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-16T14:25:39.972Z
+                at 2026-05-23T12:00:42.652Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

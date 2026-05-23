@@ -28,6 +28,12 @@ class ChatServiceTest {
     @Mock private ConversationService conversationService;
     @Mock private AgentBridgeService agentBridgeService;
     @Mock private ArchitectureOutputService architectureOutputService;
+    @Mock private GovernanceService governanceService;
+    @Mock private TacticsService tacticsService;
+    @Mock private BuyVsBuildService buyVsBuildService;
+    @Mock private UsageService usageService;
+    @Mock private PipelineRunService pipelineRunService;
+    @Mock private PipelineRunBroadcaster pipelineRunBroadcaster;
     @Spy  private ObjectMapper objectMapper = new ObjectMapper();
     @InjectMocks private ChatService chatService;
 
@@ -51,6 +57,8 @@ class ChatServiceTest {
 
         StepVerifier.create(chatService.streamChat(
                 createRequest("hello", convId), "user1"))
+                // switchOnFirst emits a RUN_CREATED event before the (empty) agent stream
+                .expectNextCount(1)
                 .verifyComplete();
 
         verify(conversationService).saveMessage(
@@ -78,7 +86,8 @@ class ChatServiceTest {
 
         StepVerifier.create(chatService.streamChat(
                 createRequest("design a system", convId), "user1"))
-                .expectNextCount(2)
+                // RUN_CREATED + chunk1 + chunk2
+                .expectNextCount(3)
                 .verifyComplete();
 
         // Verify assistant message saved in doOnComplete.
@@ -109,6 +118,8 @@ class ChatServiceTest {
 
         StepVerifier.create(chatService.streamChat(
                 createRequest("hello", null), "user1"))
+                // switchOnFirst emits a RUN_CREATED event before the (empty) agent stream
+                .expectNextCount(1)
                 .verifyComplete();
 
         verify(conversationService).resolveConversation(isNull(), eq("user1"), eq("hello"));
@@ -127,6 +138,8 @@ class ChatServiceTest {
 
         StepVerifier.create(chatService.streamChat(
                 createRequest("continue", existing), "user1"))
+                // switchOnFirst emits a RUN_CREATED event before the (empty) agent stream
+                .expectNextCount(1)
                 .verifyComplete();
 
         ArgumentCaptor<AgentRequest> captor =
@@ -158,14 +171,22 @@ class ChatServiceTest {
 
         StepVerifier.create(chatService.streamChat(
                 createRequest("design", convId), "user1"))
-                .expectNextCount(2)
+                // RUN_CREATED + chunkEvt + completeEvt
+                .expectNextCount(3)
                 .verifyComplete();
 
-        // Verify ASSISTANT message was saved with valid JSON structured output
+        // Verify ASSISTANT message was saved with valid JSON structured output.
+        // The assistant save is triggered asynchronously after stream completion.
+        ArgumentCaptor<MessageRole> roleCaptor =
+                ArgumentCaptor.forClass(MessageRole.class);
+        ArgumentCaptor<String> contentCaptor =
+                ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> structuredCaptor =
                 ArgumentCaptor.forClass(String.class);
-        verify(conversationService, times(2)).saveMessage(
-                any(), any(), any(), structuredCaptor.capture());
+        verify(conversationService, timeout(2000).times(2)).saveMessage(
+                any(), roleCaptor.capture(), contentCaptor.capture(), structuredCaptor.capture());
+        assertEquals(MessageRole.ASSISTANT, roleCaptor.getAllValues().get(1));
+        assertEquals("report", contentCaptor.getAllValues().get(1));
         String json = structuredCaptor.getAllValues().get(1);
         assertNotNull(json);
         assertTrue(json.contains("\"message\""));

@@ -22,8 +22,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
+from app.llm.budget import budget_json_list, get_input_budget
 from app.llm.client import LLMClient
 from app.prompts.loader import load_prompt
 from app.workshop.context import (
@@ -34,6 +36,7 @@ from app.workshop.context import (
 )
 
 logger = logging.getLogger(__name__)
+_STAGE = "resolve_questions"
 
 _SCENARIO_FIELDS = (
     "stimulus",
@@ -86,7 +89,15 @@ class AttributeQuestionResolver:
         if not attributes_with_questions:
             return context
 
-        evidence = self._build_evidence(context)
+        provider = os.getenv("LLM_PROVIDER", "ollama")
+        num_ctx = int(os.getenv("OLLAMA_NUM_CTX_FAST", "8192"))
+        input_budget = get_input_budget(_STAGE, provider, num_ctx)
+        evidence = budget_json_list(
+            self._build_evidence(context),
+            max_tokens=input_budget,
+            stage_name=_STAGE,
+            item_label="accumulated_evidence",
+        )
 
         prompt = load_prompt(
             "workshop/resolve_questions",
@@ -100,7 +111,7 @@ class AttributeQuestionResolver:
 
         try:
             raw = await self._llm_client.complete(
-                prompt, response_format="json"
+                prompt, response_format="json", stage_name=_STAGE
             )
             parsed = json.loads(raw)
         except Exception:

@@ -83,7 +83,11 @@ class UtilityTreeGenerator:
         )
 
         try:
-            raw = await self._llm.complete(prompt, response_format="json")
+            raw = await self._llm.complete(
+                prompt,
+                response_format="json",
+                stage_name="generate_utility_tree",
+            )
             parsed = json.loads(raw)
         except Exception:
             logger.error(

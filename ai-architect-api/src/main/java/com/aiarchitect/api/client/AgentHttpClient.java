@@ -1,8 +1,7 @@
 package com.aiarchitect.api.client;
 
-import com.aiarchitect.api.config.AgentClientConfig;
-import com.aiarchitect.api.dto.AgentRequest;
-import com.aiarchitect.api.exception.AgentCommunicationException;
+import java.time.Duration;
+
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.RateLimiter;
@@ -10,14 +9,20 @@ import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
 import io.github.resilience4j.reactor.ratelimiter.operator.RateLimiterOperator;
 import io.micrometer.observation.ObservationRegistry;
+import io.netty.channel.ChannelOption;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
-import java.time.Duration;
+import reactor.netty.http.client.HttpClient;
+
+import com.aiarchitect.api.config.AgentClientConfig;
+import com.aiarchitect.api.dto.AgentRequest;
+import com.aiarchitect.api.exception.AgentCommunicationException;
 
 /**
  * HTTP client for communicating with the AI Agent service.
@@ -57,8 +62,13 @@ public class AgentHttpClient {
         this.config = config;
         this.circuitBreaker = circuitBreaker;
         this.rateLimiter = rateLimiter;
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS,
+                        config.getConnectTimeoutSeconds() * 1000)
+                .responseTimeout(Duration.ofSeconds(config.getReadTimeoutSeconds()));
         this.webClient = WebClient.builder()
                 .baseUrl(config.getBaseUrl())
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader(HttpHeaders.CONTENT_TYPE,
                                MediaType.APPLICATION_JSON_VALUE)
                 .defaultHeader("X-Internal-Secret", config.getInternalSecret())
@@ -89,7 +99,7 @@ public class AgentHttpClient {
                                     "Agent error " + response.statusCode()
                                     + ": " + body)))
                 .bodyToFlux(String.class)
-                .timeout(Duration.ofSeconds(config.getTimeoutSeconds()))
+                .timeout(Duration.ofSeconds(config.getReadTimeoutSeconds()))
                 .filter(line -> !line.isBlank())
                 .transformDeferred(RateLimiterOperator.of(rateLimiter))
                 .transformDeferred(CircuitBreakerOperator.of(circuitBreaker))

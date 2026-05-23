@@ -15,9 +15,15 @@ public class AgentClientConfig {
     
     /** Internal secret for authentication */
     private String internalSecret;
+
+    /** Connection timeout in seconds for opening the agent socket. */
+    private int connectTimeoutSeconds = 10;
+
+    /** Read timeout in seconds for long-running local LLM inference. */
+    private int readTimeoutSeconds = 360;
     
-    /** Request timeout in seconds (default: 600). */
-    private int timeoutSeconds = 600;
+    /** Legacy request timeout in seconds retained for older local profiles. */
+    private int timeoutSeconds = 360;
 
     /** Circuit breaker sliding window size (default: 10 calls) */
     private int cbSlidingWindowSize = 10;
