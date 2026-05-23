@@ -175,11 +175,18 @@ class ChatServiceTest {
                 .expectNextCount(3)
                 .verifyComplete();
 
-        // Verify ASSISTANT message was saved with valid JSON structured output
+        // Verify ASSISTANT message was saved with valid JSON structured output.
+        // The assistant save is triggered asynchronously after stream completion.
+        ArgumentCaptor<MessageRole> roleCaptor =
+                ArgumentCaptor.forClass(MessageRole.class);
+        ArgumentCaptor<String> contentCaptor =
+                ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> structuredCaptor =
                 ArgumentCaptor.forClass(String.class);
-        verify(conversationService, times(2)).saveMessage(
-                any(), any(), any(), structuredCaptor.capture());
+        verify(conversationService, timeout(2000).times(2)).saveMessage(
+                any(), roleCaptor.capture(), contentCaptor.capture(), structuredCaptor.capture());
+        assertEquals(MessageRole.ASSISTANT, roleCaptor.getAllValues().get(1));
+        assertEquals("report", contentCaptor.getAllValues().get(1));
         String json = structuredCaptor.getAllValues().get(1);
         assertNotNull(json);
         assertTrue(json.contains("\"message\""));
