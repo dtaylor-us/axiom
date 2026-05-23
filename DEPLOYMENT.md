@@ -39,6 +39,117 @@ Estimated total setup time: **45–60 minutes**.
 
 ## Development
 
+### Local Development with Ollama
+
+Ollama runs LLM inference locally in Docker. Local development defaults to
+`LLM_PROVIDER=ollama`; production can switch to OpenAI with only an `.env`
+change and an agent restart.
+
+#### Hardware requirements
+
+| Tier | VRAM | Primary model | Fast model | Recommended for |
+|---|---:|---|---|---|
+| 1 | 8 GB | `qwen3:8b` | `qwen3:8b` | Prompt iteration |
+| 2 | 12-16 GB | `qwen3:14b` | `qwen3:8b` | Daily development |
+| 3 | 24 GB+ | `qwen3:32b` | `qwen3:14b` | Quality validation |
+| CPU | None | `qwen3:8b` | `qwen3:8b` | Emergency fallback |
+
+Tier 2 is the recommended development configuration. Apple Silicon with
+16GB+ unified memory works well as a Tier 2 equivalent because Ollama uses
+Metal automatically.
+
+#### First-time setup
+
+```bash
+cp .env.example .env
+```
+
+Set your hardware tier in `.env`:
+
+```bash
+OLLAMA_HARDWARE_TIER=2
+```
+
+Start the stack and pull the configured models:
+
+```bash
+docker compose up -d
+docker compose run --rm ollama-init
+```
+
+Verify Ollama and open the application:
+
+```bash
+curl http://localhost:11434/api/tags
+```
+
+```text
+http://localhost:3000
+```
+
+#### Switching back to OpenAI
+
+Edit `.env`:
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-key-here
+```
+
+Restart the agent:
+
+```bash
+docker compose restart agent
+```
+
+#### Managing model storage
+
+Model weights are stored in the named `ollama_models` Docker volume. It is
+explicitly named `aiarchitect-ollama-models` so models survive compose restarts.
+
+```bash
+docker system df -v | grep aiarchitect-ollama-models
+docker volume rm aiarchitect-ollama-models
+```
+
+After removing the volume, run `docker compose run --rm ollama-init` again.
+
+#### Performance tuning
+
+`OLLAMA_KEEP_ALIVE=24h` keeps models warm between requests. Reduce it only if
+you need to free VRAM while not actively developing.
+
+`OLLAMA_NUM_PARALLEL=2` allows the workshop and main pipeline to run
+concurrently. Reduce it to `1` if you observe VRAM pressure.
+
+`OLLAMA_TEMPERATURE=0.1` is set low for structured output reliability. Keep it
+at or below `0.3` for pipeline runs.
+
+#### Expected Tier 2 performance
+
+| Stage | Model | Typical duration |
+|---|---|---:|
+| Requirement parsing | `qwen3:8b` | 8-15s |
+| Characteristic inference | `qwen3:14b` | 20-40s |
+| Architecture generation | `qwen3:14b` | 45-90s |
+| Diagram generation | `qwen3:14b` | 20-35s per type |
+| FMEA analysis | `qwen3:14b` | 40-80s |
+| ADL generation | `qwen3:14b` | 25-50s |
+| Full pipeline run | mixed | 8-15 minutes |
+
+#### Troubleshooting
+
+```bash
+docker compose ps ollama
+docker compose exec ollama curl http://localhost:11434/api/tags
+```
+
+If structured output errors appear, avoid very small quantisations such as
+`:q2_K`. Use `:latest`, `:q4_K_M`, or `:q6_K`.
+
+If pipeline runs time out, increase `AGENT_READ_TIMEOUT` in `.env`. If context
+errors appear, reduce `OLLAMA_NUM_CTX_PRIMARY` to match your VRAM headroom.
+
 ### Local password reset email testing
 
 To test password reset locally:

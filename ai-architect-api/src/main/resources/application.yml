@@ -43,7 +43,10 @@ email:
 agent:
   base-url: ${AGENT_BASE_URL:http://localhost:8001}
   internal-secret: ${AGENT_INTERNAL_SECRET:dev-secret-change-in-prod}
-  timeout-seconds: 120
+  connect-timeout-seconds: ${AGENT_CONNECT_TIMEOUT:10}
+  read-timeout-seconds: ${AGENT_READ_TIMEOUT:360}
+  timeout-seconds: ${AGENT_READ_TIMEOUT:360}
+  llm-provider: ${LLM_PROVIDER:ollama}
 
 management:
   endpoints:

@@ -357,7 +357,9 @@ class QualityAttributeWorkshopAgent:
         )
 
         raw = await self._llm_client.complete(
-            prompt, response_format="json"
+            prompt,
+            response_format="json",
+            stage_name="assess_generation_readiness",
         )
         assessment = json.loads(raw)
 
@@ -418,7 +420,9 @@ class QualityAttributeWorkshopAgent:
         )
 
         raw = await self._llm_client.complete(
-            prompt, response_format="json"
+            prompt,
+            response_format="json",
+            stage_name="generate_from_evidence",
         )
         parsed = json.loads(raw)
 
@@ -618,5 +622,9 @@ class QualityAttributeWorkshopAgent:
             "workshop/produce_summary",
             workshop_context=summary_context,
         )
-        raw = await self._llm_client.complete(prompt, response_format="json")
+        raw = await self._llm_client.complete(
+            prompt,
+            response_format="json",
+            stage_name="produce_summary",
+        )
         return json.loads(raw)

@@ -39,6 +39,7 @@ class RequirementChallengeEngineTool(BaseTool):
             response_format="json",
             output_schema=SCHEMAS.get(_STAGE),
             schema_name=_STAGE,
+            stage_name=_STAGE,
         )
 
         repair_attempted = False
@@ -55,6 +56,7 @@ class RequirementChallengeEngineTool(BaseTool):
                 error_description=f"Invalid JSON: {e}",
                 output_schema=SCHEMAS.get(_STAGE),
                 schema_name=_STAGE,
+                stage_name=_STAGE,
             )
             try:
                 result = json.loads(raw)
@@ -113,7 +115,9 @@ class RequirementChallengeEngineTool(BaseTool):
             review_constraints=context.review_constraints,
         )
 
-        raw = await self.llm_client.complete(prompt, response_format="json")
+        raw = await self.llm_client.complete(
+            prompt, response_format="json", stage_name=_STAGE
+        )
 
         try:
             result = json.loads(raw)

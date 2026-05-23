@@ -14,12 +14,15 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
+from app.llm.budget import budget_json_list, get_input_budget
 from app.llm.client import LLMClient
 from app.prompts.loader import load_prompt
 from app.workshop.context import InformationGap, WorkshopContext
 
 logger = logging.getLogger(__name__)
+_STAGE = "reconcile_gaps"
 
 
 class GapReconciler:
@@ -48,7 +51,15 @@ class GapReconciler:
         if not open_gaps:
             return context
 
-        accumulated_evidence = self._build_evidence_digest(context)
+        provider = os.getenv("LLM_PROVIDER", "ollama")
+        num_ctx = int(os.getenv("OLLAMA_NUM_CTX_FAST", "8192"))
+        input_budget = get_input_budget(_STAGE, provider, num_ctx)
+        accumulated_evidence = budget_json_list(
+            self._build_evidence_digest(context),
+            max_tokens=input_budget,
+            stage_name=_STAGE,
+            item_label="accumulated_evidence",
+        )
 
         prompt = load_prompt(
             "workshop/reconcile_gaps",
@@ -57,7 +68,7 @@ class GapReconciler:
         )
 
         raw = await self._llm_client.complete(
-            prompt, response_format="json",
+            prompt, response_format="json", stage_name=_STAGE,
         )
         parsed = json.loads(raw)
 

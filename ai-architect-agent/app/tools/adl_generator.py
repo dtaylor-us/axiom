@@ -94,6 +94,7 @@ class ADLGeneratorV2Tool(BaseTool):
             response_format="json",
             output_schema=SCHEMAS.get(_STAGE),
             schema_name=_STAGE,
+            stage_name=_STAGE,
         )
 
         repair_attempted = False
@@ -110,6 +111,7 @@ class ADLGeneratorV2Tool(BaseTool):
                 error_description=f"Invalid JSON: {e}",
                 output_schema=SCHEMAS.get(_STAGE),
                 schema_name=_STAGE,
+                stage_name=_STAGE,
             )
             try:
                 parsed = json.loads(raw)

@@ -99,7 +99,9 @@ async def challenge_assumptions_node(state: ReviewState) -> dict:
             scenarios=rc.scenarios,
         )
 
-        raw = await llm.complete(prompt, response_format="json")
+        raw = await llm.complete(
+            prompt, response_format="json", stage_name=node_name
+        )
         parsed = json.loads(raw)
 
         challenges = [
@@ -166,7 +168,9 @@ async def stress_test_trade_offs_node(state: ReviewState) -> dict:
             ],
         )
 
-        raw = await llm.complete(prompt, response_format="json")
+        raw = await llm.complete(
+            prompt, response_format="json", stage_name=node_name
+        )
         parsed = json.loads(raw)
 
         challenges = [
@@ -224,7 +228,9 @@ async def audit_adl_node(state: ReviewState) -> dict:
             fmea_risks=rc.fmea_risks,
         )
 
-        raw = await llm.complete(prompt, response_format="json")
+        raw = await llm.complete(
+            prompt, response_format="json", stage_name=node_name
+        )
         parsed = json.loads(raw)
 
         issues = [
@@ -298,7 +304,9 @@ async def score_governance_node(state: ReviewState) -> dict:
             adl_issues=[i.model_dump() for i in rc.adl_issues],
         )
 
-        raw = await llm.complete(prompt, response_format="json")
+        raw = await llm.complete(
+            prompt, response_format="json", stage_name=node_name
+        )
         parsed = json.loads(raw)
 
         # Parse score breakdown

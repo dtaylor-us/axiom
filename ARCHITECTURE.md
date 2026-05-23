@@ -461,17 +461,63 @@ ASSERT structured_output_enforcement {
 }
 
 ASSERT provider_schema_enforcement {
-  When output_schema is provided and the LLM provider is NOT ollama:
+  When output_schema is provided and the LLM provider is openai:
     — The provider MUST be called with {"type": "json_schema",
-      "json_schema": {"name": schema_name, "strict": true, "schema": ...}}
-      via LangChain's .bind(response_format=...) before .ainvoke().
+      "json_schema": {"name": schema_name, "strict": true, "schema": ...}}.
   When the provider is ollama:
-    — Falls back to {"type": "json_object"} and logs DEBUG.
-    — REASON: Ollama does not support json_schema response format.
-  When the provider rejects the strict schema (heuristic on error message):
-    — Falls back to {"type": "json_object"}.
-    — Logs WARNING with schema_enforcement_fallback=True attribute.
-    — REASON: Allows graceful degradation for providers with partial support.
+    — The provider MUST be called with format equal to the output_schema dict.
+    — REASON: Ollama supports native schema-constrained generation via format.
+  When no output_schema exists for a JSON stage:
+    — format="json" or response_format={"type": "json_object"} is acceptable.
+}
+
+DEFINE COMPONENT LLMClient AS app.llm.client {
+  Provider-abstracted LLM client. Supports ollama for local inference and
+  openai for production inference. Selected via LLM_PROVIDER environment
+  variable. All pipeline code is provider-agnostic; only LLMClient knows
+  which provider is active.
+
+  Model tiering applies to Ollama only. FAST_MODEL_STAGES receive the fast
+  model for short structured output generation. All other stages receive
+  the primary model for deep reasoning. Model selection is transparent to
+  callers.
+
+  Context budgeting lives in app.llm.budget. High-context stages apply
+  truncation before prompt rendering to avoid silent truncation by Ollama's
+  hard num_ctx limit.
+}
+
+DEFINE COMPONENT OllamaContainer AS infrastructure {
+  Local inference container running ollama/ollama:latest on port 11434.
+  GPU passthrough is configured by Docker deploy.resources. Models are pulled
+  by the ollama-init init container and stored in the named Docker volume
+  aiarchitect-ollama-models.
+}
+
+ASSERT llm_provider_abstraction {
+  All pipeline tools and workshop nodes MUST call LLMClient.complete() with
+  a stage_name parameter.
+
+  No pipeline code outside app.llm.client MUST reference the Ollama API or
+  OpenAI API directly.
+
+  FAST_MODEL_STAGES is the authoritative list of stages that use the fast
+  model. Adding a stage to the pipeline without considering its model tier
+  is prohibited.
+
+  Context budgeting MUST be applied before rendering any prompt that passes
+  lists of JSON objects with more than 10 items to the LLM.
+}
+
+ASSERT ollama_structured_output {
+  When provider=ollama, the format parameter MUST be set to the output_schema
+  dict when one is provided.
+
+  Passing format="json" without a schema is acceptable only when no Pydantic
+  model exists for the stage output.
+
+  OLLAMA_TEMPERATURE MUST be <= 0.3 for any stage that uses structured output.
+  Higher temperatures degrade JSON schema compliance.
 }
 
 ASSERT single_repair_per_stage {

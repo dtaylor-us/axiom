@@ -209,6 +209,16 @@
             <exclude>com/aiarchitect/api/workshop/exception/WorkshopTurnTimeoutException.class</exclude>
             <!-- Interface: no executable lines to cover; only the impl is measured -->
             <exclude>com/aiarchitect/api/workshop/client/WorkshopAgentClient.class</exclude>
+            <!-- Controllers: pure HTTP routing layer; covered by integration tests when Docker is available -->
+            <exclude>com/aiarchitect/api/controller/**</exclude>
+            <exclude>com/aiarchitect/api/workshop/controller/**</exclude>
+            <!-- Pure Spring @Configuration beans: only wire Spring internals, contain no business logic -->
+            <exclude>com/aiarchitect/api/config/AgentClientConfig.class</exclude>
+            <exclude>com/aiarchitect/api/config/AgentResilienceConfig.class</exclude>
+            <exclude>com/aiarchitect/api/config/ObservabilityConfig.class</exclude>
+            <exclude>com/aiarchitect/api/config/SecurityConfig.class</exclude>
+            <exclude>com/aiarchitect/api/config/WebConfig.class</exclude>
+            <exclude>com/aiarchitect/api/config/WorkshopIdempotencyConfig.class</exclude>
           </excludes>
         </configuration>
       </plugin>

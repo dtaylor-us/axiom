@@ -27,6 +27,52 @@ services:
       timeout: 5s
       retries: 3
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aiarchitect-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_MAX_LOADED_MODELS=2
+      - OLLAMA_NUM_PARALLEL=2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: aiarchitect-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Pulling primary model: ${OLLAMA_PRIMARY_MODEL:-qwen3:14b}' &&
+        ollama pull ${OLLAMA_PRIMARY_MODEL:-qwen3:14b} &&
+        echo 'Pulling fast model: ${OLLAMA_FAST_MODEL:-qwen3:8b}' &&
+        ollama pull ${OLLAMA_FAST_MODEL:-qwen3:8b} &&
+        echo 'Model pull complete'
+      "
+    restart: "no"
+
   qdrant:
     image: qdrant/qdrant:v1.13.2
     container_name: archon-qdrant
@@ -61,8 +107,17 @@ services:
     container_name: archon-agent
     environment:
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-secret-change-in-prod}
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_HARDWARE_TIER: ${OLLAMA_HARDWARE_TIER:-2}
+      OLLAMA_PRIMARY_MODEL: ${OLLAMA_PRIMARY_MODEL:-qwen3:14b}
+      OLLAMA_FAST_MODEL: ${OLLAMA_FAST_MODEL:-qwen3:8b}
+      OLLAMA_NUM_CTX_PRIMARY: ${OLLAMA_NUM_CTX_PRIMARY:-16384}
+      OLLAMA_NUM_CTX_FAST: ${OLLAMA_NUM_CTX_FAST:-8192}
+      OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.1}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.2}
       AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
       AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
       AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-gpt-4o}
@@ -73,6 +128,8 @@ services:
       OTEL_TRACES_SAMPLER: always_on
     ports: ["8001:8001"]
     depends_on:
+      ollama:
+        condition: service_healthy
       qdrant:
         condition: service_healthy
       jaeger:
@@ -93,7 +150,10 @@ services:
       DB_USER: archon
       DB_PASSWORD: ${POSTGRES_PASSWORD:-localdev}
       AGENT_BASE_URL: http://agent:8001
+      AGENT_READ_TIMEOUT: ${AGENT_READ_TIMEOUT:-360}
       AGENT_INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-secret-change-in-prod}
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-minimum-32-chars-here}
       SMTP_HOST: ${SMTP_HOST:-mailhog}
       SMTP_PORT: ${SMTP_PORT:-1025}
@@ -167,5 +227,7 @@ services:
 volumes:
   postgres_data:
   qdrant_data:
+  ollama_models:
+    name: aiarchitect-ollama-models
   prometheus_data:
   grafana_data:

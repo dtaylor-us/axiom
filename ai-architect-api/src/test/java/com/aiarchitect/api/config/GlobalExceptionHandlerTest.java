@@ -3,6 +3,7 @@ package com.aiarchitect.api.config;
 import com.aiarchitect.api.exception.InvalidResetTokenException;
 import com.aiarchitect.api.exception.PasswordValidationException;
 import com.aiarchitect.api.exception.RateLimitExceededException;
+import com.aiarchitect.api.exception.AgentCommunicationException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
@@ -13,11 +14,17 @@ import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
+import java.net.ConnectException;
+import java.net.URI;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,6 +41,18 @@ class GlobalExceptionHandlerTest {
                 new IllegalArgumentException("bad input"));
         assertEquals(HttpStatus.BAD_REQUEST.value(), pd.getStatus());
         assertEquals("bad input", pd.getDetail());
+    }
+
+    @Test
+    void handleNotFound_returnsTyped404Problem() {
+        ProblemDetail pd = handler.handleNotFound(new NoHandlerFoundException(
+                "GET",
+                "/missing",
+                HttpHeaders.EMPTY));
+
+        assertEquals(HttpStatus.NOT_FOUND.value(), pd.getStatus());
+        assertEquals("Not Found", pd.getTitle());
+        assertEquals(URI.create("urn:archon:not-found"), pd.getType());
     }
 
     @Test
@@ -135,5 +154,30 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("password_invalid", response.getBody().get("error"));
+    }
+
+    @Test
+    void handleWebClientRequest_returnsAgentUnavailableProblem() {
+        WebClientRequestException ex = new WebClientRequestException(
+                new ConnectException("connection refused"),
+                HttpMethod.POST,
+                URI.create("http://agent.test/chat"),
+                HttpHeaders.EMPTY);
+
+        ProblemDetail pd = handler.handleWebClientRequest(ex);
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), pd.getStatus());
+        assertEquals("Service Unavailable", pd.getTitle());
+        assertEquals(URI.create("urn:archon:agent-unavailable"), pd.getType());
+    }
+
+    @Test
+    void handleAgentCommunication_returnsAgentUnavailableProblem() {
+        ProblemDetail pd = handler.handleAgentCommunication(
+                new AgentCommunicationException("agent down"));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), pd.getStatus());
+        assertEquals("Service Unavailable", pd.getTitle());
+        assertEquals(URI.create("urn:archon:agent-unavailable"), pd.getType());
     }
 }

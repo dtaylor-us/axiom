@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -873,6 +874,156 @@ class WorkshopServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(e -> ((ResponseStatusException) e).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_GATEWAY);
+    }
+
+    // ── listSessions ─────────────────────────────────────────────────────────
+
+    @Test
+    void listSessions_returnsEmptyListWhenUserHasNoSessions() {
+        when(sessionRepo.findByUserIdOrderByCreatedAtDesc("u@ex.com")).thenReturn(List.of());
+
+        List<WorkshopSessionDto> result = service.listSessions("u@ex.com");
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void listSessions_returnsMappedDtosForAllUserSessions() {
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        WorkshopSession s1 = WorkshopSession.builder()
+                .id(id1).userId("u@ex.com").systemName("System A")
+                .workshopPhase("intro").complete(false).contextJson("{}")
+                .createdAt(Instant.now()).build();
+        WorkshopSession s2 = WorkshopSession.builder()
+                .id(id2).userId("u@ex.com").systemName("System B")
+                .workshopPhase("elicit").complete(true).contextJson("{}")
+                .createdAt(Instant.now()).build();
+        when(sessionRepo.findByUserIdOrderByCreatedAtDesc("u@ex.com"))
+                .thenReturn(List.of(s1, s2));
+
+        List<WorkshopSessionDto> result = service.listSessions("u@ex.com");
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).systemName()).isEqualTo("System A");
+        assertThat(result.get(1).systemName()).isEqualTo("System B");
+        assertThat(result.get(1).isComplete()).isTrue();
+    }
+
+    // ── assessGenerationReadiness ─────────────────────────────────────────────
+
+    @Test
+    void assessGenerationReadiness_returnsReadinessDtoFromAgentResponse() throws Exception {
+        UUID id = UUID.randomUUID();
+        WorkshopSession session = WorkshopSession.builder()
+                .id(id).userId("u@ex.com").systemName("S")
+                .workshopPhase("P").complete(false).contextJson("{\"key\":\"val\"}")
+                .build();
+        when(sessionRepo.findByIdAndUserId(id, "u@ex.com")).thenReturn(Optional.of(session));
+
+        ObjectNode agentResponse = objectMapper.createObjectNode();
+        agentResponse.put("overall_readiness", "HIGH");
+        agentResponse.put("confidence_note", "Good coverage");
+        agentResponse.put("can_produce_useful_output", true);
+        agentResponse.putArray("attribute_preview");
+        agentResponse.putArray("high_value_gaps");
+        agentResponse.putArray("missing_domains");
+        when(workshopAgentClient.postWorkshopAssessReadiness(any())).thenReturn(agentResponse);
+
+        GenerationReadinessDto result = service.assessGenerationReadiness(id, "u@ex.com");
+
+        assertThat(result.overallReadiness()).isEqualTo("HIGH");
+        assertThat(result.confidenceNote()).isEqualTo("Good coverage");
+        assertThat(result.canProduceUsefulOutput()).isTrue();
+        assertThat(result.attributePreview()).isEmpty();
+    }
+
+    @Test
+    void assessGenerationReadiness_throwsNotFoundWhenSessionDoesNotBelongToUser() {
+        UUID id = UUID.randomUUID();
+        when(sessionRepo.findByIdAndUserId(id, "other@ex.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.assessGenerationReadiness(id, "other@ex.com"))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // ── generateAttributes ────────────────────────────────────────────────────
+
+    @Test
+    void generateAttributes_persistsUpdatedContextAndReturnsGenerationDto() throws Exception {
+        UUID id = UUID.randomUUID();
+        WorkshopSession session = WorkshopSession.builder()
+                .id(id).userId("u@ex.com").systemName("S")
+                .workshopPhase("P").complete(false).contextJson("{}")
+                .build();
+        when(sessionRepo.findByIdAndUserId(id, "u@ex.com")).thenReturn(Optional.of(session));
+        when(sessionRepo.save(any())).thenReturn(session);
+
+        ObjectNode generationResponse = objectMapper.createObjectNode();
+        generationResponse.put("generation_count", 3);
+        generationResponse.put("overall_readiness", "HIGH");
+        generationResponse.put("confidence_note", "Strong signal");
+        generationResponse.put("attributes_generated", 3);
+        generationResponse.put("generation_summary", "Generated 3 attributes");
+        generationResponse.put("can_continue_refining", true);
+        generationResponse.put("continuation_prompt", "");
+        generationResponse.putArray("attribute_preview");
+        generationResponse.putArray("high_value_gaps");
+        generationResponse.putArray("missing_domains");
+
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("updated_context_json", "{\"attributes\":[]}");
+        root.set("generation_response", generationResponse);
+        when(workshopAgentClient.postWorkshopGenerate(any())).thenReturn(root);
+
+        when(attributeRepo.findBySessionIdOrderByImportanceAscNameAsc(id))
+                .thenReturn(List.of());
+
+        WorkshopGenerationResponseDto result = service.generateAttributes(id, "u@ex.com");
+
+        assertThat(result.sessionId()).isEqualTo(id);
+        assertThat(result.generationCount()).isEqualTo(3);
+        assertThat(result.overallReadiness()).isEqualTo("HIGH");
+        verify(sessionRepo).save(any());
+        verify(attributeRepo).deleteBySessionId(id);
+    }
+
+    @Test
+    void generateAttributes_handlesUnparseableUpdatedContextGracefully() throws Exception {
+        UUID id = UUID.randomUUID();
+        WorkshopSession session = WorkshopSession.builder()
+                .id(id).userId("u@ex.com").systemName("S")
+                .workshopPhase("P").complete(false).contextJson("{}")
+                .build();
+        when(sessionRepo.findByIdAndUserId(id, "u@ex.com")).thenReturn(Optional.of(session));
+        when(sessionRepo.save(any())).thenReturn(session);
+
+        // updated_context_json is deliberately invalid JSON to trigger the warn branch
+        ObjectNode generationResponse = objectMapper.createObjectNode();
+        generationResponse.put("generation_count", 0);
+        generationResponse.put("overall_readiness", "LOW");
+        generationResponse.put("confidence_note", "");
+        generationResponse.put("attributes_generated", 0);
+        generationResponse.put("generation_summary", "");
+        generationResponse.put("can_continue_refining", false);
+        generationResponse.put("continuation_prompt", "");
+        generationResponse.putArray("attribute_preview");
+        generationResponse.putArray("high_value_gaps");
+        generationResponse.putArray("missing_domains");
+
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("updated_context_json", "NOT VALID JSON {{{{");
+        root.set("generation_response", generationResponse);
+        when(workshopAgentClient.postWorkshopGenerate(any())).thenReturn(root);
+
+        when(attributeRepo.findBySessionIdOrderByImportanceAscNameAsc(id))
+                .thenReturn(List.of());
+
+        // Must not throw even when updated_context_json cannot be parsed
+        assertThatCode(() -> service.generateAttributes(id, "u@ex.com"))
+                .doesNotThrowAnyException();
     }
 }
 

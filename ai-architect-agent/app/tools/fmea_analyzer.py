@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
-from app.models import ArchitectureContext
+from app.llm.budget import budget_json_list, get_input_budget
 from app.llm.schemas import SCHEMAS
+from app.models import ArchitectureContext
 from app.prompts.loader import load_prompt
 from app.tools.base import BaseTool, ToolExecutionException
 
@@ -21,13 +23,28 @@ class FMEAPlusTool(BaseTool):
             raise ToolExecutionException(
                 "Cannot perform FMEA without architecture design"
             )
+        provider = os.getenv("LLM_PROVIDER", "ollama")
+        num_ctx = int(os.getenv("OLLAMA_NUM_CTX_PRIMARY", "16384"))
+        input_budget = get_input_budget(_STAGE, provider, num_ctx)
+        budgeted_components = budget_json_list(
+            context.architecture_design.get("components", []),
+            max_tokens=input_budget // 3,
+            stage_name=_STAGE,
+            item_label="architecture_components",
+        )
+        budgeted_weaknesses = budget_json_list(
+            context.weaknesses,
+            max_tokens=input_budget // 3,
+            stage_name=_STAGE,
+            item_label="weaknesses",
+        )
 
         prompt = load_prompt(
             "fmea_analyzer",
             architecture_design=context.architecture_design,
-            components=context.architecture_design.get("components", []),
+            components=budgeted_components,
             characteristics=context.characteristics,
-            weaknesses=context.weaknesses,
+            weaknesses=budgeted_weaknesses,
             trade_offs=context.trade_offs,
             scenarios=context.scenarios,
             canonical_decisions=context.canonical_decisions,
@@ -38,6 +55,7 @@ class FMEAPlusTool(BaseTool):
             response_format="json",
             output_schema=SCHEMAS.get(_STAGE),
             schema_name=_STAGE,
+            stage_name=_STAGE,
         )
 
         repair_attempted = False
@@ -54,6 +72,7 @@ class FMEAPlusTool(BaseTool):
                 error_description=f"Invalid JSON: {e}",
                 output_schema=SCHEMAS.get(_STAGE),
                 schema_name=_STAGE,
+                stage_name=_STAGE,
             )
             try:
                 parsed = json.loads(raw)

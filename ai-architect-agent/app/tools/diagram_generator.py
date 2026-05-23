@@ -188,6 +188,7 @@ class DiagramGeneratorTool(BaseTool):
                 response_format="json",
                 output_schema=SCHEMAS.get(_STAGE_SINGLE),
                 schema_name=_STAGE_SINGLE,
+                stage_name=_STAGE_SINGLE,
             )
         except Exception as exc:
             logger.warning(
@@ -210,6 +211,7 @@ class DiagramGeneratorTool(BaseTool):
                     error_description=f"Invalid JSON: {exc}",
                     output_schema=SCHEMAS.get(_STAGE_SINGLE),
                     schema_name=_STAGE_SINGLE,
+                    stage_name=_STAGE_SINGLE,
                 )
                 parsed = json.loads(raw)
             except Exception as repair_exc:
@@ -338,7 +340,7 @@ class DiagramGeneratorTool(BaseTool):
             "Return only the corrected Mermaid source."
         )
         repaired_raw = await self.llm_client.complete(
-            repair_prompt, response_format="text"
+            repair_prompt, response_format="text", stage_name=_STAGE_SINGLE
         )
         repaired_source = repaired_raw.strip()
         if repaired_source.startswith("```"):
