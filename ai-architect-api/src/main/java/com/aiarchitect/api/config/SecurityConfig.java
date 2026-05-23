@@ -39,6 +39,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Allow async dispatches (SseEmitter completion) without re-auth
                 .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
+                .requestMatchers(
+                        "/api/v1/auth/forgot-password",
+                        "/api/v1/auth/reset-password",
+                        "/api/v1/auth/reset-password/validate"
+                ).permitAll()
                 // Public authentication endpoints
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 // Public actuator and health endpoints

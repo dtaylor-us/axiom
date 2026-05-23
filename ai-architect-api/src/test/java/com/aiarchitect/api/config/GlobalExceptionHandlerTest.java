@@ -1,5 +1,8 @@
 package com.aiarchitect.api.config;
 
+import com.aiarchitect.api.exception.InvalidResetTokenException;
+import com.aiarchitect.api.exception.PasswordValidationException;
+import com.aiarchitect.api.exception.RateLimitExceededException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
@@ -11,8 +14,11 @@ import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -101,5 +107,33 @@ class GlobalExceptionHandlerTest {
         ProblemDetail pd = handler.handleRateLimited(ex);
         assertEquals(HttpStatus.TOO_MANY_REQUESTS.value(), pd.getStatus());
         assertTrue(pd.getDetail().contains("Too many requests"));
+    }
+
+    @Test
+    void handlePasswordResetRateLimit_returns429WithRetryAfter() {
+        ResponseEntity<Map<String, Object>> response = handler.handleRateLimit(
+                new RateLimitExceededException("Too many requests. Please wait before trying again."));
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, response.getStatusCode());
+        assertEquals("3600", response.getHeaders().getFirst("Retry-After"));
+        assertEquals("rate_limit_exceeded", response.getBody().get("error"));
+    }
+
+    @Test
+    void handleInvalidToken_returns410() {
+        ResponseEntity<Map<String, Object>> response = handler.handleInvalidToken(
+                new InvalidResetTokenException("Expired token"));
+
+        assertEquals(HttpStatus.GONE, response.getStatusCode());
+        assertEquals("invalid_token", response.getBody().get("error"));
+    }
+
+    @Test
+    void handlePasswordValidation_returns400() {
+        ResponseEntity<Map<String, Object>> response = handler.handlePasswordValidation(
+                new PasswordValidationException("Bad password"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("password_invalid", response.getBody().get("error"));
     }
 }

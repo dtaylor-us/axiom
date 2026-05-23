@@ -5,8 +5,8 @@ import { useBuyVsBuild } from '../hooks/useBuyVsBuild';
 import { useStore } from '../store/useStore';
 import { MermaidDiagram } from '../components/MermaidDiagram';
 import { CopyButton } from '../components/CopyButton';
-import { StructuredDataCard, StructuredExportBar } from '../components/StructuredData';
-import type { ArchitectureOutput, DiagramCollectionDto, BuyVsBuildDecision } from '../types/api';
+import { StructuredDataCard, StructuredExportBar, MarkdownExportActions } from '../components/StructuredData';
+import type { ArchitectureOutput, DiagramCollectionDto, DiagramDto, BuyVsBuildDecision } from '../types/api';
 
 /* ── Export helpers ─────────────────────────────── */
 
@@ -48,14 +48,38 @@ function buildArchitectureMarkdown(
   return lines.join('\n');
 }
 
-function downloadMarkdown(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+/**
+ * Shows raw Mermaid source when agent-side syntax validation failed.
+ */
+function DiagramDisplay({ diagram }: { diagram: DiagramDto }) {
+  if (diagram.hasSyntaxError) {
+    return (
+      <div className="border border-amber-200 bg-amber-50 rounded-lg p-3" data-testid="diagram-error-state">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-amber-950">{diagram.title}</span>
+          <span className="text-xs font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-0.5">
+            Diagram syntax error
+          </span>
+        </div>
+        <p className="text-sm text-amber-900 mt-2">
+          This diagram could not be rendered due to a syntax error. The raw source is shown below for reference.
+        </p>
+        <pre className="mt-3 max-h-96 overflow-auto rounded bg-white border border-amber-100 p-3 text-xs text-gray-800 whitespace-pre-wrap">
+          {diagram.mermaidSource}
+        </pre>
+        <p className="text-xs text-amber-900 mt-2">
+          Error: {diagram.syntaxErrorDescription}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <MermaidDiagram
+      chart={diagram.mermaidSource}
+      id={`diagram-${diagram.diagramId}`}
+    />
+  );
 }
 
 /* ── Component ───────────────────────────────────── */
@@ -110,14 +134,6 @@ export function ArchitectureView() {
   }
 
   const markdown = buildArchitectureMarkdown(architecture, diagramCollection ?? null);
-  const structured = {
-    kind: 'architecture_report',
-    conversationId: architecture.conversationId,
-    style: architecture.style,
-    components: architecture.components,
-    interactions: architecture.interactions,
-    diagrams: diagramCollection?.diagrams ?? null,
-  };
 
   return (
     <div className="p-6 space-y-8" data-testid="architecture-view">
@@ -140,23 +156,12 @@ export function ArchitectureView() {
 
       <StructuredExportBar
         title="Architecture Report"
-        json={structured}
-        filename="architecture-report.json"
         extraRight={
-          <>
-            <CopyButton text={markdown} label="Copy MD" title="Copy full report as Markdown" />
-            <button
-              type="button"
-              onClick={() => downloadMarkdown('architecture-report.md', markdown)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
-              title="Download Markdown file"
-            >
-              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8 2v8M5 7l3 3 3-3M2 12v1a1 1 0 001 1h10a1 1 0 001-1v-1" />
-              </svg>
-              Download .md
-            </button>
-          </>
+          <MarkdownExportActions
+            markdown={markdown}
+            markdownFilename="architecture-report.md"
+            copyButtonTitle="Copy full report as Markdown"
+          />
         }
       />
 
@@ -411,10 +416,7 @@ export function ArchitectureView() {
             {diagram.description && (
               <p className="text-xs text-gray-500 mb-2">{diagram.description}</p>
             )}
-            <MermaidDiagram
-              chart={diagram.mermaidSource}
-              id={`diagram-${diagram.diagramId}`}
-            />
+            <DiagramDisplay diagram={diagram} />
             {diagram.characteristicAddressed && (
               <p className="text-xs text-gray-400 mt-1 italic">
                 Addresses: {diagram.characteristicAddressed}

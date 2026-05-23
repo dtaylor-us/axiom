@@ -36,7 +36,9 @@ describe('architecture API', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    await expect(getArchitecture('bad', 'jwt')).rejects.toThrow('404');
+    await expect(getArchitecture('bad', 'jwt')).rejects.toThrow(
+      'The requested resource was not found.',
+    );
   });
 
   it('getDiagramCollection_fetchesAndReturnsDiagramCollection', async () => {

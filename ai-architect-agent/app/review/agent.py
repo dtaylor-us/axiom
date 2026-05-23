@@ -61,6 +61,9 @@ class ArchitectReviewAgent:
             conversation_id=context.conversation_id,
             raw_requirements=context.raw_requirements,
             parsed_entities=context.parsed_entities.copy(),
+            missing_requirements=[
+                r.copy() for r in context.missing_requirements
+            ],
             characteristics=[c.copy() for c in context.characteristics],
             architecture_design=context.architecture_design.copy(),
             architecture_style_scores=[
@@ -74,6 +77,9 @@ class ArchitectReviewAgent:
             ],
             weaknesses=[w.copy() for w in context.weaknesses],
             fmea_risks=[r.copy() for r in context.fmea_risks],
+            buy_vs_build_analysis=[
+                d.copy() for d in context.buy_vs_build_analysis
+            ],
         )
         # Inject the LLM client for review nodes to use
         rc._llm_client = self._llm_client  # type: ignore[attr-defined]
@@ -152,6 +158,21 @@ class ArchitectReviewAgent:
         if final_rc.governance_score_breakdown:
             context.governance_score_breakdown = (
                 final_rc.governance_score_breakdown.model_dump()
+            )
+            context.governance_score_breakdown["architectural_soundness"] = (
+                final_rc.governance_score_breakdown.characteristic_alignment
+            )
+            context.governance_score_breakdown["risk_mitigation"] = (
+                final_rc.governance_score_breakdown.risk_awareness
+            )
+            context.governance_score_breakdown["governance_completeness"] = (
+                final_rc.governance_score_breakdown.adl_enforceability
+            )
+            context.governance_score_breakdown["total"] = (
+                final_rc.governance_score_breakdown.total
+            )
+            context.governance_score_breakdown["score_evidence"] = (
+                final_rc.score_evidence
             )
         context.improvement_recommendations = [
             r.model_dump() for r in final_rc.improvement_recommendations

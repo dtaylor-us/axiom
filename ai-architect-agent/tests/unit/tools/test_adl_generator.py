@@ -367,17 +367,49 @@ class TestADLGeneratorV2Tool:
     async def test_raises_on_invalid_json(
         self, tool, rich_context, mock_llm,
     ):
-        """run() raises ToolExecutionException when LLM returns invalid JSON."""
+        """run() raises ToolExecutionException when LLM returns invalid JSON.
+
+        The tool attempts a repair call before giving up. The final error
+        reports that the parse failed after the repair attempt.
+        """
+        # Both the initial response and the repair attempt return bad JSON.
         mock_llm.complete.return_value = "{{not json at all"
 
-        with pytest.raises(ToolExecutionException, match="invalid JSON"):
+        with pytest.raises(ToolExecutionException, match="repair attempt"):
             await tool.run(rich_context)
 
     async def test_raises_on_non_array_json(
         self, tool, rich_context, mock_llm,
     ):
-        """run() raises ToolExecutionException when LLM returns non-array JSON."""
+        """run() raises ToolExecutionException when LLM returns a dict with no
+        recognised wrapper key (no 'adl_blocks' and no 'adl_id')."""
         mock_llm.complete.return_value = json.dumps({"not": "an array"})
+
+        with pytest.raises(ToolExecutionException, match="adl_blocks"):
+            await tool.run(rich_context)
+
+    async def test_wraps_single_block_dict_in_list(
+        self, tool, rich_context, mock_llm,
+    ):
+        """run() handles a single ADL block returned as a bare dict.
+
+        The LLM sometimes returns one block as a JSON object instead of a
+        one-element array. The tool must wrap it transparently so validation
+        proceeds normally.
+        """
+        single_block = _valid_block_dict(adl_id="ADL-001")
+        mock_llm.complete.return_value = json.dumps(single_block)
+
+        result = await tool.run(rich_context)
+
+        assert len(result.adl_blocks) == 1
+        assert result.adl_blocks[0].adl_id == "ADL-001"
+
+    async def test_raises_on_scalar_json(
+        self, tool, rich_context, mock_llm,
+    ):
+        """run() raises ToolExecutionException when LLM returns a scalar (not list or dict)."""
+        mock_llm.complete.return_value = "42"
 
         with pytest.raises(ToolExecutionException, match="JSON array"):
             await tool.run(rich_context)

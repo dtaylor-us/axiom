@@ -1,0 +1,91 @@
+You are eliciting quality attribute scenarios from stakeholder input.
+Scenarios are the PRIMARY artifact. Quality attributes are derived from scenarios — not the other way around.
+
+A scenario has six parts (Bass, Clements, Kazman):
+
+  Stimulus:         What triggers the quality concern?
+  Source:           Who or what generates the stimulus?
+  Environment:      Under what operating condition?
+  Artifact:         Which part of the system is affected?
+  Response:         What must the system do?
+  Response measure: How do we verify the response?
+
+SCENARIO ELICITATION RULES:
+  - Every scenario must be operationally specific — grounded in the actual system being designed, not generic.
+  - Every scenario must be derivable from user evidence.
+  - A scenario without a response_measure is not yet complete but is still valuable — mark completeness using field substance (needs_measure when stimulus and response are strong but measure is missing).
+  - Prefer specific over aspirational — concrete failure modes beat generic availability statements.
+
+IMPLICIT SCENARIO RECOGNITION:
+Stakeholders rarely describe scenarios in structured form.
+They describe them as:
+
+Incident stories: "Last year we had an outage where..."
+Fear statements: "If X happens we need Y..."
+Operational descriptions: "During peak load we see..."
+Failure examples: "The problem is when A causes B..."
+
+You MUST recognise these as scenarios and extract the
+six parts even when the user did not use QAW terminology.
+Example implicit scenario:
+User said: "When there is a telemetry spike during a
+major infrastructure outage the platform has to keep
+ingesting data and showing dashboards. Critical alerts
+must appear within five seconds."
+Extract as:
+Stimulus:        Telemetry spike coinciding with infrastructure failure
+Source:          Cascading infrastructure incident
+Environment:     Peak operational incident, compute and storage instability
+Artifact:        Alert ingestion and dashboard rendering pipeline
+Response:        Platform continues ingesting, correlates alerts,
+maintains dashboard visibility
+Response measure: Critical alerts visible within 5 seconds
+Search ALL evidence turns for implicit scenarios, not just
+the latest input. The earliest turns often contain the richest
+failure stories.
+
+DEDUPLICATION:
+Do not re-derive a scenario that is already in
+existing_scenarios. Check existing_scenario_ids before
+creating a new one. If a scenario is already captured but
+incomplete, enrich fields only via merge semantics implied by
+non-duplicate scenario_id — if the id already exists, skip
+creating another row (the graph keeps the first artifact).
+
+EVIDENCE TO DERIVE SCENARIOS FROM (structured facts):
+{{ known_facts | tojson(indent=2) }}
+
+ALL ACCUMULATED EVIDENCE (search all turns for scenarios):
+{% for item in all_evidence %}
+Turn {{ item.turn }}: {{ item.content }}
+{% endfor %}
+
+LATEST USER INPUT:
+{{ latest_input }}
+
+EXISTING SCENARIO IDS (do not create duplicates with these ids):
+{{ existing_scenario_ids | tojson(indent=2) }}
+
+EXISTING SCENARIOS (do not duplicate):
+{{ existing_scenarios | tojson(indent=2) }}
+
+Derive between 0 and 5 new scenarios per turn (fewer is fine when evidence is thin).
+Focus on the operational concerns most clearly evidenced.
+
+Return JSON only. No markdown, no preamble:
+{
+  "scenarios": [
+    {
+      "scenario_id": "SC-001",
+      "title": "string — short operational description",
+      "stimulus": "string — specific trigger event",
+      "source": "string — who or what causes the stimulus",
+      "environment": "string — operating conditions",
+      "artifact": "string — system component affected",
+      "response": "string — required system behaviour",
+      "response_measure": "string — measurable threshold or empty",
+      "exercises_attributes": ["Availability", "Recoverability"],
+      "evidence_quote": "verbatim phrase from input that grounds this"
+    }
+  ]
+}

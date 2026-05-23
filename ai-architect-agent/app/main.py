@@ -8,7 +8,9 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from app.api.agent import router as agent_router
+from app.api.workshop import router as workshop_router
 from app.llm.client import LLMClient
+from app.workshop.agent import QualityAttributeWorkshopAgent
 from app.memory.store import MemoryStore
 from app.observability import setup_tracing, setup_metrics
 from app.pipeline import compile_pipeline, init_registry, init_review_agent
@@ -72,6 +74,13 @@ async def lifespan(app: FastAPI):
     # Compile the LangGraph pipeline graph
     compile_pipeline()
 
+    # Initialise the Quality Attribute Workshop agent
+    # The workshop agent is stateless per-request — it shares the LLM client
+    # but has no connection to the pipeline or tool registry.
+    workshop_agent = QualityAttributeWorkshopAgent(llm_client)
+    app.state.workshop_agent = workshop_agent
+    logger.info("QualityAttributeWorkshopAgent initialised")
+
     yield
     logger.info("Archon Agent shutting down")
 
@@ -83,6 +92,7 @@ app = FastAPI(
 )
 
 app.include_router(agent_router)
+app.include_router(workshop_router)
 
 
 @app.get("/health")

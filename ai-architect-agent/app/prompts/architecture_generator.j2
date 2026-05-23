@@ -14,6 +14,35 @@ among many — it only wins when it genuinely outscores all others.
 Domain:      {{ parsed_entities.get('domain', 'unknown') }}
 System type: {{ parsed_entities.get('system_type', 'unknown') }}
 
+━━━ CANONICAL ARCHITECTURE DECISIONS ━━━━━━━━━━━━━━━━━━━━━━
+
+{% if canonical_decisions %}
+The following decisions have been made by the buy-vs-build
+analysis stage. These are HARD CONSTRAINTS — they override
+style selection and component design decisions.
+
+For each BUY or ADOPT decision:
+DO NOT design an internal component for this capability.
+Model the solution as an EXTERNAL dependency.
+The component type must be "external" in the components list.
+
+CANONICAL DECISIONS:
+{% for d in canonical_decisions %}
+CONSTRAINT: {{ d.constraint }}
+{% endfor %}
+
+When generating components:
+Any component whose name or responsibility overlaps with
+a canonical BUY or ADOPT decision MUST be replaced with
+an external dependency referencing the named solution.
+Example: if Payment Processing = BUY Stripe, then
+"Payment Service" becomes "Stripe (external)" with
+type="external" and no internal implementation designed.
+{% else %}
+No canonical architecture decisions have been made yet.
+Design components as if all capabilities are to be built.
+{% endif %}
+
 ━━━ USER ARCHITECTURE OVERRIDE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Override type:    {{ architecture_override.get('type', 'none') }}
@@ -89,7 +118,9 @@ SIMILAR PAST DESIGNS FOR REFERENCE:
 ━━━ STEP 1: STYLE SELECTION (you must complete this before design) ━━━
 
 Score each of the eight Richards architecture styles against the
-inferred characteristics above. Use this catalog:
+inferred characteristics above. You MUST score ALL EIGHT — every
+style must appear in style_scores in the output, even vetoed ones
+and those with low scores. Use this catalog:
 
   1. Layered         — monolithic, technical partitioning, simple
   2. Modular monolith — monolithic, domain partitioning, pragmatic
@@ -162,13 +193,63 @@ Return a JSON object. No markdown, no preamble:
     ],
     "style_scores": [
       {
-        "style": "string — style name",
+        "style": "Layered",
         "score": number,
         "driving_characteristics": ["string"],
-        "vetoed": false,
-        "veto_reason": null
+        "vetoed": boolean,
+        "veto_reason": "string or null"
+      },
+      {
+        "style": "Modular monolith",
+        "score": number,
+        "driving_characteristics": ["string"],
+        "vetoed": boolean,
+        "veto_reason": "string or null"
+      },
+      {
+        "style": "Microkernel",
+        "score": number,
+        "driving_characteristics": ["string"],
+        "vetoed": boolean,
+        "veto_reason": "string or null"
+      },
+      {
+        "style": "Pipeline",
+        "score": number,
+        "driving_characteristics": ["string"],
+        "vetoed": boolean,
+        "veto_reason": "string or null"
+      },
+      {
+        "style": "Service-based",
+        "score": number,
+        "driving_characteristics": ["string"],
+        "vetoed": boolean,
+        "veto_reason": "string or null"
+      },
+      {
+        "style": "Event-driven",
+        "score": number,
+        "driving_characteristics": ["string"],
+        "vetoed": boolean,
+        "veto_reason": "string or null"
+      },
+      {
+        "style": "Microservices",
+        "score": number,
+        "driving_characteristics": ["string"],
+        "vetoed": boolean,
+        "veto_reason": "string or null"
+      },
+      {
+        "style": "Space-based",
+        "score": number,
+        "driving_characteristics": ["string"],
+        "vetoed": boolean,
+        "veto_reason": "string or null"
       }
     ],
+    "IMPORTANT — style_scores RULE": "style_scores MUST contain ALL EIGHT Richards styles listed above. Do not omit any style, even if its score is very low or it is vetoed. The report displayed to the user shows a row for every entry in this array.",
     "selected_style": "string — chosen style name",
     "runner_up": "string — second-highest scoring style",
     "selection_rationale": "string — why selected over runner-up, grounded in the specific characteristics",
@@ -193,11 +274,15 @@ Return a JSON object. No markdown, no preamble:
   ],
   "interactions": [
     {
-      "from": "string",
-      "to": "string",
-      "pattern": "sync-http | async-event | async-queue | sync-grpc | sync-db | in-memory",
-      "description": "string",
-      "rationale": "string"
+      "from": "string — source component name",
+      "to": "string — target component name",
+      "protocol": "string — REQUIRED. Must be one of: REST, gRPC, GraphQL, WebSocket, SSE, AMQP, Kafka, NATS, SMTP, FTP, SFTP, SDK, webhook, database, in-process. Never 'undefined' or empty.",
+      "purpose": "string — REQUIRED. One sentence describing what this interaction does. Never 'undefined' or empty. Example: 'Streams pipeline stage events to the browser in real time'",
+      "sync_async": "sync | async",
+      "payload_type": "string — what is sent. Example: 'JSON ArchitectureContext', 'NDJSON SSE chunks', 'SQL queries'",
+      "failure_handling": "string — what happens when this interaction fails. Example: 'circuit breaker opens, returns 503 with retry-after'",
+      "description": "string — combined description",
+      "rationale": "string — why this interaction pattern"
     }
   ],
   "primary_flow": {

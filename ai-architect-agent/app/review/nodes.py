@@ -28,6 +28,48 @@ from app.review.context import (
 logger = logging.getLogger(__name__)
 
 _MAX_FAILURE_REASON_CHARS = 300
+
+
+def calculate_consistency_bonus(
+    buy_vs_build_analysis: list[dict],
+    architecture_design: dict,
+) -> int:
+    """Score whether buy/adopt decisions appear as external components.
+
+    Args:
+        buy_vs_build_analysis: Stage 6b sourcing decisions.
+        architecture_design: Stage 6 design containing components.
+
+    Returns:
+        Bonus score from -10 to +10.
+    """
+    components = architecture_design.get("components", [])
+    component_index = {
+        component.get("name", "").lower(): component
+        for component in components
+    }
+    score = 0
+    for decision in buy_vs_build_analysis:
+        recommendation = decision.get("recommendation", "").lower()
+        if recommendation not in ("buy", "adopt"):
+            continue
+
+        component_name = decision.get("component_name", "").lower()
+        solution_name = decision.get("recommended_solution", "").lower()
+        matching_components = [
+            component
+            for name, component in component_index.items()
+            if component_name in name or solution_name in name
+        ]
+        if any(
+            component.get("type", "").lower() == "external"
+            for component in matching_components
+        ):
+            score += 2
+        elif matching_components:
+            score -= 2
+
+    return min(10, max(-10, score))
 # Truncate exception text to keep payloads and logs bounded.
 
 
@@ -51,6 +93,7 @@ async def challenge_assumptions_node(state: ReviewState) -> dict:
             "review_assumption_challenger",
             raw_requirements=rc.raw_requirements,
             parsed_entities=rc.parsed_entities,
+            missing_requirements=rc.missing_requirements,
             architecture_design=rc.architecture_design,
             characteristics=rc.characteristics,
             scenarios=rc.scenarios,
@@ -112,6 +155,15 @@ async def stress_test_trade_offs_node(state: ReviewState) -> dict:
             characteristics=rc.characteristics,
             weaknesses=rc.weaknesses,
             fmea_risks=rc.fmea_risks,
+            canonical_decisions=[
+                {
+                    "component": d.get("component_name"),
+                    "decision": d.get("recommendation", "").lower(),
+                    "recommended_solution": d.get("recommended_solution"),
+                }
+                for d in rc.buy_vs_build_analysis
+                if d.get("recommendation", "").lower() in ("buy", "adopt")
+            ],
         )
 
         raw = await llm.complete(prompt, response_format="json")
@@ -226,12 +278,21 @@ async def score_governance_node(state: ReviewState) -> dict:
             "review_governance_score",
             raw_requirements=rc.raw_requirements,
             parsed_entities=rc.parsed_entities,
+            missing_requirements=rc.missing_requirements,
             architecture_design=rc.architecture_design,
             characteristics=rc.characteristics,
             trade_offs=rc.trade_offs,
-            adl_blocks=[b if isinstance(b, dict) else b for b in rc.adl_blocks],
+            adl_blocks=[
+                b
+                if isinstance(b, dict)
+                else b.model_dump()
+                if hasattr(b, "model_dump")
+                else {}
+                for b in rc.adl_blocks
+            ],
             weaknesses=rc.weaknesses,
             fmea_risks=rc.fmea_risks,
+            buy_vs_build_analysis=rc.buy_vs_build_analysis,
             assumption_challenges=[c.model_dump() for c in rc.assumption_challenges],
             trade_off_challenges=[c.model_dump() for c in rc.trade_off_challenges],
             adl_issues=[i.model_dump() for i in rc.adl_issues],
@@ -242,23 +303,14 @@ async def score_governance_node(state: ReviewState) -> dict:
 
         # Parse score breakdown
         breakdown_data = parsed.get("governance_score_breakdown", {})
-        breakdown = GovernanceScoreBreakdown(**breakdown_data)
-        expected_total = (
-            breakdown.requirement_coverage
-            + breakdown.architectural_soundness
-            + breakdown.risk_mitigation
-            + breakdown.governance_completeness
+        breakdown_data["consistency_bonus"] = calculate_consistency_bonus(
+            rc.buy_vs_build_analysis,
+            rc.architecture_design,
         )
-        if breakdown.total != expected_total:
-            logger.warning(
-                "%s: correcting total %d -> %d",
-                node_name,
-                breakdown.total,
-                expected_total,
-            )
-            breakdown.total = expected_total
+        breakdown = GovernanceScoreBreakdown(**breakdown_data)
         rc.governance_score_breakdown = breakdown
         rc.governance_score = breakdown.total
+        rc.score_evidence = parsed.get("score_evidence", {})
 
         # Parse improvement recommendations
         recs = [

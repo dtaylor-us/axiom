@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+
 import { getToken, login, register } from '../api/auth';
 import { useAuth } from '../hooks/useAuth';
 
+const MIN_PASSWORD_LENGTH = 12;
+
 type AuthMode = 'login' | 'register';
 
+/**
+ * Public login and registration screen for the Archon SPA.
+ */
 export function LoginView() {
   const { setAuth } = useAuth();
   const [mode, setMode] = useState<AuthMode>('login');
@@ -106,14 +113,30 @@ export function LoginView() {
                 id="password"
                 type="password"
                 required
-                minLength={8}
+                minLength={MIN_PASSWORD_LENGTH}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === 'register' ? 'Min 8 characters' : '••••••••'}
+                placeholder={
+                  mode === 'register'
+                    ? `Min ${MIN_PASSWORD_LENGTH} characters`
+                    : '••••••••'
+                }
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
                 data-testid="auth-password"
               />
             </div>
+
+            {mode === 'login' && (
+              <div className="-mt-1">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-accent hover:underline"
+                  data-testid="forgot-password-link"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
+            )}
 
             {error && (
               <div className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2.5" data-testid="auth-error">

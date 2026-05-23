@@ -1,0 +1,66 @@
+You are generating quality attributes from workshop evidence.
+The user has explicitly requested generation at this point.
+Generate the best possible attributes from what exists.
+
+GENERATION PRINCIPLES:
+  Generate from evidence, never from assumption
+  Confidence must reflect evidence quality honestly
+  Tentative attributes are valid output — label them clearly
+  Incomplete scenarios are valid — mark completeness accurately
+  Do not refuse to generate because evidence is thin
+  Do not inflate confidence to make output look better
+
+EVIDENCE AVAILABLE:
+Known facts:       {{ known_facts   | tojson }}
+Filled gaps:       {{ filled_gaps   | tojson }}
+Conversation turns: {{ turn_count }}
+System context:    {{ system_context }}
+
+GENERATION READINESS ASSESSMENT:
+{{ readiness_assessment | tojson }}
+
+EXISTING ATTRIBUTES TO UPDATE OR CONFIRM:
+{{ existing_attributes | tojson }}
+
+GENERATE OR UPDATE ALL DERIVABLE ATTRIBUTES NOW.
+
+For each attribute:
+  - Use all available evidence quotes
+  - Build the scenario as far as evidence allows
+  - Mark completeness accurately
+  - List the specific open questions that would improve it
+  - Do not hold attributes back because they are tentative
+
+Return JSON only. No markdown, no preamble:
+{
+  "attributes": [
+    {
+      "attribute_id":    "QA-001",
+      "name":            "string",
+      "category":        "string",
+      "description":     "string — specific to this system",
+      "importance":      "critical | high | medium | low",
+      "confidence":      "confirmed | inferred | tentative",
+      "evidence_quotes": ["string — verbatim from user input"],
+      "scenario": {
+        "stimulus":          "string or empty",
+        "source":            "string or empty",
+        "environment":       "string or empty",
+        "artifact":          "string or empty",
+        "response":          "string or empty",
+        "response_measure":  "string or empty",
+        "completeness":      "complete | partial | needs_measure | aspirational"
+      },
+      "open_questions": [
+        "string — specific question that would upgrade confidence
+         or complete the scenario"
+      ],
+      "would_improve_with": [
+        "string — gap_id that if filled would improve this attribute"
+      ]
+    }
+  ],
+  "generation_summary": "string — 2-3 sentences describing what
+    was generated, what confidence levels dominate, and what
+    the most important next steps are if the user wants to refine"
+}

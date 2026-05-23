@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ChatView } from '../views/ChatView';
 
@@ -57,6 +57,31 @@ describe('ChatView', () => {
     await user.type(input, 'Build me a system');
     await user.click(screen.getByTestId('chat-submit'));
     expect(mockSendMessage).toHaveBeenCalledWith('Build me a system');
+  });
+
+  it('rendersCopyButtonPerMessageAndCopiesAssistantMarkdown', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+      writable: true,
+    });
+
+    conversationState.messages = [
+      { role: 'USER', content: 'Build me a system' },
+      { role: 'ASSISTANT', content: '## Result\nPlain text.' },
+    ];
+    render(<ChatView />);
+
+    const copyButtons = screen.getAllByTestId('chat-copy-message');
+    expect(copyButtons.length).toBe(2);
+
+    fireEvent.click(copyButtons[0]);
+    expect(writeText).toHaveBeenCalledWith('Build me a system');
+
+    vi.clearAllMocks();
+    fireEvent.click(copyButtons[1]);
+    expect(writeText).toHaveBeenCalledWith('## Result\nPlain text.');
   });
 
   it('showsUserMessageAndStreamingText', () => {

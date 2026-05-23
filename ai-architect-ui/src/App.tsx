@@ -1,15 +1,28 @@
 import { useEffect, useState, useRef } from 'react';
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom';
+
 import { useStore } from './store/useStore';
 import { ChatView } from './views/ChatView';
+import { ForgotPasswordView } from './views/ForgotPasswordView';
 import { LoginView } from './views/LoginView';
 import { ArchitectureView } from './views/ArchitectureView';
 import { GovernanceView } from './views/GovernanceView';
 import { HomeView } from './views/HomeView';
+import { ResetPasswordView } from './views/ResetPasswordView';
+import { WorkshopView } from './views/workshop/WorkshopView';
 import { StageProgress } from './components/StageProgress';
+import { ToastProvider, emitToast } from './components/Toast';
 import { getSessionMessages, listSessions } from './api/sessions';
+import { listWorkshopSessions } from './api/workshop';
 import type { SessionSummary } from './types/api';
+import type { WorkshopSessionSummary } from './types/workshop';
 
-type View = 'home' | 'chat' | 'architecture' | 'governance';
+type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop';
 
 const STORAGE_KEYS = {
   lastView: 'archon.lastView',
@@ -45,7 +58,7 @@ function safeRemoveItem(key: string) {
 
 function readLastView(): View | null {
   const raw = safeGetItem(STORAGE_KEYS.lastView);
-  if (raw === 'home' || raw === 'chat' || raw === 'architecture' || raw === 'governance') return raw;
+  if (raw === 'home' || raw === 'chat' || raw === 'architecture' || raw === 'governance' || raw === 'workshop') return raw;
   return null;
 }
 
@@ -70,9 +83,14 @@ const NAV_ITEMS: { key: View; label: string; icon: string }[] = [
     label: 'Governance',
     icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
   },
+  {
+    key: 'workshop' as View,
+    label: 'Workshop',
+    icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M12 12h.01M8 12h.01M16 12h.01',
+  },
 ];
 
-export default function App() {
+function AppContent() {
   const token = useStore((s) => s.token);
   const username = useStore((s) => s.username);
   const clearAuth = useStore((s) => s.clearAuth);
@@ -82,12 +100,20 @@ export default function App() {
   const resetConversation = useStore((s) => s.resetConversation);
   const clearStages = useStore((s) => s.clearStages);
   const loadConversation = useStore((s) => s.loadConversation);
+  const setConversationId = useStore((s) => s.setConversationId);
+  const setWorkshopSeed = useStore((s) => s.setWorkshopSeed);
   const [activeView, setActiveViewState] = useState<View>(() => readLastView() ?? 'home');
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
+  const [workshopSessions, setWorkshopSessions] = useState<WorkshopSessionSummary[]>([]);
+  const [workshopSessionsLoading, setWorkshopSessionsLoading] = useState(false);
+  const [workshopSessionsError, setWorkshopSessionsError] = useState<string | null>(null);
+  const [selectedWorkshopSessionId, setSelectedWorkshopSessionId] = useState<string | null>(null);
+  const [workshopRefreshKey, setWorkshopRefreshKey] = useState(0);
+  const [newWorkshopKey, setNewWorkshopKey] = useState(0);
 
   const hasConversation = !!conversationId;
   const allStagesDone = stages.every((s) => s.status === 'complete' || s.status === 'error' || s.status === 'aborted');
@@ -101,6 +127,29 @@ export default function App() {
     setActiveViewState(v);
     safeSetItem(STORAGE_KEYS.lastView, v);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!token) return;
+    if (activeView !== 'workshop') return;
+
+    setWorkshopSessionsLoading(true);
+    setWorkshopSessionsError(null);
+    listWorkshopSessions(token)
+      .then((s) => {
+        if (!cancelled) setWorkshopSessions(s);
+      })
+      .catch((err) => {
+        if (!cancelled) setWorkshopSessionsError((err as Error).message ?? 'Failed to load workshops');
+      })
+      .finally(() => {
+        if (!cancelled) setWorkshopSessionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, activeView, workshopRefreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +211,7 @@ export default function App() {
     if (!hasConversation && (activeView === 'architecture' || activeView === 'governance')) {
       setActiveView('home');
     }
+    // workshop is always accessible — no conversation required
   }, [token, hasConversation, activeView]);
 
   useEffect(() => {
@@ -171,6 +221,18 @@ export default function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStreaming, allStagesDone, hasActiveStages]);
+
+  const handleLoadWorkshopSession = (sessionId: string) => {
+    setSelectedWorkshopSessionId(sessionId);
+    setMobileDrawerOpen(false);
+  };
+
+  const handleWorkshopSessionCreated = (_sessionId: string) => {
+    // Only refresh the sidebar list; do NOT change selectedWorkshopSessionId so
+    // the current WorkshopView component is not remounted (which would wipe the
+    // welcome message and conversation state for the session just started).
+    setWorkshopRefreshKey((k) => k + 1);
+  };
 
   const handleLoadSession = async (sessionId: string) => {
     if (!token || isStreaming) return;
@@ -189,9 +251,28 @@ export default function App() {
     }
   };
 
+  // Handle session expiry fired by authFetchJson when any request returns 401
+  useEffect(() => {
+    const handler = () => {
+      clearAuth();
+      emitToast('Your session has expired. Please sign in again.', 'warning');
+    };
+    window.addEventListener('archon:session-expired', handler);
+    return () => window.removeEventListener('archon:session-expired', handler);
+  }, [clearAuth]);
+
   /* ---------- Not authenticated → show login ---------- */
   if (!token) {
-    return <LoginView />;
+    return (
+      <ToastProvider>
+        <Routes>
+          <Route path="/login" element={<LoginView />} />
+          <Route path="/forgot-password" element={<ForgotPasswordView />} />
+          <Route path="/reset-password" element={<ResetPasswordView />} />
+          <Route path="*" element={<Navigate replace to="/login" />} />
+        </Routes>
+      </ToastProvider>
+    );
   }
 
   const activeViewLabel =
@@ -201,13 +282,16 @@ export default function App() {
       ? 'Chat'
       : activeView === 'architecture'
         ? 'Architecture'
-        : 'Governance';
+        : activeView === 'governance'
+          ? 'Governance'
+          : 'Workshop';
 
   return (
+    <ToastProvider>
     <div className="flex h-full" data-testid="app-shell">
       {/* ── Desktop sidebar ── */}
       <aside className="hidden md:flex w-[280px] shrink-0 bg-sidebar flex-col" data-testid="sidebar">
-        <div className="p-2">
+        <div className="p-2 flex flex-col gap-1.5">
           <button
             onClick={() => {
               resetConversation();
@@ -222,10 +306,22 @@ export default function App() {
             </svg>
             New chat
           </button>
+          {activeView === 'workshop' && (
+            <button
+              onClick={() => { setSelectedWorkshopSessionId(null); setNewWorkshopKey((k) => k + 1); }}
+              className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors"
+              data-testid="new-workshop"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M8 3v10M3 8h10" />
+              </svg>
+              New workshop
+            </button>
+          )}
         </div>
 
         <nav className="flex flex-col gap-0.5 px-2 mt-1">
-          {NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat').map(({ key, label, icon }) => (
+          {NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
             <button
               key={key}
               onClick={() => setActiveView(key)}
@@ -275,8 +371,45 @@ export default function App() {
         )}
 
         <div className="mt-3 px-2 overflow-y-auto sidebar-scroll">
-          <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">History</h3>
-          {sessionsLoading ? (
+          <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
+            {activeView === 'workshop' ? 'Workshops' : 'History'}
+          </h3>
+          {activeView === 'workshop' ? (
+            workshopSessionsLoading ? (
+              <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
+            ) : workshopSessionsError ? (
+              <div className="px-3 py-2 text-[12px] text-gray-500">{workshopSessionsError}</div>
+            ) : workshopSessions.length === 0 ? (
+              <div className="px-3 py-2 text-[12px] text-gray-500">No workshops yet</div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {workshopSessions.map((ws) => {
+                  const active = ws.sessionId === selectedWorkshopSessionId;
+                  return (
+                    <button
+                      key={ws.sessionId}
+                      onClick={() => handleLoadWorkshopSession(ws.sessionId)}
+                      className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
+                        active
+                          ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                          : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                      }`}
+                      title={ws.systemName}
+                      data-testid={`workshop-history-${ws.sessionId}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                        <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                        {ws.workshopPhase.replace(/_/g, ' ')}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          ) : sessionsLoading ? (
             <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
           ) : sessionsError ? (
             <div className="px-3 py-2 text-[12px] text-gray-500">{sessionsError}</div>
@@ -372,7 +505,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="px-2 pb-2">
+            <div className="px-2 pb-2 flex flex-col gap-1.5">
               <button
                 onClick={() => {
                   resetConversation();
@@ -387,6 +520,21 @@ export default function App() {
                 </svg>
                 New chat
               </button>
+              {activeView === 'workshop' && (
+                <button
+                  onClick={() => {
+                    setSelectedWorkshopSessionId(null);
+                    setNewWorkshopKey((k) => k + 1);
+                    setMobileDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M8 3v10M3 8h10" />
+                  </svg>
+                  New workshop
+                </button>
+              )}
             </div>
 
             {hasActiveStages && (
@@ -399,8 +547,44 @@ export default function App() {
             )}
 
             <div className="mt-1 px-2 overflow-y-auto sidebar-scroll">
-              <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">History</h3>
-              {sessionsLoading ? (
+              <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
+                {activeView === 'workshop' ? 'Workshops' : 'History'}
+              </h3>
+              {activeView === 'workshop' ? (
+                workshopSessionsLoading ? (
+                  <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
+                ) : workshopSessionsError ? (
+                  <div className="px-3 py-2 text-[12px] text-gray-500">{workshopSessionsError}</div>
+                ) : workshopSessions.length === 0 ? (
+                  <div className="px-3 py-2 text-[12px] text-gray-500">No workshops yet</div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {workshopSessions.map((ws) => {
+                      const active = ws.sessionId === selectedWorkshopSessionId;
+                      return (
+                        <button
+                          key={ws.sessionId}
+                          onClick={() => handleLoadWorkshopSession(ws.sessionId)}
+                          className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
+                            active
+                              ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                              : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                          }`}
+                          title={ws.systemName}
+                        >
+                          <div className="flex items-center gap-2">
+                            {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                            <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                            {ws.workshopPhase.replace(/_/g, ' ')}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
+              ) : sessionsLoading ? (
                 <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
               ) : sessionsError ? (
                 <div className="px-3 py-2 text-[12px] text-gray-500">{sessionsError}</div>
@@ -519,6 +703,22 @@ export default function App() {
               <div className="max-w-5xl mx-auto"><GovernanceView /></div>
             </div>
           )}
+          {activeView === 'workshop' && (
+            <WorkshopView
+              key={selectedWorkshopSessionId ?? `new-${newWorkshopKey}`}
+              initialSessionId={selectedWorkshopSessionId}
+              onNavigateToChat={(conversationId, initialMessage) => {
+                safeSetItem(STORAGE_KEYS.lastConversationId, conversationId);
+                // Seed the store with the conversation ID and the requirements
+                // text. ChatView will auto-submit the seed via the SSE stream
+                // so the pipeline runs and produces a response.
+                setConversationId(conversationId);
+                setWorkshopSeed(initialMessage);
+                setActiveView('chat');
+              }}
+              onSessionCreated={handleWorkshopSessionCreated}
+            />
+          )}
         </div>
 
         {/* Mobile bottom nav */}
@@ -550,5 +750,14 @@ export default function App() {
         </nav>
       </main>
     </div>
+    </ToastProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }

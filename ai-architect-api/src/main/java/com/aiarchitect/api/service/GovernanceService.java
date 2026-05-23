@@ -62,6 +62,7 @@ public class GovernanceService {
         String reviewFindingsJson = null;
         String improvementRecsJson = null;
         String failedNodesJson = null;
+        String scoreEvidenceJson = null;
         try {
             Object findings = structuredOutput.get("review_findings");
             if (findings != null) {
@@ -75,10 +76,20 @@ public class GovernanceService {
             if (failedNodes != null) {
                 failedNodesJson = objectMapper.writeValueAsString(failedNodes);
             }
+            Object scoreEvidence = structuredOutput.get("score_evidence");
+            if (scoreEvidence == null) {
+                scoreEvidence = breakdown.get("score_evidence");
+            }
+            if (scoreEvidence != null) {
+                scoreEvidenceJson = objectMapper.writeValueAsString(scoreEvidence);
+            }
         } catch (JsonProcessingException e) {
             log.warn("Failed to serialize review data for conversation={}", conversationId, e);
         }
 
+        int characteristicAlignment = getInt(breakdown, "characteristic_alignment");
+        int adlEnforceability = getInt(breakdown, "adl_enforceability");
+        int riskAwareness = getInt(breakdown, "risk_awareness");
         GovernanceReport report = GovernanceReport.builder()
                 .conversationId(conversationId)
                 .iteration(getInt(structuredOutput, "iteration"))
@@ -87,9 +98,15 @@ public class GovernanceService {
                 .reviewCompletedFully(completedFully)
                 .failedReviewNodes(failedNodesJson)
                 .requirementCoverage(getInt(breakdown, "requirement_coverage"))
-                .architecturalSoundness(getInt(breakdown, "architectural_soundness"))
-                .riskMitigation(getInt(breakdown, "risk_mitigation"))
-                .governanceCompleteness(getInt(breakdown, "governance_completeness"))
+                .characteristicAlignment(characteristicAlignment)
+                .tradeOffQuality(getInt(breakdown, "trade_off_quality"))
+                .adlEnforceability(adlEnforceability)
+                .riskAwareness(riskAwareness)
+                .consistencyBonus(getInt(breakdown, "consistency_bonus"))
+                .scoreEvidence(scoreEvidenceJson)
+                .architecturalSoundness(characteristicAlignment)
+                .riskMitigation(riskAwareness)
+                .governanceCompleteness(adlEnforceability)
                 .justification(getString(breakdown, "justification"))
                 .shouldReiterate(Boolean.TRUE.equals(structuredOutput.get("should_reiterate")))
                 .reviewFindings(reviewFindingsJson)
@@ -142,6 +159,7 @@ public class GovernanceService {
         Object findings = null;
         List<Object> recs = null;
         List<String> failedNodes = List.of();
+        Map<String, String> scoreEvidence = Map.of();
         try {
             if (r.getReviewFindings() != null) {
                 findings = objectMapper.readValue(r.getReviewFindings(), Object.class);
@@ -154,6 +172,11 @@ public class GovernanceService {
             if (r.getFailedReviewNodes() != null) {
                 failedNodes = objectMapper.readValue(
                         r.getFailedReviewNodes(),
+                        new TypeReference<>() {});
+            }
+            if (r.getScoreEvidence() != null) {
+                scoreEvidence = objectMapper.readValue(
+                        r.getScoreEvidence(),
                         new TypeReference<>() {});
             }
         } catch (JsonProcessingException e) {
@@ -169,6 +192,12 @@ public class GovernanceService {
                 .reviewCompletedFully(r.isReviewCompletedFully())
                 .failedReviewNodes(failedNodes)
                 .requirementCoverage(r.getRequirementCoverage())
+                .characteristicAlignment(r.getCharacteristicAlignment())
+                .tradeOffQuality(r.getTradeOffQuality())
+                .adlEnforceability(r.getAdlEnforceability())
+                .riskAwareness(r.getRiskAwareness())
+                .consistencyBonus(r.getConsistencyBonus())
+                .scoreEvidence(scoreEvidence)
                 .architecturalSoundness(r.getArchitecturalSoundness())
                 .riskMitigation(r.getRiskMitigation())
                 .governanceCompleteness(r.getGovernanceCompleteness())

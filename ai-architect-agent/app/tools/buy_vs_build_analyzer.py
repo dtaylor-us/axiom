@@ -28,11 +28,13 @@ import json
 import logging
 
 from app.models.context import ArchitectureContext, BuyVsBuildDecision
+from app.llm.schemas import SCHEMAS
 from app.prompts.loader import load_prompt
 from app.tools.base import BaseTool, ToolExecutionException
 
 logger = logging.getLogger(__name__)
 
+_STAGE = "buy_vs_build_analysis"
 MIN_RATIONALE_LENGTH = 60
 
 
@@ -103,18 +105,34 @@ class BuyVsBuildAnalyzerTool(BaseTool):
             parsed_entities=context.parsed_entities,
         )
 
-        raw = await self.llm_client.complete(prompt, response_format="json")
+        raw = await self.llm_client.complete(
+            prompt,
+            response_format="json",
+            output_schema=SCHEMAS.get(_STAGE),
+            schema_name=_STAGE,
+        )
 
+        repair_attempted = False
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:
-            logger.error(
-                "BuyVsBuildAnalyzer LLM returned invalid JSON: %s",
-                raw[:500],
+            logger.warning(
+                "BuyVsBuildAnalyzer JSON parse failed, attempting repair. error=%s", exc
             )
-            raise ToolExecutionException(
-                f"LLM returned invalid JSON: {exc}"
-            ) from exc
+            repair_attempted = True
+            raw = await self.attempt_repair(
+                original_prompt=prompt,
+                failed_response=raw,
+                error_description=f"Invalid JSON: {exc}",
+                output_schema=SCHEMAS.get(_STAGE),
+                schema_name=_STAGE,
+            )
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as e2:
+                raise ToolExecutionException(
+                    f"Stage output could not be parsed after repair attempt. error={e2}"
+                ) from e2
 
         raw_decisions = parsed.get("decisions", [])
         if not isinstance(raw_decisions, list):

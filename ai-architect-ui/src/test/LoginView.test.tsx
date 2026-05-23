@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+
 import { LoginView } from '../views/LoginView';
 import { useStore } from '../store/useStore';
 
@@ -28,7 +30,11 @@ describe('LoginView', () => {
   });
 
   it('defaultsToLoginMode', () => {
-    render(<LoginView />);
+    render(
+      <MemoryRouter>
+        <LoginView />
+      </MemoryRouter>,
+    );
     expect(screen.getByTestId('login-view')).toBeInTheDocument();
     expect(screen.queryByTestId('auth-name')).not.toBeInTheDocument();
     expect(screen.getByTestId('auth-email')).toBeInTheDocument();
@@ -38,7 +44,11 @@ describe('LoginView', () => {
 
   it('togglesToRegisterMode', async () => {
     const user = userEvent.setup();
-    render(<LoginView />);
+    render(
+      <MemoryRouter>
+        <LoginView />
+      </MemoryRouter>,
+    );
 
     await user.click(screen.getByTestId('auth-toggle'));
     expect(screen.getByTestId('auth-name')).toBeInTheDocument();
@@ -49,14 +59,18 @@ describe('LoginView', () => {
     mockLogin.mockResolvedValue({ token: 'jwt-login', email: 'a@b.com' });
 
     const user = userEvent.setup();
-    render(<LoginView />);
+    render(
+      <MemoryRouter>
+        <LoginView />
+      </MemoryRouter>,
+    );
 
     await user.type(screen.getByTestId('auth-email'), 'a@b.com');
-    await user.type(screen.getByTestId('auth-password'), 'password1');
+    await user.type(screen.getByTestId('auth-password'), 'password1234');
     await user.click(screen.getByTestId('auth-submit'));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('a@b.com', 'password1');
+      expect(mockLogin).toHaveBeenCalledWith('a@b.com', 'password1234');
     });
 
     await waitFor(() => {
@@ -69,10 +83,14 @@ describe('LoginView', () => {
     mockLogin.mockRejectedValue(new Error('Invalid credentials'));
 
     const user = userEvent.setup();
-    render(<LoginView />);
+    render(
+      <MemoryRouter>
+        <LoginView />
+      </MemoryRouter>,
+    );
 
     await user.type(screen.getByTestId('auth-email'), 'a@b.com');
-    await user.type(screen.getByTestId('auth-password'), 'password1');
+    await user.type(screen.getByTestId('auth-password'), 'password1234');
     await user.click(screen.getByTestId('auth-submit'));
 
     await waitFor(() => {
@@ -85,16 +103,20 @@ describe('LoginView', () => {
     mockRegister.mockResolvedValue({ token: 'jwt-reg' });
 
     const user = userEvent.setup();
-    render(<LoginView />);
+    render(
+      <MemoryRouter>
+        <LoginView />
+      </MemoryRouter>,
+    );
 
     await user.click(screen.getByTestId('auth-toggle'));
     await user.type(screen.getByTestId('auth-name'), 'Alice');
     await user.type(screen.getByTestId('auth-email'), 'a@b.com');
-    await user.type(screen.getByTestId('auth-password'), 'password1');
+    await user.type(screen.getByTestId('auth-password'), 'password1234');
     await user.click(screen.getByTestId('auth-submit'));
 
     await waitFor(() => {
-      expect(mockRegister).toHaveBeenCalledWith('a@b.com', 'password1', 'Alice');
+      expect(mockRegister).toHaveBeenCalledWith('a@b.com', 'password1234', 'Alice');
     });
 
     await waitFor(() => {
@@ -107,7 +129,11 @@ describe('LoginView', () => {
     mockGetToken.mockResolvedValue('jwt-guest');
 
     const user = userEvent.setup();
-    render(<LoginView />);
+    render(
+      <MemoryRouter>
+        <LoginView />
+      </MemoryRouter>,
+    );
 
     await user.click(screen.getByTestId('auth-guest'));
 
@@ -119,5 +145,18 @@ describe('LoginView', () => {
       expect(useStore.getState().token).toBe('jwt-guest');
       expect(useStore.getState().username).toBe('Guest');
     });
+  });
+
+  it('showsForgotPasswordLinkInLoginMode', () => {
+    render(
+      <MemoryRouter>
+        <LoginView />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('forgot-password-link')).toHaveAttribute(
+      'href',
+      '/forgot-password',
+    );
   });
 });

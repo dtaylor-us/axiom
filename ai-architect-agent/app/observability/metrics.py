@@ -8,22 +8,19 @@ Exposes three metrics:
     stage_duration_seconds — histogram: time per pipeline stage
 
 All metrics are labelled with service_name from OTEL_SERVICE_NAME.
-
-One reader is registered:
-    PrometheusMetricReader — backs the /metrics HTTP endpoint so Prometheus
-    can scrape the agent.  Traces are shipped separately via the OTLP trace
-    exporter configured in tracing.py.  Jaeger's OTLP port only accepts
-    trace spans (StatusCode.UNIMPLEMENTED is returned for metrics), so a
-    dedicated metric OTLP push is intentionally omitted here.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.exporter.prometheus import PrometheusMetricReader
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+    OTLPMetricExporter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,15 +31,7 @@ _stage_duration = None
 
 
 def setup_metrics() -> None:
-    """Initialise the global MeterProvider with a Prometheus reader.
-
-    PrometheusMetricReader populates the prometheus_client default registry
-    so the /metrics route returns Prometheus-format text.  Prometheus scrapes
-    this endpoint at its own configured interval.
-
-    Traces are shipped via the separate OTLP trace exporter in tracing.py.
-    Jaeger does not implement the OTLP metrics RPC, so no metric OTLP push
-    is registered here.
+    """Initialise the global MeterProvider.
 
     Called once at application startup alongside setup_tracing().
     Safe to call multiple times — subsequent calls are no-ops.
@@ -53,9 +42,17 @@ def setup_metrics() -> None:
     if _meter_provider is not None:
         return
 
-    prom_reader = PrometheusMetricReader()
+    otlp_endpoint = os.getenv(
+        "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"
+    )
 
-    _meter_provider = MeterProvider(metric_readers=[prom_reader])
+    exporter = OTLPMetricExporter(endpoint=otlp_endpoint)
+    # Export every 15 seconds — fast enough for local dev,
+    # not so fast that it overwhelms a production collector.
+    reader = PeriodicExportingMetricReader(
+        exporter, export_interval_millis=15_000
+    )
+    _meter_provider = MeterProvider(metric_readers=[reader])
     metrics.set_meter_provider(_meter_provider)
 
     meter = metrics.get_meter("ai_architect.agent")
@@ -76,7 +73,7 @@ def setup_metrics() -> None:
         unit="s",
     )
 
-    logger.info("OTel metrics initialised. prometheus=/metrics")
+    logger.info("OTel metrics initialised. endpoint=%s", otlp_endpoint)
 
 
 def increment_active_runs() -> None:

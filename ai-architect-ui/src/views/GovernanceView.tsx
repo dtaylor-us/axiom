@@ -5,7 +5,7 @@ import { useBuyVsBuild } from '../hooks/useBuyVsBuild';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { SeverityGrid } from '../components/SeverityGrid';
 import { CopyButton } from '../components/CopyButton';
-import { StructuredExportBar } from '../components/StructuredData';
+import { StructuredExportBar, MarkdownExportActions } from '../components/StructuredData';
 import type { Weakness, TacticRecommendation, TradeOffDecision, AdlDocument, FmeaEntry, BuyVsBuildDecision } from '../types/api';
 
 /* ── Badge helpers ────────────────────────────── */
@@ -31,6 +31,10 @@ function effortBadgeClass(effort: TacticRecommendation['effort']): string {
     case 'medium': return 'bg-blue-100 text-blue-700';
     case 'low': return 'bg-green-100 text-green-700';
   }
+}
+
+function scorePercent(value: number, max: number): string {
+  return `${Math.max(0, Math.min(100, (value / max) * 100))}%`;
 }
 
 /* ── Markdown builders ────────────────────────── */
@@ -90,16 +94,6 @@ function tacticsMarkdown(tactics: TacticRecommendation[]): string {
       t.alreadyAddressed ? `✓ Already addressed${t.addressEvidence ? `: ${t.addressEvidence}` : ''}` : '',
     ].filter(Boolean).join('\n')),
   ].join('\n\n')).join('\n\n');
-}
-
-function downloadMarkdown(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 /* ── Types ────────────────────────────────────── */
@@ -177,40 +171,56 @@ export function GovernanceView() {
   }
 
   const tabContent = activeTabContent();
-  const structured = {
-    kind: 'governance_report',
-    activeTab,
-    tradeOffs,
-    adl,
-    weaknesses,
-    fmea,
-    tactics,
-    tacticsSummary,
-    sourcingSummary,
-  };
+  const scoreRows = governanceReport ? [
+    {
+      label: 'Requirement coverage',
+      value: governanceReport.requirementCoverage,
+      max: 20,
+      evidence: governanceReport.scoreEvidence?.requirement_coverage,
+    },
+    {
+      label: 'Characteristic alignment',
+      value: governanceReport.characteristicAlignment ?? governanceReport.architecturalSoundness,
+      max: 20,
+      evidence: governanceReport.scoreEvidence?.characteristic_alignment,
+    },
+    {
+      label: 'Trade-off quality',
+      value: governanceReport.tradeOffQuality ?? 0,
+      max: 20,
+      evidence: governanceReport.scoreEvidence?.trade_off_quality,
+    },
+    {
+      label: 'ADL enforceability',
+      value: governanceReport.adlEnforceability ?? governanceReport.governanceCompleteness,
+      max: 20,
+      evidence: governanceReport.scoreEvidence?.adl_enforceability,
+    },
+    {
+      label: 'Risk awareness',
+      value: governanceReport.riskAwareness ?? governanceReport.riskMitigation,
+      max: 20,
+      evidence: governanceReport.scoreEvidence?.risk_awareness,
+    },
+    {
+      label: 'Consistency bonus',
+      value: governanceReport.consistencyBonus ?? 0,
+      max: 10,
+      evidence: governanceReport.scoreEvidence?.consistency_bonus,
+    },
+  ] : [];
 
   return (
     <div className="p-6" data-testid="governance-view">
       <StructuredExportBar
         title="Governance"
-        json={structured}
-        filename="governance-report.json"
         extraRight={
           tabContent ? (
-            <>
-              <CopyButton text={tabContent.md} label="Copy MD" title="Copy tab content as Markdown" />
-              <button
-                type="button"
-                onClick={() => downloadMarkdown(tabContent.filename, tabContent.md)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
-                title="Download Markdown file"
-              >
-                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 2v8M5 7l3 3 3-3M2 12v1a1 1 0 001 1h10a1 1 0 001-1v-1" />
-                </svg>
-                Download .md
-              </button>
-            </>
+            <MarkdownExportActions
+              markdown={tabContent.md}
+              markdownFilename={tabContent.filename}
+              copyButtonTitle="Copy tab content as Markdown"
+            />
           ) : undefined
         }
       />
@@ -256,6 +266,30 @@ export function GovernanceView() {
               )}
             </div>
           </div>
+          {scoreRows.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 space-y-3" data-testid="governance-score-breakdown">
+              {scoreRows.map((row) => (
+                <div key={row.label}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium text-gray-800">{row.label}</span>
+                    <span className="font-semibold text-gray-700">
+                      {row.label === 'Consistency bonus' && row.value > 0 ? '+' : ''}
+                      {row.value}/{row.max}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 rounded bg-gray-100 overflow-hidden">
+                    <div
+                      className={row.value < 0 ? 'h-full bg-red-400' : 'h-full bg-accent'}
+                      style={{ width: scorePercent(Math.max(0, row.value), row.max) }}
+                    />
+                  </div>
+                  {row.evidence && (
+                    <p className="text-xs text-gray-500 mt-1">{row.evidence}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

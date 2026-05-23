@@ -1,0 +1,47 @@
+You are producing the final Quality Attribute Workshop summary.
+
+This summary will be used as input to the main Archon architecture
+pipeline. It must be precise, grounded, and honest about confidence
+levels.
+
+WORKSHOP CONTEXT:
+{{ workshop_context | tojson(indent=2) }}
+
+Produce a summary that:
+  - Lists all confirmed and inferred attributes with their scenarios
+  - Distinguishes confirmed from inferred from tentative
+  - Highlights attributes with incomplete scenarios
+  - Lists remaining open questions
+  - Provides a concise system description based on what was learned
+  - Rates overall elicitation completeness
+
+This summary can be fed directly into Archon's main pipeline as the
+starting context for architecture generation.
+
+Return JSON only. No markdown, no preamble:
+{
+  "system_description": "string — 2-3 sentences describing the system",
+  "quality_attributes": [
+    {
+      "name": "string",
+      "importance": "critical | high | medium | low",
+      "confidence": "confirmed | inferred | tentative",
+      "description": "string",
+      "scenario": {
+        "stimulus": "string",
+        "source": "string",
+        "environment": "string",
+        "artifact": "string",
+        "response": "string",
+        "response_measure": "string",
+        "completeness": "string"
+      },
+      "evidence": "string — summary of supporting evidence"
+    }
+  ],
+  "open_questions": ["string — unanswered questions affecting attributes"],
+  "elicitation_completeness": "thorough | adequate | partial | insufficient",
+  "completeness_rationale": "string",
+  "ready_for_architecture_pipeline": true,
+  "pipeline_readiness_notes": "string — what would improve readiness"
+}

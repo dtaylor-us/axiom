@@ -35,6 +35,9 @@ DEFINE service ai-architect-api {
   DOES_NOT_OWN: [ArchitectureContext, pipeline logic, LLM calls, tool execution]
   EXPOSES: [
     POST /api/v1/chat/stream,
+    POST /api/v1/auth/forgot-password,
+    POST /api/v1/auth/reset-password,
+    GET /api/v1/auth/reset-password/validate,
     GET /api/v1/sessions/{id}/messages,
     GET /api/v1/sessions/{id}/architecture,
     GET /api/v1/sessions/{id}/diagram,
@@ -93,6 +96,22 @@ ASSERT ai-architect-api {
 
   MUST limit conversation history sent to agent
     — getRecentMessages() MUST be called with limit <= 20 before building AgentRequest
+
+  ASSERT password_reset_security {
+    MUST generate reset tokens using java.security.SecureRandom with minimum 32 bytes of entropy
+    MUST store only the bcrypt hash of the token in the database
+      — the raw token MUST exist only in the email link
+    MUST expire tokens after TOKEN_EXPIRY_MINUTES (30)
+    MUST enforce single-use tokens
+      — used_at MUST be marked on successful consumption
+    POST /api/v1/auth/forgot-password MUST return HTTP 200 with an identical response
+      regardless of whether the email is registered
+    MUST rate limit reset requests to MAX_REQUESTS_PER_HOUR (3) per email address per hour
+    MUST validate new password minimum length (12 characters)
+      AND reject passwords that match the current password
+    EmailService failures MUST NOT propagate to callers
+      — email delivery is best-effort only
+  }
 }
 
 REQUIRE ai-architect-api {
@@ -414,6 +433,95 @@ ASSERT sseemitter_timeout {
   REASON: Review re-iteration can run the full pipeline twice.
   180 seconds is insufficient for re-iteration runs even with
   keepalive comments preventing proxy timeouts.
+}
+
+---
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTRACT HARDENING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DEFINE contract_hardening_intent {
+  Every pipeline stage that produces JSON output MUST pass a
+  Pydantic-derived JSON schema to the LLM provider via the
+  provider-native structured output mechanism.
+  Schema enforcement exists to reduce silent garbage-in
+  propagation through the pipeline.
+  A single repair attempt is allowed per stage before the
+  stage is declared failed.
+}
+
+ASSERT structured_output_enforcement {
+  Every tool that calls llm_client.complete() with
+  response_format="json" MUST also pass output_schema and
+  schema_name from app.llm.schemas.SCHEMAS.
+  SCHEMAS is the single source of truth — schemas must not be
+  defined inline inside tool classes.
+  Schema keys MUST match stage names used in ORDERED_STAGES.
+}
+
+ASSERT provider_schema_enforcement {
+  When output_schema is provided and the LLM provider is NOT ollama:
+    — The provider MUST be called with {"type": "json_schema",
+      "json_schema": {"name": schema_name, "strict": true, "schema": ...}}
+      via LangChain's .bind(response_format=...) before .ainvoke().
+  When the provider is ollama:
+    — Falls back to {"type": "json_object"} and logs DEBUG.
+    — REASON: Ollama does not support json_schema response format.
+  When the provider rejects the strict schema (heuristic on error message):
+    — Falls back to {"type": "json_object"}.
+    — Logs WARNING with schema_enforcement_fallback=True attribute.
+    — REASON: Allows graceful degradation for providers with partial support.
+}
+
+ASSERT single_repair_per_stage {
+  When a tool's JSON parse fails after the initial LLM call,
+  BaseTool.attempt_repair() MUST be called exactly once.
+  attempt_repair() constructs a targeted repair prompt including:
+    — The first 500 characters of the failed response.
+    — The specific JSON parse error.
+    — The original task description.
+  The repair call MUST pass the same output_schema and schema_name.
+  If the repair call itself fails with LLMCallException,
+  ToolExecutionException is raised immediately — no second repair.
+  If the repaired JSON still fails to parse, ToolExecutionException
+  is raised with the parse error — no further attempts.
+}
+
+ASSERT supporting_stage_resilience {
+  The pipeline MUST NOT abort when a supporting stage fails.
+  CORE_STAGES = {requirement_parsing, requirement_challenge,
+                 characteristic_inference, architecture_generation}
+  All other stages are SUPPORTING stages.
+  When a SUPPORTING stage raises ToolExecutionException:
+    — The gap is recorded in context.pipeline_gaps.
+    — context.has_gaps is set to True.
+    — The stage emits STAGE_COMPLETE with status="completed_with_gaps".
+    — The pipeline continues to the next stage.
+  When a CORE stage raises ToolExecutionException:
+    — The pipeline emits ERROR and halts immediately.
+  The COMPLETE event MUST include has_gaps and pipeline_gaps fields.
+}
+
+ASSERT diagram_generation_per_type {
+  DiagramGeneratorTool MUST generate diagrams via one LLM call
+  per selected diagram type (_generate_single_diagram per type).
+  A single batch call for all types is PROHIBITED.
+  REASON: Focused per-type calls improve diagram quality by
+  giving the model full context budget for each diagram.
+  Partial success is preferred — only raise if ALL types fail.
+  diagram_generation STAGE_COMPLETE payload MUST include
+  generation_method="per_type_sequential" and failed_types=[...].
+}
+
+ASSERT gap_visibility_in_ui {
+  The UI MUST display an amber warning indicator on any stage
+  whose STAGE_COMPLETE payload has status="completed_with_gaps".
+  The UI MUST display a banner when the COMPLETE event has
+  has_gaps=true, informing the user that some optional stages
+  were skipped and the architecture is based on partial analysis.
+  The warning MUST be visually distinct from both the success
+  state and the ERROR state.
 }
 
 ## PIPELINE DEFINITION
@@ -806,4 +914,389 @@ When generating code for this project, Copilot MUST:
    — use messages.structured_output JSONB for all other output types.
 8. Never skip the X-Internal-Secret validation in the agent endpoint.
 9. Never set open-in-view to true.
+---
+
+## QUALITY ATTRIBUTE WORKSHOP
+
+The Quality Attribute Workshop (QAW) is a first-class, separately bounded module
+within Archon. It implements the SEI QAW methodology (CMU/SEI-2001-TR-020) and
+the scenario elicitation framework from Bass, Clements, Kazman "Software
+Architecture in Practice" 4th ed.
+
+### Module boundaries
+
+ASSERT: app.workshop MUST NOT import from app.pipeline.
+  Rationale: The workshop is a pre-architecture elicitation tool. Coupling it to
+  the pipeline would create a dependency inversion and compromise testability.
+
+ASSERT: app.workshop MUST NOT import from app.tools.
+  Rationale: The workshop uses only the shared LLM client. No RAG, ADR lookup,
+  cost-estimator, or other pipeline tools are permitted inside workshop modules.
+
+ASSERT: In the LangGraph graph built by QualityAttributeWorkshopAgent._build_graph(),
+  the identify_gaps node MUST appear before elicit_scenarios in the edge sequence,
+  and reconcile_gaps → resolve_questions → elicit_scenarios MUST preserve that order.
+  Rationale: ADL-038 — "ask before you assert". Gaps must be identified before
+  scenarios are elicited so that the agent never treats speculation as evidence.
+  Answers must bind to existing attributes (resolve_questions) before new scenarios
+  are elicited so structured state stays consistent.
+
+ASSERT scenario_primary_artifact {
+  MUST elicit scenarios as primary artifacts using elicit_scenarios_node before
+    inferring attributes.
+  MUST infer quality attributes from scenarios using infer_attributes_from_scenarios_node —
+    not directly from keywords or elicitation categories alone.
+  MUST NOT mark a scenario as complete unless stimulus, response, and response_measure
+    fields meet substance thresholds — enforced by QAScenario.compute_completeness().
+  MUST surface scenarios as first-class UI artifacts in a dedicated Scenarios tab.
+  The old elicit_attributes_node approach of deriving attributes directly from context
+    is permanently retired.
+}
+
+ASSERT gap_reconciliation {
+  MUST model gaps as confidence-scored uncertainty windows with resolution_confidence
+    in the range 0.0–1.0.
+  MUST run GapReconciler after every identify_gaps call (reconcile_gaps node).
+  MUST evaluate accumulated evidence across all turns — not only the latest input —
+    when scoring gaps.
+  MUST narrow residual_question when confidence ≥ 0.5.
+  MUST NOT keep asking the original broad gap question when residual_question has been set.
+  Boolean filled is derived from resolution_confidence and priority thresholds — never set
+    as a standalone persisted flag (legacy JSON is migrated on load).
+}
+
+ASSERT consolidation_threshold {
+  MUST NOT run ConsolidationEngine when attribute count is below
+    MIN_ATTRIBUTES_FOR_CONSOLIDATION (6).
+  MUST NOT merge attributes that require different architectural tactics to achieve,
+    even if they are related.
+  Distinct attributes that must never be merged:
+    Availability and Recoverability; Performance and Scalability; Auditability and
+    Observability; Data Integrity and Security.
+}
+
+ASSERT attribute_consolidation {
+  ConsolidationEngine MUST run after infer_attributes_from_scenarios when the attribute
+    count meets MIN_ATTRIBUTES_FOR_CONSOLIDATION, and after every call to
+    generate_from_current_evidence when the same threshold is met.
+  Rationale: Without consolidation the attribute list grows unchecked — aliases accumulate,
+  semantically equivalent concerns are tracked separately, and the cap is not enforced.
+
+  ConsolidationEngine._separate_non_qa MUST move non-measurable concerns
+    (regulatory constraints, team-size concerns, delivery pressure) out of
+    context.attributes and into context.non_qa_concerns.
+  Rationale: Non-QA concerns inflate the attribute count and confuse the LLM
+  when it reads the attribute list.
+
+  The consolidation node MUST appear after infer_attributes_from_scenarios and before
+    check_transition in the sequence:
+    analyze_input → identify_gaps → reconcile_gaps → resolve_questions → elicit_scenarios →
+    infer_attributes_from_scenarios → consolidation → check_transition → generate_response
+}
+
+ASSERT answer_artifact_binding {
+  MUST run AttributeQuestionResolver after gap reconciliation
+    and before scenario elicitation on every turn that has attributes with open questions.
+  resolve_questions node MUST search ALL accumulated evidence,
+    not just the latest turn's input.
+  When a question on an attribute is resolved:
+    MUST remove it from open_questions
+    MUST add the answer to resolved_answers
+    MUST update the relevant scenario field if applicable
+    MUST recompute scenario completeness after field update (via QAScenario model lifecycle)
+    MUST set last_update_summary on the attribute
+    MUST increment questions_resolved_count
+    MUST NOT leave open_questions growing indefinitely —
+    any question answerable from accumulated evidence MUST
+    be resolved by this node when the resolver LLM pass succeeds.
+  The resolve_questions graph step runs whenever the pipeline executes —
+    answer binding is not skipped by workshop phase when open questions exist.
+}
+
+ASSERT scenario_extraction {
+  MUST search ALL accumulated evidence for implicit scenarios —
+    not only the latest turn's input.
+  MUST recognise implicit scenarios in:
+    incident stories, fear statements, operational descriptions,
+    and failure examples.
+  elicit_scenarios prompt MUST receive all_evidence (full
+    turn history) not just known_facts or latest_input alone.
+  MUST NOT re-derive a scenario that is already in existing_scenarios (same scenario_id).
+}
+
+ASSERT completeness_invariant {
+  QAScenario.compute_completeness MUST be reflected after construction via model_post_init —
+    this is enforced by ADL-042 tests.
+  MUST recompute completeness after every scenario field
+    update in resolve_questions, elicit_scenarios, and infer_attributes nodes
+    (QAScenario post-init or explicit field rebuild).
+  No Python code in app/workshop should assign completeness = 'complete' as a string
+    literal except inside compute_completeness / model lifecycle — enforced by CI grep.
+}
+
+ASSERT context_budget {
+  MAX_CONTEXT_TOKENS = 60,000 (character-count / 4 proxy).
+  When the estimated context size exceeds this, prepare_context_for_prompt
+  MUST switch to the summarised view rather than passing the full context.
+  Rationale: Prevents silent context truncation at the LLM boundary.
+
+  MAX_SINGLE_INPUT_CHARS = 3,000. When a single user input exceeds this,
+  a warning MUST be surfaced in the UI (amber banner). Input is not blocked.
+  Rationale: Very long inputs degrade question quality and fill the context
+  budget in a single turn.
+}
+
+ASSERT phase_transition {
+  Phase transition MUST be evidence-based, not turn-count-based.
+  The following table defines the minimum evidence required:
+
+  input_analysis      → business_context:      first turn complete (always advance)
+  business_context    → usage_context:          all business_context gaps filled
+  usage_context       → technical_context:      all usage_context gaps filled
+  technical_context   → risk_priority:          all technical_context gaps filled
+  risk_priority       → scenario_brainstorm:    zero critical open gaps
+                                                OR (≥3 confirmed/inferred attrs
+                                                AND ≤2 critical open AND turn ≥ 4)
+  scenario_brainstorm → scenario_refinement:    ≥3 attributes with partial+ scenarios
+  scenario_refinement → attribute_consolidation: ≥5 attributes with partial+ scenarios
+  attribute_consolidation → validation:         LLM signal only
+  validation          → complete:               LLM signal only
+
+  MUST NOT advance phase based on turn count alone.
+}
+
+ASSERT user_controlled_generation {
+  MUST expose generate action after the first conversation turn
+    — never gated on gap count or completion level
+
+  MUST provide a readiness assessment before generation
+    — the user makes an informed decision, not a blind one
+
+  MUST generate from whatever evidence exists when requested
+    — the generate endpoint MUST NOT return 4xx based on
+      gap count or elicitation confidence level
+
+  MUST keep the session open after generation
+    — is_complete MUST NOT be set to true by the generate action
+    — the user continues refining, the session stays active
+
+  MUST mark attributes as stale when new input arrives
+    after a generation — attributes_stale = true
+
+  MUST label generated attributes with the generation pass
+    number — attributes from pass 1 vs pass 2 must be
+    distinguishable in the UI
+
+  MUST show the ReadinessModal when the user previews
+    before generating — the modal is informational, not a gate
+
+  MUST present "Generate now anyway" and "Keep going" as
+    equal weight actions in the ReadinessModal — neither is
+    primary, neither is discouraged
+}
+
+### Persistence model
+
+Spring Boot owns all workshop persistence.
+- workshop_sessions: one row per session; context_json JSONB holds full WorkshopContext.
+- workshop_attributes: denormalised mirror of confirmed attributes (queryable by confidence/importance).
+- workshop_messages: append-only conversation record (one row per turn).
+
+The Python agent is stateless. Spring Boot sends the full context_json on every
+turn and receives an updated context back. This means the agent can be restarted
+or scaled horizontally without session affinity.
+
+### Pipeline bridge (sendToPipeline)
+
+When hasSufficientAttributes is true, the user may bridge the workshop into the
+main pipeline. WorkshopService.sendToPipeline() formats the structured summary as
+natural language prose (NOT raw JSON) and injects it as the first user message in
+a new Conversation. The existing pipeline then processes it transparently.
+
+NEVER pass structured JSON directly into a Conversation message via the pipeline
+bridge — it must always be prose so the requirement_parsing stage works correctly.
+
+ASSERT utility_tree_generation {
+  MUST call has_sufficient_for_utility_tree before invoking the LLM.
+    — UtilityTreeGenerator.generate() MUST return None when the property
+      is False, without making any LLM call.
+
+  MUST require at least 5 scenarios with completeness in (complete, partial,
+  needs_measure) across at least 3 distinct exercises_attributes values.
+    — aspirational scenarios MUST NOT count toward either threshold.
+
+  MUST return the existing utility_tree unchanged when the LLM call fails.
+    — partial state is preserved; never discard a previously generated tree.
+
+  MUST NOT generate utility trees from aspirational scenarios.
+    — the threshold check enforces this; do not special-case or bypass it.
+}
+
+ASSERT implication_synthesis {
+  MUST output requirements, not mechanisms.
+    — an implication states what must be true about the system; the
+      architecture pipeline decides how to satisfy it.
+
+  MUST NOT contain names of specific architectural mechanisms, patterns,
+  or technologies.
+
+  Prohibited terms in implication text:
+    async worker pool, consensus protocol, circuit breaker, fallback handler,
+    local state store, event sourcing, saga pattern, CQRS, outbox pattern,
+    distributed lock, message queue, message broker, load balancer, API gateway,
+    service mesh, or any specific technology product name
+
+  MUST include a tradeoff statement describing which quality attribute is
+  being deprioritised to satisfy the requirement.
+
+  MUST include a measurable_condition field — extracted from the scenario
+  response_measure where available.
+
+  MUST validate implications against the prohibited mechanism term list and
+  log WARNING for each violation.
+
+  ASSERT send-to-pipeline-formatter {
+    MUST include ALL quality attributes — not a subset
+    MUST include full scenario structure (all six parts) for architectural
+      driver scenarios
+    MUST include tradeoff hierarchy section
+    MUST include open questions and uncertainties section
+    MUST label requirements as requirements and not mechanisms
+    MUST NOT filter out attributes before sending to pipeline
+  }
+
+  MUST NOT synthesise implications when utility_tree is None.
+    — architectural drivers are read from utility_tree.architectural_drivers;
+      without a tree, driver traceability is impossible.
+
+  MUST limit results to MAX_IMPLICATIONS = 20 entries per synthesis call.
+    — trim silently; do not raise an error when the LLM returns more.
+
+  MUST return the existing architecture_implications list when the LLM fails.
+    — never discard previously synthesised implications on a transient error.
+
+  MUST trace every implication to a specific source_scenario_id.
+    — implications without a traceable scenario MUST be rejected or omitted.
+}
+
+ASSERT duplicate_submission_prevention {
+  The send-to-pipeline UI action MUST set isSubmitting=true on the first click
+  and ignore subsequent clicks until navigation completes or an error is returned.
+
+  Every send-to-pipeline HTTP request MUST include an Idempotency-Key header
+  generated client-side per click.
+
+  Spring Boot MUST cache the pipeline result keyed by Idempotency-Key for
+  5 minutes and return the cached result for duplicate requests.
+
+  WorkshopSession MUST store pipeline_conversation_id and pipeline_sent_at
+  to detect server-side duplicates within 60 seconds even without an
+  idempotency key.
+}
+
+ASSERT scenario_deduplication {
+  MUST use deduplicated_scenarios property when building the pipeline formatter
+  input — not the raw scenarios list.
+
+  deduplicated_scenarios MUST use content hash of stimulus + artifact +
+  response to identify duplicates.
+
+  When duplicates exist, MUST keep the more complete scenario and merge
+  exercises_attributes from the duplicate.
+
+  The formatter MUST use writtenScenarioIds to ensure no scenario appears in
+  both driver and supporting sections.
+}
+
+ASSERT attribute_coverage {
+  Every attribute named in any scenario's exercises_attributes list MUST
+  appear in the attribute list.
+
+  If an attribute is missing, MUST add it as tentative with scenario evidence
+  — it must not be silently absent.
+
+  The infer_attributes_from_scenarios_node MUST run a coverage gap check after
+  the LLM produces its attribute list.
+}
+
+ASSERT proactive_measure_elicitation {
+  MUST include needs_measure scenarios in the workshop_scenarios kwarg
+  passed to the generate_questions prompt.
+    — generate_response_node MUST pass all WorkshopScenario objects
+      as [s.model_dump() for s in state.scenarios] — no filtering.
+
+  MUST NOT filter out needs_measure scenarios from the prompt context.
+    — the generate_questions template is responsible for surfacing these
+      to the LLM as priority clarification targets.
+}
+
+ASSERT canonical_decision_propagation {
+  Buy-vs-build decisions with recommendation "buy" or "adopt"
+  MUST be propagated to all pipeline stages after stage 6b
+  as canonical_decisions context property.
+
+  Stage 6 (architecture_generation) MUST treat buy/adopt
+  decisions as hard constraints — affected components MUST
+  be type="external" in the components list.
+
+  Stage 7 (diagram_generation) MUST render buy/adopt
+  components as external system notation.
+
+  Stage 10 (FMEA) MUST focus on integration risks for
+  buy/adopt components, not internal implementation risks.
+
+  Stage 12 (architecture_review) MUST flag cross-section
+  consistency violations as governance findings.
+
+  A system where buy-vs-build says "buy Stripe" but the
+  architecture design shows a custom payment service is a
+  consistency failure that MUST reduce the governance score.
+}
+
+ASSERT interaction_contract {
+  Every interaction object in architecture_design.interactions
+  MUST have non-empty, non-undefined protocol and purpose fields.
+
+  Interactions with undefined or empty protocol MUST be
+  rejected by _validate_interactions() before being written
+  to context.
+
+  Valid protocol values: REST, gRPC, GraphQL, WebSocket, SSE,
+  AMQP, Kafka, NATS, SMTP, FTP, SFTP, SDK, webhook,
+  database, in-process.
+
+  "undefined", "null", "unknown", and empty strings are
+  never valid protocol or purpose values.
+}
+
+ASSERT governance_scoring_grounded {
+  Governance score MUST be calculated from actual artifact
+  counts — ADL blocks, FMEA risks, trade-offs, requirements.
+
+  Score evidence strings MUST be included in the governance
+  report — one sentence per dimension stating the count
+  that produced the score.
+
+  The same governance score across radically different
+  systems is a scoring engine failure. Score variance
+  between systems is expected and correct.
+
+  consistency_bonus dimension MUST reflect actual comparison
+  between buy_vs_build_analysis decisions and the
+  architecture_design components list.
+}
+
+ASSERT mermaid_validation {
+  Every generated Mermaid source MUST pass _validate_mermaid_syntax
+  before being stored in context.
+
+  If validation fails: one repair attempt is made.
+  If repair fails: diagram stored with has_syntax_error=True
+  and syntax_error_description populated.
+
+  The UI MUST show a meaningful degraded state for diagrams
+  with has_syntax_error=True — never a broken render.
+  The raw source MUST be shown so the user can see what
+  was generated.
+}
 10. Never commit a .env file containing real credentials.

@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -18,6 +19,12 @@ public class GovernanceReportDto {
     private boolean reviewCompletedFully;
     private List<String> failedReviewNodes;
     private int requirementCoverage;
+    private int characteristicAlignment;
+    private int tradeOffQuality;
+    private int adlEnforceability;
+    private int riskAwareness;
+    private int consistencyBonus;
+    private Map<String, String> scoreEvidence;
     private int architecturalSoundness;
     private int riskMitigation;
     private int governanceCompleteness;

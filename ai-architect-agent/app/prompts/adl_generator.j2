@@ -58,6 +58,17 @@ TRADE-OFF DECISIONS:
 ARCHITECTURE CHARACTERISTICS TO ENFORCE:
 {{ characteristics | tojson(indent=2) }}
 
+{% if canonical_decisions %}
+EXTERNAL DEPENDENCY RULES (derive ADL blocks for these):
+{% for d in canonical_decisions %}
+{{ d.component }} is provided by {{ d.recommended_solution }}.
+Generate an ADL block asserting:
+ASSERT(InternalServices has NO DEPENDENCY ON {{ d.component }}Implementation)
+This enforces that no internal code reimplements a capability
+that has been designated as a buy/adopt decision.
+{% endfor %}
+{% endif %}
+
 ━━━ WHAT TO GENERATE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Generate between 8 and 15 ADL blocks. Each block must:
