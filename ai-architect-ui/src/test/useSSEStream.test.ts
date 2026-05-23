@@ -3,13 +3,17 @@ import { renderHook, act } from '@testing-library/react';
 import { useSSEStream } from '../hooks/useSSEStream';
 import { useStore } from '../store/useStore';
 
-// Mock streamChat
+// Mock all chat API functions used by the hook.
 vi.mock('../api/chat', () => ({
   streamChat: vi.fn(),
+  getRunStatus: vi.fn(),
+  reattachStream: vi.fn(),
 }));
 
-import { streamChat } from '../api/chat';
+import { streamChat, getRunStatus, reattachStream } from '../api/chat';
 const mockStreamChat = vi.mocked(streamChat);
+const mockGetRunStatus = vi.mocked(getRunStatus);
+const mockReattachStream = vi.mocked(reattachStream);
 
 describe('useSSEStream', () => {
   beforeEach(() => {
@@ -97,5 +101,82 @@ describe('useSSEStream', () => {
     });
 
     expect(useStore.getState().isStreaming).toBe(false);
+  });
+
+  it('pollsRunStatusWhenStreamFailsWithConversationId', async () => {
+    mockStreamChat.mockRejectedValue(new Error('Proxy disconnect'));
+    mockGetRunStatus.mockResolvedValue({
+      runId: 'run-abc',
+      status: 'RUNNING',
+      lastStageCompleted: 'requirement_parsing',
+    });
+    useStore.setState({ token: 'jwt', conversationId: 'conv-poll' });
+
+    const { result } = renderHook(() => useSSEStream());
+
+    await act(async () => {
+      await result.current.send('test');
+    });
+
+    expect(mockGetRunStatus).toHaveBeenCalledWith('conv-poll', 'jwt');
+    expect(useStore.getState().runId).toBe('run-abc');
+    expect(useStore.getState().canReattach).toBe(true);
+  });
+
+  it('doesNotPollRunStatusWhenConversationIdIsNull', async () => {
+    mockStreamChat.mockRejectedValue(new Error('Network error'));
+    useStore.setState({ token: 'jwt', conversationId: null });
+
+    const { result } = renderHook(() => useSSEStream());
+
+    await act(async () => {
+      await result.current.send('test');
+    });
+
+    expect(mockGetRunStatus).not.toHaveBeenCalled();
+  });
+
+  it('reconnect_setsErrorWhenNotAuthenticated', async () => {
+    useStore.setState({ token: null, conversationId: null });
+    const { result } = renderHook(() => useSSEStream());
+
+    await act(async () => {
+      await result.current.reconnect();
+    });
+
+    expect(useStore.getState().error).toBe('Not authenticated');
+    expect(mockReattachStream).not.toHaveBeenCalled();
+  });
+
+  it('reconnect_callsReattachStreamWithCorrectArgs', async () => {
+    mockReattachStream.mockResolvedValue(undefined);
+    useStore.setState({ token: 'jwt', conversationId: 'conv-r', runId: 'run-42' });
+
+    const { result } = renderHook(() => useSSEStream());
+
+    await act(async () => {
+      await result.current.reconnect();
+    });
+
+    expect(mockReattachStream).toHaveBeenCalledWith(
+      'conv-r',
+      'jwt',
+      expect.any(Function),
+      'run-42',
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('reconnect_setsErrorOnReattachFailure', async () => {
+    mockReattachStream.mockRejectedValue(new Error('Reattach failed'));
+    useStore.setState({ token: 'jwt', conversationId: 'conv-r', runId: null });
+
+    const { result } = renderHook(() => useSSEStream());
+
+    await act(async () => {
+      await result.current.reconnect();
+    });
+
+    expect(useStore.getState().error).toBe('Reattach failed');
   });
 });

@@ -157,7 +157,7 @@ class TestBuyVsBuildAnalyzerTool:
         ctx = _context_with_design()
         mock_llm.complete.return_value = "not json"
 
-        with pytest.raises(ToolExecutionException, match="invalid JSON"):
+        with pytest.raises(ToolExecutionException, match="repair attempt"):
             await tool.run(ctx)
 
     async def test_run_logs_warning_for_each_rejected_decision(

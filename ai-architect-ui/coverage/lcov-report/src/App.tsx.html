@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">62.26% </span>
+                <span class="strong">62.38% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>132/212</span>
+                <span class='fraction'>136/218</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">55.4% </span>
+                <span class="strong">56.57% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>41/74</span>
+                <span class='fraction'>43/76</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">61.76% </span>
+                <span class="strong">61.49% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>105/170</span>
+                <span class='fraction'>107/174</span>
             </div>
         
             
@@ -819,7 +819,14 @@
 <a name='L754'></a><a href='#L754'>754</a>
 <a name='L755'></a><a href='#L755'>755</a>
 <a name='L756'></a><a href='#L756'>756</a>
-<a name='L757'></a><a href='#L757'>757</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L757'></a><a href='#L757'>757</a>
+<a name='L758'></a><a href='#L758'>758</a>
+<a name='L759'></a><a href='#L759'>759</a>
+<a name='L760'></a><a href='#L760'>760</a>
+<a name='L761'></a><a href='#L761'>761</a>
+<a name='L762'></a><a href='#L762'>762</a>
+<a name='L763'></a><a href='#L763'>763</a>
+<a name='L764'></a><a href='#L764'>764</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -912,6 +919,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">121x</span>
+<span class="cline-any cline-yes">121x</span>
 <span class="cline-any cline-yes">121x</span>
 <span class="cline-any cline-yes">121x</span>
 <span class="cline-any cline-yes">121x</span>
@@ -1528,6 +1537,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1677,6 +1691,8 @@ function AppContent() {
   const resetConversation = useStore((s) =&gt; s.resetConversation);
   const clearStages = useStore((s) =&gt; s.clearStages);
   const loadConversation = useStore((s) =&gt; s.loadConversation);
+  const setConversationId = useStore((s) =&gt; s.setConversationId);
+  const setWorkshopSeed = useStore((s) =&gt; s.setWorkshopSeed);
   const [activeView, setActiveViewState] = useState&lt;View&gt;(() =&gt; readLastView() ?? 'home');
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [sessions, setSessions] = useState&lt;SessionSummary[]&gt;([]);
@@ -2282,8 +2298,13 @@ function AppContent() {
 <span class="branch-1 cbranch-no" title="branch not covered" >            &lt;WorkshopView</span>
               key={selectedWorkshopSessionId ?? `new-${newWorkshopKey}`}
               initialSessionId={selectedWorkshopSessionId}
-<span class="fstat-no" title="function not covered" >              onNavigateToChat={(c</span>onversationId) =&gt; {
+<span class="fstat-no" title="function not covered" >              onNavigateToChat={(c</span>onversationId, initialMessage) =&gt; {
 <span class="cstat-no" title="statement not covered" >                safeSetItem(STORAGE_KEYS.lastConversationId, conversationId);</span>
+                // Seed the store with the conversation ID and the requirements
+                // text. ChatView will auto-submit the seed via the SSE stream
+                // so the pipeline runs and produces a response.
+<span class="cstat-no" title="statement not covered" >                setConversationId(conversationId);</span>
+<span class="cstat-no" title="statement not covered" >                setWorkshopSeed(initialMessage);</span>
 <span class="cstat-no" title="statement not covered" >                setActiveView('chat');</span>
               }}
               onSessionCreated={handleWorkshopSessionCreated}
@@ -2338,7 +2359,7 @@ export default function App() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-16T14:25:39.972Z
+                at 2026-05-23T12:00:42.652Z
             </div>
         <script src="../prettify.js"></script>
         <script>

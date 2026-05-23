@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/20</span>
+                <span class='fraction'>20/20</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">83.33% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>5/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -107,32 +107,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-yes">38x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -144,33 +144,33 @@ import { useStore } from '../store/useStore';
 import type { DiagramCollectionDto } from '../types/api';
 import { getDiagramCollection } from '../api/architecture';
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >useDiagrams() {</span>
-  const <span class="cstat-no" title="statement not covered" >token = <span class="fstat-no" title="function not covered" >useStore((s</span>) =&gt; <span class="cstat-no" title="statement not covered" >s.token);</span></span>
-  const <span class="cstat-no" title="statement not covered" >conversationId = <span class="fstat-no" title="function not covered" >useStore((s</span>) =&gt; <span class="cstat-no" title="statement not covered" >s.conversationId);</span></span>
+export function useDiagrams() {
+  const token = useStore((s) =&gt; s.token);
+  const conversationId = useStore((s) =&gt; s.conversationId);
 &nbsp;
-  const [collection, <span class="cstat-no" title="statement not covered" >setCollection] = useState&lt;DiagramCollectionDto | null&gt;(null);</span>
-  const [loading, <span class="cstat-no" title="statement not covered" >setLoading] = useState(false);</span>
-  const [error, <span class="cstat-no" title="statement not covered" >setError] = useState&lt;string | null&gt;(null);</span>
+  const [collection, setCollection] = useState&lt;DiagramCollectionDto | null&gt;(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState&lt;string | null&gt;(null);
 &nbsp;
-  const <span class="cstat-no" title="statement not covered" >fetchDiagrams = useCallback(<span class="fstat-no" title="function not covered" >async () =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >    if (!token || !conversationId) <span class="cstat-no" title="statement not covered" >return;</span></span>
-<span class="cstat-no" title="statement not covered" >    setLoading(true);</span>
-<span class="cstat-no" title="statement not covered" >    setError(null);</span>
-<span class="cstat-no" title="statement not covered" >    try {</span>
-      const data = <span class="cstat-no" title="statement not covered" >await getDiagramCollection(conversationId, token);</span>
-<span class="cstat-no" title="statement not covered" >      setCollection(data);</span>
+  const fetchDiagrams = useCallback(async () =&gt; {
+    if (!token || !conversationId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getDiagramCollection(conversationId, token);
+      setCollection(data);
     } catch (err) {
-<span class="cstat-no" title="statement not covered" >      setError((err as Error).message ?? 'Failed to load diagrams');</span>
+      setError((err as Error).message ?? <span class="branch-1 cbranch-no" title="branch not covered" >'Failed to load diagrams');</span>
     } finally {
-<span class="cstat-no" title="statement not covered" >      setLoading(false);</span>
+      setLoading(false);
     }
   }, [token, conversationId]);
 &nbsp;
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >  useEffect(() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >    fetchDiagrams();</span>
+  useEffect(() =&gt; {
+    fetchDiagrams();
   }, [fetchDiagrams]);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return {</span>
+  return {
     collection,
     loading,
     error,
@@ -184,7 +184,7 @@ export function <span class="fstat-no" title="function not covered" >useDiagrams
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-16T14:25:39.972Z
+                at 2026-05-23T12:00:42.652Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

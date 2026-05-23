@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { streamChat } from '../api/chat';
+import { streamChat, getRunStatus, reattachStream } from '../api/chat';
 import type { AgentEvent } from '../types/api';
 
 // Helper to create a ReadableStream from string chunks
@@ -139,6 +139,119 @@ describe('streamChat', () => {
         },
         body: JSON.stringify({ message: 'build me a thing', conversationId: 'conv-99' }),
       }),
+    );
+  });
+
+  it('flushesRemainingBufferAfterStreamEnds', async () => {
+    const events: AgentEvent[] = [];
+    // The last chunk has no trailing newline — it stays in the buffer and must be flushed.
+    const chunks = [
+      'data: {"type":"COMPLETE","payload":{}}\ndata: {"type":"CHUNK","content":"buffered"}',
+    ];
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      body: makeStream(chunks),
+    } as unknown as Response);
+
+    await streamChat('token', 'msg', undefined, (e) => events.push(e));
+
+    expect(events.some((e) => e.content === 'buffered')).toBe(true);
+  });
+});
+
+describe('getRunStatus', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returnsNullOn404', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 404,
+    } as unknown as Response);
+
+    const result = await getRunStatus('conv-1', 'tok');
+    expect(result).toBeNull();
+  });
+
+  it('returnsRunStatusDtoOn200', async () => {
+    const dto = { runId: 'run-1', status: 'RUNNING', lastStageCompleted: null };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => dto,
+    } as unknown as Response);
+
+    const result = await getRunStatus('conv-1', 'tok');
+    expect(result).toEqual(dto);
+  });
+
+  it('throwsOnNon404ErrorResponse', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => 'Server error',
+    } as unknown as Response);
+
+    await expect(getRunStatus('conv-1', 'tok')).rejects.toThrow('500');
+  });
+
+  it('sendsAuthorizationHeader', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ runId: 'r1', status: 'DONE', lastStageCompleted: null }),
+    } as unknown as Response);
+
+    await getRunStatus('conv-42', 'my-jwt');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/v1/sessions/conv-42/run/status',
+      { headers: { Authorization: 'Bearer my-jwt' } },
+    );
+  });
+});
+
+describe('reattachStream', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('readsSSEEventsFromReattachEndpoint', async () => {
+    const events: AgentEvent[] = [];
+    const chunks = [
+      'data: {"type":"STAGE_START","stage":"req"}\n',
+      'data: {"type":"COMPLETE","payload":{}}\n',
+    ];
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      body: makeStream(chunks),
+    } as unknown as Response);
+
+    await reattachStream('conv-1', 'tok', (e) => events.push(e));
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0].type).toBe('STAGE_START');
+  });
+
+  it('throwsOnNonOkResponse', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 403,
+      text: async () => 'Forbidden',
+    } as unknown as Response);
+
+    await expect(reattachStream('conv-1', 'tok', () => {})).rejects.toThrow('403');
+  });
+
+  it('appendsRunIdToUrlWhenProvided', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      body: makeStream([]),
+    } as unknown as Response);
+
+    await reattachStream('conv-1', 'tok', () => {}, 'run-xyz');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/v1/sessions/conv-1/run/stream?runId=run-xyz',
+      expect.objectContaining({ headers: { Authorization: 'Bearer tok' } }),
     );
   });
 });

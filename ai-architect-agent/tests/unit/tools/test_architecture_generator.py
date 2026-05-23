@@ -472,7 +472,7 @@ class TestArchitectureGeneratorTool:
         mock_llm.complete.return_value = "broken json"
 
         with pytest.raises(
-            ToolExecutionException, match="invalid JSON"
+            ToolExecutionException, match="repair attempt"
         ):
             await tool.run(rich_context)
 

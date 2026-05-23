@@ -64,7 +64,7 @@ class TestRequirementParserTool:
         """run() raises ToolExecutionException when LLM returns invalid JSON."""
         mock_llm.complete.return_value = "This is not valid JSON {{"
 
-        with pytest.raises(ToolExecutionException, match="invalid JSON"):
+        with pytest.raises(ToolExecutionException, match="repair attempt"):
             await tool.run(base_context)
 
     async def test_does_not_mutate_other_fields(
