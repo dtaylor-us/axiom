@@ -160,11 +160,6 @@ spec:
       - http01:
           ingress:
             class: nginx
-            ingressTemplate:
-              metadata:
-                annotations:
-                  nginx.ingress.kubernetes.io/ssl-redirect: "false"
-                  nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
 EOF
 
 # Production issuer — activate once staging certificate is verified READY.
@@ -185,11 +180,6 @@ spec:
       - http01:
           ingress:
             class: nginx
-            ingressTemplate:
-              metadata:
-                annotations:
-                  nginx.ingress.kubernetes.io/ssl-redirect: "false"
-                  nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
 EOF
 
 success "ClusterIssuers created: letsencrypt-staging, letsencrypt-prod."

@@ -1,8 +1,6 @@
 spring:
   application:
     name: archon-api
-  cache:
-    type: caffeine
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/archon}
     username: ${DB_USER:archon}
@@ -19,26 +17,6 @@ spring:
       hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
   flyway:
     locations: classpath:db/migration
-  mail:
-    host: ${SMTP_HOST:localhost}
-    port: ${SMTP_PORT:587}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: ${SMTP_AUTH:true}
-          starttls:
-            enable: ${SMTP_STARTTLS:true}
-            required: ${SMTP_STARTTLS:true}
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
-
-email:
-  from-address: ${EMAIL_FROM_ADDRESS:noreply@aiarchitect.local}
-  from-name: ${EMAIL_FROM_NAME:Archon}
-  base-url: ${APP_BASE_URL:http://localhost:3000}
 
 agent:
   base-url: ${AGENT_BASE_URL:http://localhost:8001}

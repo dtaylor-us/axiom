@@ -68,15 +68,6 @@ else
   warn ".deployment-config not found — assuming environment variables are set."
 fi
 
-# ─── Derive standard names from PROJECT_NAME / ENVIRONMENT ────────────────────
-AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-rg-${PROJECT_NAME}-${ENVIRONMENT}}"
-AKS_CLUSTER_NAME="${AKS_CLUSTER_NAME:-aks-${PROJECT_NAME}-${ENVIRONMENT}}"
-
-if [[ -z "${PROJECT_NAME:-}" ]] && [[ "${AZURE_RESOURCE_GROUP}" == "rg--" ]]; then
-  error "Cannot determine AZURE_RESOURCE_GROUP. Ensure .deployment-config has PROJECT_NAME and ENVIRONMENT."
-  exit 1
-fi
-
 # ─── Refresh kubectl credentials ──────────────────────────────────────────────
 info "Refreshing AKS credentials..."
 az aks get-credentials \

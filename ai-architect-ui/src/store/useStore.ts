@@ -12,9 +12,7 @@ const STORAGE_KEYS = {
   lastConversationId: 'archon.lastConversationId',
 } as const;
 
-// Only the display username is persisted — the JWT token is kept in memory only.
-// Storing tokens in localStorage exposes them to XSS attacks (ADL-023).
-type PersistedAuth = { username: string };
+type PersistedAuth = { token: string; username: string };
 
 function safeGetItem(key: string): string | null {
   try {
@@ -48,8 +46,8 @@ function readPersistedAuth(): PersistedAuth | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<PersistedAuth>;
-    if (typeof parsed.username === 'string') {
-      return { username: parsed.username };
+    if (typeof parsed.token === 'string' && typeof parsed.username === 'string') {
+      return { token: parsed.token, username: parsed.username };
     }
     return null;
   } catch {
@@ -57,10 +55,8 @@ function readPersistedAuth(): PersistedAuth | null {
   }
 }
 
-function persistAuth(username: string) {
-  // Store only the display username — never the token. Token lives in Zustand
-  // memory only and is cleared on page reload, requiring a fresh login.
-  safeSetItem(STORAGE_KEYS.auth, JSON.stringify({ username } satisfies PersistedAuth));
+function persistAuth(token: string, username: string) {
+  safeSetItem(STORAGE_KEYS.auth, JSON.stringify({ token, username } satisfies PersistedAuth));
 }
 
 function clearPersistedAuth() {
@@ -98,15 +94,6 @@ interface ConversationSlice {
   runStatus: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'COMPLETED_WITH_GAPS' | null;
   canReattach: boolean;
   lastStageCompleted: string | null;
-  pipelineHasGaps: boolean;
-  pipelineGaps: unknown[];
-  /**
-   * When set, the ChatView will auto-submit this message as soon as it mounts
-   * and is not streaming. Used to kick off the pipeline after a workshop
-   * session is bridged via Send to Pipeline.
-   */
-  workshopSeed: string | null;
-  setWorkshopSeed: (msg: string | null) => void;
   setConversationId: (id: string) => void;
   loadConversation: (id: string, messages: ChatMessage[]) => void;
   setStreaming: (v: boolean) => void;
@@ -138,12 +125,10 @@ const persistedAuth = readPersistedAuth();
 
 export const useStore = create<AppStore>((set, get) => ({
   /* ── Auth ─────────────────────────────────────── */
-  // Token is never loaded from storage — the user must authenticate fresh after
-  // each page load. This prevents XSS-based token theft (ADL-023).
-  token: null,
+  token: persistedAuth?.token ?? null,
   username: persistedAuth?.username ?? null,
   setAuth: (token, username) => {
-    persistAuth(username);
+    persistAuth(token, username);
     set({ token, username });
   },
   clearAuth: () => {
@@ -164,11 +149,7 @@ export const useStore = create<AppStore>((set, get) => ({
   runStatus: null,
   canReattach: false,
   lastStageCompleted: null,
-  pipelineHasGaps: false,
-  pipelineGaps: [],
-  workshopSeed: null,
 
-  setWorkshopSeed: (msg) => set({ workshopSeed: msg }),
   setConversationId: (id) => {
     persistConversationId(id);
     set({ conversationId: id });
@@ -187,9 +168,6 @@ export const useStore = create<AppStore>((set, get) => ({
       runStatus: null,
       canReattach: false,
       lastStageCompleted: null,
-      pipelineHasGaps: false,
-      pipelineGaps: [],
-      workshopSeed: null,
     })),
   setStreaming: (v) => set({ isStreaming: v }),
   setError: (msg) => set({ error: msg }),
@@ -203,8 +181,6 @@ export const useStore = create<AppStore>((set, get) => ({
       overrideWarning: null,
       canReattach: false,
       lastStageCompleted: null,
-      pipelineHasGaps: false,
-      pipelineGaps: [],
     })),
   appendChunk: (text) =>
     set((s) => ({ streamingText: s.streamingText + text })),
@@ -252,12 +228,10 @@ export const useStore = create<AppStore>((set, get) => ({
               set({ overrideWarning: warning });
             }
           }
-          const stageStatus =
-            event.payload?.status === 'completed_with_gaps' ? 'completed_with_gaps' : 'complete';
           set({
             stages: state.stages.map((s) =>
               s.name === event.stage
-                ? { ...s, status: stageStatus, payload: event.payload }
+                ? { ...s, status: 'complete', payload: event.payload }
                 : s,
             ),
             lastStageCompleted: event.stage,
@@ -285,8 +259,6 @@ export const useStore = create<AppStore>((set, get) => ({
           pipelineVersion: s.pipelineVersion + 1,
           runStatus: 'COMPLETED',
           canReattach: false,
-          pipelineHasGaps: event.payload?.has_gaps === true,
-          pipelineGaps: (event.payload?.pipeline_gaps as unknown[]) ?? [],
         }));
         break;
 
@@ -337,8 +309,5 @@ export const useStore = create<AppStore>((set, get) => ({
       runStatus: null,
       canReattach: false,
       lastStageCompleted: null,
-      pipelineHasGaps: false,
-      pipelineGaps: [],
-      workshopSeed: null,
     })),
 }));

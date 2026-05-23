@@ -20,21 +20,6 @@ SCENARIOS:
 TRADE-OFF DECISIONS:
 {{ trade_offs | tojson(indent=2) }}
 
-━━━ CANONICAL DECISIONS — WEAKNESS SCOPE ━━━━━━━━━━━━━━━━━
-
-{% if canonical_decisions %}
-The following capabilities use external solutions.
-Weakness analysis for these must focus on vendor dependency
-and integration risks, not internal implementation risks.
-
-{% for d in canonical_decisions %}
-{{ d.component }}: {{ d.recommended_solution }}
-→ Analyse: vendor outage, API contract drift, rate limits,
-authentication failures, latency SLA, data ownership, support risk.
-→ Do NOT analyse internal implementation risks for this capability.
-{% endfor %}
-{% endif %}
-
 Answer these four questions systematically. Ground every answer in
 the specific components and interactions of this architecture.
 

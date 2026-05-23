@@ -27,14 +27,6 @@ function StatusIcon({ status }: { status: string }) {
           <path d="M3 8l3.5 3.5L13 5" />
         </svg>
       );
-    case 'completed_with_gaps':
-      return (
-        <svg className={`${base} text-amber-400`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="Completed with gaps">
-          <path d="M8 3v5" />
-          <circle cx="8" cy="11" r="0.75" fill="currentColor" stroke="none" />
-          <path d="M2.5 13.5L8 2.5l5.5 11H2.5z" />
-        </svg>
-      );
     case 'running':
       return (
         <svg className={`${base} text-accent animate-spin`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -67,8 +59,6 @@ function statusSymbol(status: string): string {
   switch (status) {
     case 'complete':
       return '✓';
-    case 'completed_with_gaps':
-      return '⚠';
     case 'running':
       return '⟳';
     case 'error':
@@ -83,7 +73,6 @@ function statusSymbol(status: string): string {
 function rowTextColor(status: string): string {
   switch (status) {
     case 'complete': return 'text-gray-400';
-    case 'completed_with_gaps': return 'text-amber-400';
     case 'running':  return 'text-gray-100 font-medium';
     case 'error':    return 'text-red-400';
     case 'aborted':  return 'text-gray-600';

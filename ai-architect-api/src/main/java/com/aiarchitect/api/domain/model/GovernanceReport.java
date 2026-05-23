@@ -49,30 +49,6 @@ public class GovernanceReport {
     @Builder.Default
     private int requirementCoverage = 0;
 
-    @Column(name = "characteristic_alignment", nullable = false)
-    @Builder.Default
-    private int characteristicAlignment = 0;
-
-    @Column(name = "trade_off_quality", nullable = false)
-    @Builder.Default
-    private int tradeOffQuality = 0;
-
-    @Column(name = "adl_enforceability", nullable = false)
-    @Builder.Default
-    private int adlEnforceability = 0;
-
-    @Column(name = "risk_awareness", nullable = false)
-    @Builder.Default
-    private int riskAwareness = 0;
-
-    @Column(name = "consistency_bonus", nullable = false)
-    @Builder.Default
-    private int consistencyBonus = 0;
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "score_evidence", columnDefinition = "jsonb")
-    private String scoreEvidence;
-
     @Column(name = "architectural_soundness", nullable = false)
     @Builder.Default
     private int architecturalSoundness = 0;

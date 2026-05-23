@@ -26,14 +26,11 @@ import json
 import logging
 
 from app.llm.client import LLMClient
-from app.llm.schemas import SCHEMAS
 from app.models.context import ArchitectureContext, TacticRecommendation
 from app.prompts.loader import load_prompt
 from app.tools.base import BaseTool, ToolExecutionException
 
 logger = logging.getLogger(__name__)
-
-_STAGE = "tactics_recommendation"
 
 # Minimum tactics per run to be considered useful output.
 # Fewer than this indicates the LLM produced near-empty output.
@@ -103,34 +100,19 @@ class TacticsAdvisorTool(BaseTool):
             characteristic_conflicts=context.characteristic_conflicts,
         )
 
-        raw = await self.llm_client.complete(
-            prompt,
-            response_format="json",
-            output_schema=SCHEMAS.get(_STAGE),
-            schema_name=_STAGE,
-        )
+        raw = await self.llm_client.complete(prompt, response_format="json")
 
-        repair_attempted = False
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:
-            logger.warning(
-                "TacticsAdvisor JSON parse failed, attempting repair. error=%s", exc
+            logger.error(
+                "TacticsAdvisor LLM returned invalid JSON: %s",
+                raw[:500],
             )
-            repair_attempted = True
-            raw = await self.attempt_repair(
-                original_prompt=prompt,
-                failed_response=raw,
-                error_description=f"Invalid JSON: {exc}",
-                output_schema=SCHEMAS.get(_STAGE),
-                schema_name=_STAGE,
-            )
-            try:
-                parsed = json.loads(raw)
-            except json.JSONDecodeError as e2:
-                raise ToolExecutionException(
-                    f"Stage output could not be parsed after repair attempt. error={e2}"
-                ) from e2
+            raise ToolExecutionException(
+                f"Tactics advisor returned invalid JSON: {exc}. "
+                f"Raw response (first 300 chars): {raw[:300]}"
+            ) from exc
 
         raw_tactics: list[dict] = parsed.get("tactics", [])
 
@@ -177,12 +159,11 @@ class TacticsAdvisorTool(BaseTool):
 
         logger.info(
             "Tactics recommendation complete: %d tactics across %d characteristics. "
-            "already_addressed=%d new=%d repair_attempted=%s conversation_id=%s",
+            "already_addressed=%d new=%d conversation_id=%s",
             len(valid_tactics),
             characteristics_covered,
             already_addressed_count,
             new_count,
-            repair_attempted,
             context.conversation_id,
         )
 

@@ -18,22 +18,6 @@ TRADE-OFF DECISIONS:
 SCENARIOS:
 {{ scenarios | tojson(indent=2) }}
 
-━━━ CANONICAL DECISIONS — FMEA SCOPE ━━━━━━━━━━━━━━━━━━━━━
-
-{% if canonical_decisions %}
-The following capabilities use external solutions.
-FMEA analysis for these must focus on INTEGRATION RISKS,
-not internal implementation risks.
-
-{% for d in canonical_decisions %}
-{{ d.component }}: {{ d.recommended_solution }}
-→ Analyse: API availability, vendor outage, rate limiting,
-contract changes, authentication failures, latency SLA.
-→ Do NOT analyse internal implementation risks for this
-capability — it is externally provided.
-{% endfor %}
-{% endif %}
-
 Analyze every component and interaction for potential failure modes.
 For each failure mode, assess:
 - Severity (1-10): impact on the system if the failure occurs

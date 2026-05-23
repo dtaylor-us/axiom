@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 # ── Leaf models ──────────────────────────────────────────────────
@@ -52,45 +52,12 @@ class ImprovementRecommendation(BaseModel):
 class GovernanceScoreBreakdown(BaseModel):
     """Detailed breakdown of the governance score."""
 
-    requirement_coverage: int = 0       # 0-20
-    characteristic_alignment: int = 0   # 0-20
-    trade_off_quality: int = 0          # 0-20
-    adl_enforceability: int = 0         # 0-20
-    risk_awareness: int = 0             # 0-20
-    consistency_bonus: int = 0          # -10 to +10
+    requirement_coverage: int = 0       # 0-25
+    architectural_soundness: int = 0    # 0-25
+    risk_mitigation: int = 0            # 0-25
+    governance_completeness: int = 0    # 0-25
+    total: int = 0                      # 0-100
     justification: str = ""
-
-    @model_validator(mode="before")
-    @classmethod
-    def map_legacy_dimensions(cls, data: object) -> object:
-        """Map pre-grounded scoring fields into the current dimensions."""
-        if not isinstance(data, dict):
-            return data
-        if "characteristic_alignment" not in data:
-            data["characteristic_alignment"] = data.get(
-                "architectural_soundness", 0
-            )
-        if "risk_awareness" not in data:
-            data["risk_awareness"] = data.get("risk_mitigation", 0)
-        if "adl_enforceability" not in data:
-            data["adl_enforceability"] = data.get(
-                "governance_completeness", 0
-            )
-        data.setdefault("trade_off_quality", 0)
-        data.setdefault("consistency_bonus", 0)
-        return data
-
-    @property
-    def total(self) -> int:
-        """Return capped score total including consistency bonus."""
-        return min(100, max(0,
-            self.requirement_coverage
-            + self.characteristic_alignment
-            + self.trade_off_quality
-            + self.adl_enforceability
-            + self.risk_awareness
-            + self.consistency_bonus
-        ))
 
 
 # ── Review agent state ───────────────────────────────────────────
@@ -122,7 +89,6 @@ class ReviewContext(BaseModel):
     conversation_id: str = ""
     raw_requirements: str = ""
     parsed_entities: dict[str, Any] = Field(default_factory=dict)
-    missing_requirements: list[dict] = Field(default_factory=list)
     characteristics: list[dict] = Field(default_factory=list)
     architecture_design: dict[str, Any] = Field(default_factory=dict)
     architecture_style_scores: list[dict] = Field(default_factory=list)
@@ -131,8 +97,6 @@ class ReviewContext(BaseModel):
     adl_blocks: list[dict] = Field(default_factory=list)
     weaknesses: list[dict] = Field(default_factory=list)
     fmea_risks: list[dict] = Field(default_factory=list)
-    buy_vs_build_analysis: list[dict] = Field(default_factory=list)
-    score_evidence: dict[str, str] = Field(default_factory=dict)
 
     # Review outputs — populated by review nodes
     assumption_challenges: list[AssumptionChallenge] = Field(

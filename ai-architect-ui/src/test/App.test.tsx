@@ -14,12 +14,6 @@ vi.mock('../api/sessions', () => ({
 vi.mock('../views/LoginView', () => ({
   LoginView: () => <div data-testid="login-view">Login Mock</div>,
 }));
-vi.mock('../views/ForgotPasswordView', () => ({
-  ForgotPasswordView: () => <div data-testid="forgot-password-view">Forgot Mock</div>,
-}));
-vi.mock('../views/ResetPasswordView', () => ({
-  ResetPasswordView: () => <div data-testid="reset-password-view">Reset Mock</div>,
-}));
 
 /* Mock views */
 vi.mock('../views/HomeView', () => ({
@@ -47,7 +41,6 @@ describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetStore();
-    window.history.pushState({}, '', '/');
     window.localStorage.removeItem('archon.auth');
     window.localStorage.removeItem('archon.lastConversationId');
     window.localStorage.removeItem('archon.lastView');
@@ -56,18 +49,6 @@ describe('App', () => {
   it('showsLoginViewWhenNotAuthenticated', () => {
     render(<App />);
     expect(screen.getByTestId('login-view')).toBeInTheDocument();
-  });
-
-  it('showsForgotPasswordRouteWhenUnauthenticated', () => {
-    window.history.pushState({}, '', '/forgot-password');
-    render(<App />);
-    expect(screen.getByTestId('forgot-password-view')).toBeInTheDocument();
-  });
-
-  it('showsResetPasswordRouteWhenUnauthenticated', () => {
-    window.history.pushState({}, '', '/reset-password?token=abc');
-    render(<App />);
-    expect(screen.getByTestId('reset-password-view')).toBeInTheDocument();
   });
 
   it('showsAppShellWhenTokenExists', () => {

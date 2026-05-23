@@ -19,7 +19,7 @@ export const PIPELINE_STAGES = [
 
 export type StageName = (typeof PIPELINE_STAGES)[number];
 
-export type StageStatus = 'pending' | 'running' | 'complete' | 'error' | 'aborted' | 'completed_with_gaps';
+export type StageStatus = 'pending' | 'running' | 'complete' | 'error' | 'aborted';
 
 export interface StageState {
   name: StageName;
@@ -105,8 +105,6 @@ export interface DiagramDto {
   description: string;
   mermaidSource: string;
   characteristicAddressed: string;
-  hasSyntaxError?: boolean;
-  syntaxErrorDescription?: string;
 }
 
 export interface DiagramCollectionDto {
@@ -258,11 +256,9 @@ export interface ArchitectureOverride {
 
 export interface GovernanceScoreBreakdown {
   requirement_coverage: number;
-  characteristic_alignment: number;
-  trade_off_quality: number;
-  adl_enforceability: number;
-  risk_awareness: number;
-  consistency_bonus: number;
+  architectural_soundness: number;
+  risk_mitigation: number;
+  governance_completeness: number;
   total: number;
   justification: string;
 }
@@ -283,12 +279,6 @@ export interface GovernanceReport {
   reviewCompletedFully: boolean;
   failedReviewNodes: string[];
   requirementCoverage: number;
-  characteristicAlignment?: number;
-  tradeOffQuality?: number;
-  adlEnforceability?: number;
-  riskAwareness?: number;
-  consistencyBonus?: number;
-  scoreEvidence?: Record<string, string>;
   architecturalSoundness: number;
   riskMitigation: number;
   governanceCompleteness: number;

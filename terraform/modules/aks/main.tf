@@ -150,14 +150,3 @@ resource "azurerm_role_assignment" "aks_network_contributor" {
   role_definition_name = "Network Contributor"
   principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
 }
-
-# The static ingress public IP is created in the main resource group (not the
-# AKS node resource group). AKS must have Network Contributor on the main
-# resource group so it can attach the Azure Load Balancer to that IP.
-# Without this, AKS falls back to a dynamic IP and the FQDN DNS record will
-# point to a different IP than nginx, breaking Let's Encrypt HTTP-01 challenges.
-resource "azurerm_role_assignment" "aks_network_contributor_main_rg" {
-  scope                = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}"
-  role_definition_name = "Network Contributor"
-  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
-}

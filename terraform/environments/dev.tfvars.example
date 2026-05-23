@@ -29,6 +29,13 @@ llm_provider       = "openai"                                 # openai or azure
 
 github_actions_sp_object_id = ""                             # az ad sp list --display-name sp-aiarchitect-github --query '[0].id' -o tsv
 
+# ── Ingress / TLS ─────────────────────────────────────────────────────────────
+# If you have a custom domain, set it here and create an A record pointing
+# to the ingress_ip output value after terraform apply.
+# If you do not have a custom domain, leave this empty and the
+# Azure-assigned FQDN will be used automatically.
+# ingress_hostname = "archon.yourdomain.com"
+
 # Sensitive values — use environment variables, not this file.
 # Uncomment these lines only as a reminder of what to export.
 # openai_api_key        = ""  # Use: export TF_VAR_openai_api_key="sk-..."

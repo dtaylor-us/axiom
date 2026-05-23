@@ -38,24 +38,11 @@ describe('useStore', () => {
       expect(state.username).toBeNull();
     });
 
-    it('setAuth_persistsUsernameButNotTokenToLocalStorage', () => {
+    it('setAuth_persistsAuthToLocalStorage', () => {
       useStore.getState().setAuth('jwt-token', 'alice');
       const raw = window.localStorage.getItem('archon.auth');
-      // Username is persisted for display convenience.
+      expect(raw).toContain('jwt-token');
       expect(raw).toContain('alice');
-      // Token must never reach localStorage — store in memory only (ADL-023).
-      expect(raw).not.toContain('jwt-token');
-    });
-
-    it('tokenIsMemoryOnlyAndDoesNotSurviveAPageLoad', () => {
-      // After setAuth, token must exist in Zustand memory...
-      useStore.getState().setAuth('jwt-token', 'alice');
-      expect(useStore.getState().token).toBe('jwt-token');
-      // ...but the persisted value in localStorage must NOT include the token,
-      // so it cannot be restored on a future page load.
-      const raw = window.localStorage.getItem('archon.auth');
-      const parsed = raw ? JSON.parse(raw) : {};
-      expect(parsed).not.toHaveProperty('token');
     });
 
     it('clearAuth_removesPersistedAuth', () => {

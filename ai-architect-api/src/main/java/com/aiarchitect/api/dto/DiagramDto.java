@@ -9,8 +9,6 @@ package com.aiarchitect.api.dto;
  * @param description             one-sentence description of what the diagram shows
  * @param mermaidSource           complete valid Mermaid source — no fences
  * @param characteristicAddressed the architecture characteristic this diagram makes visible
- * @param hasSyntaxError          true when agent-side Mermaid validation failed
- * @param syntaxErrorDescription  validation failure shown with raw source
  */
 public record DiagramDto(
         String diagramId,
@@ -18,7 +16,5 @@ public record DiagramDto(
         String title,
         String description,
         String mermaidSource,
-        String characteristicAddressed,
-        Boolean hasSyntaxError,
-        String syntaxErrorDescription
+        String characteristicAddressed
 ) {}

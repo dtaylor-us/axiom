@@ -98,8 +98,6 @@ class Diagram(BaseModel):
     mermaid_source: str
     # The architecture characteristic this diagram makes visible.
     characteristic_addressed: str = ""
-    has_syntax_error: bool = False
-    syntax_error_description: str = ""
 
 
 class PipelineMode(str, Enum):
@@ -281,62 +279,6 @@ class ArchitectureContext(BaseModel):
 
     # Cost tracking — populated by LLM client via cost_tracker
     token_usage: dict[str, Any] = Field(default_factory=dict)
-
-    # Phase 2 — pipeline gap tracking
-    pipeline_gaps: list[dict] = Field(default_factory=list)
-    # Each entry records a supporting stage that failed after repair.
-    # Structure per entry:
-    #   stage_name: str — the stage that failed
-    #   error: str — truncated error message (max 300 chars)
-    #   repair_attempted: bool — whether attempt_repair() was called
-    #   artifacts_preserved: list[str] — context fields still valid
-
-    has_gaps: bool = False
-    # True when at least one supporting stage recorded a gap above.
-
-    @property
-    def canonical_decisions(self) -> list[dict]:
-        """
-        Return buy/adopt architecture decisions as downstream constraints.
-
-        Build recommendations remain in the internal design space. Buy and
-        adopt recommendations remove that capability from internal component
-        design and must be rendered as external dependencies.
-
-        Returns:
-            Canonical decisions derived from buy_vs_build_analysis.
-        """
-        decisions: list[dict] = []
-        for decision in self.buy_vs_build_analysis:
-            recommendation = decision.get("recommendation", "").lower()
-            if recommendation not in ("buy", "adopt"):
-                continue
-
-            component_name = decision.get("component_name")
-            recommended_solution = decision.get("recommended_solution")
-            decisions.append({
-                "component": component_name,
-                "decision": recommendation,
-                "recommended_solution": recommended_solution,
-                "rationale": decision.get("rationale", "")[:200],
-                "constraint": (
-                    f"{component_name} capability is provided by "
-                    f"{recommended_solution} ({recommendation.upper()}). "
-                    "Do not design an internal implementation for this "
-                    "capability."
-                ),
-            })
-        return decisions
-
-    @property
-    def has_canonical_decisions(self) -> bool:
-        """
-        Return whether buy/adopt decisions constrain downstream stages.
-
-        Returns:
-            True when canonical_decisions is non-empty.
-        """
-        return len(self.canonical_decisions) > 0
 
     @property
     def selected_architecture_style(self) -> str:

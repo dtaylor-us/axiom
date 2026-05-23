@@ -4,14 +4,12 @@ import json
 import logging
 
 from app.llm.client import LLMClient
-from app.llm.schemas import SCHEMAS
 from app.models import ArchitectureContext
 from app.prompts.loader import load_prompt
 from app.tools.base import BaseTool, ToolExecutionException
 
 logger = logging.getLogger(__name__)
 
-_STAGE = "weakness_analysis"
 _VALID_CATEGORIES = {"fragility", "scale_limit", "redesign_point", "operational"}
 
 
@@ -31,37 +29,19 @@ class WeaknessAnalyzerTool(BaseTool):
             characteristics=context.characteristics,
             scenarios=context.scenarios,
             trade_offs=context.trade_offs,
-            canonical_decisions=context.canonical_decisions,
         )
 
-        raw = await self.llm_client.complete(
-            prompt,
-            response_format="json",
-            output_schema=SCHEMAS.get(_STAGE),
-            schema_name=_STAGE,
-        )
+        raw = await self.llm_client.complete(prompt, response_format="json")
 
-        repair_attempted = False
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as e:
-            logger.warning(
-                "WeaknessAnalyzer JSON parse failed, attempting repair. error=%s", e
+            logger.error(
+                "WeaknessAnalyzer LLM returned invalid JSON: %s", raw[:500]
             )
-            repair_attempted = True
-            raw = await self.attempt_repair(
-                original_prompt=prompt,
-                failed_response=raw,
-                error_description=f"Invalid JSON: {e}",
-                output_schema=SCHEMAS.get(_STAGE),
-                schema_name=_STAGE,
-            )
-            try:
-                parsed = json.loads(raw)
-            except json.JSONDecodeError as e2:
-                raise ToolExecutionException(
-                    f"Stage output could not be parsed after repair attempt. error={e2}"
-                ) from e2
+            raise ToolExecutionException(
+                f"LLM returned invalid JSON: {e}"
+            ) from e
 
         weaknesses = parsed.get("weaknesses", [])
         validated: list[dict] = []

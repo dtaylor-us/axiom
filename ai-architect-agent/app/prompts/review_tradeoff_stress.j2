@@ -15,20 +15,6 @@ WEAKNESSES:
 FMEA RISKS:
 {{ fmea_risks | tojson(indent=2) }}
 
-CANONICAL DECISIONS TO VERIFY:
-{% if canonical_decisions %}
-The following buy/adopt decisions were made in stage 6b.
-Verify that:
-
-The architecture design does NOT include internal implementations for these capabilities
-FMEA covers integration risks for these external solutions
-ADL includes rules preventing internal reimplementation
-{% for d in canonical_decisions %}
-{{ d.component }}: {{ d.recommended_solution }} ({{ d.decision }})
-{% endfor %}
-If any of these constraints are violated, flag it as a cross-section consistency failure.
-{% endif %}
-
 For each trade-off decision, evaluate:
 1. Is the reasoning sound given the identified characteristics?
 2. Does the decision create or worsen any identified weakness or FMEA risk?
