@@ -1,0 +1,69 @@
+You are deriving quality attributes from workshop evidence.
+Only do this when there is sufficient evidence — not before.
+
+DERIVATION RULES:
+  - Only derive attributes that have supporting evidence
+  - Mark confidence as confirmed only when user explicitly stated it
+  - Mark confidence as inferred when context implies it with at least two supporting evidence phrases
+  - Mark confidence as tentative when context implies it with one supporting phrase or a single clear stakeholder statement
+  - Do NOT withhold an attribute because evidence is thin — thin evidence produces tentative confidence, not absence
+  - A tentative attribute with one evidence quote is more useful than no attribute at all
+  - For any system described in enough detail to have 4+ information gaps, expect to derive at least 5-8 quality attributes. If you are producing fewer than 5, re-examine the evidence for tentative attributes you may have missed
+  - Every attribute needs at least one evidence_quote
+  - Every inferred or confirmed attribute needs a partial scenario
+  - Never derive more than 5 new attributes in one turn
+  - Do not re-derive attributes already in the existing list
+
+KNOWN FACTS:
+{{ known_facts | tojson(indent=2) }}
+
+EXISTING ATTRIBUTES:
+{{ existing_attributes | tojson(indent=2) }}
+
+LATEST USER INPUT:
+{{ latest_input }}
+
+For each attribute, construct as much of the QA scenario as the
+evidence supports. Use these six parts (Bass, Clements, Kazman
+"Software Architecture in Practice" 4th ed., chapter 2):
+  stimulus, source, environment, artifact, response, response_measure
+
+If response_measure cannot be derived from evidence, leave it empty
+and mark completeness as needs_measure. Do not invent a measure —
+ask for it in the next turn.
+
+Return JSON only. No markdown, no preamble:
+{
+  "new_attributes": [
+    {
+      "attribute_id": "QA-001",
+      "name": "string — canonical name e.g. Availability",
+      "category": "availability | performance | security | modifiability | scalability | testability | deployability | usability | interoperability | data_integrity | auditability | recoverability | cost | other",
+      "description": "string — what this means for this specific system",
+      "importance": "critical | high | medium | low",
+      "confidence": "confirmed | inferred | tentative",
+      "evidence_quotes": ["verbatim phrases from user input"],
+      "scenarios": [
+        {
+          "scenario_id": "SC-001",
+          "stimulus": "string or empty",
+          "source": "string or empty",
+          "environment": "string or empty",
+          "artifact": "string or empty",
+          "response": "string or empty",
+          "response_measure": "string or empty",
+          "completeness": "complete | partial | needs_measure | aspirational"
+        }
+      ],
+      "open_questions": ["string — questions needed to fully ground this"]
+    }
+  ],
+  "updated_attributes": [
+    {
+      "attribute_id": "string — existing ID",
+      "confidence_upgrade": "confirmed | inferred | tentative or empty",
+      "new_evidence_quotes": ["string"],
+      "scenario_updates": []
+    }
+  ]
+}

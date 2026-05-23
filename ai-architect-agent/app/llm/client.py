@@ -73,19 +73,46 @@ class LLMClient:
         retry=retry_if_exception_type((TimeoutError, Exception)),
         reraise=True,
     )
-    async def _invoke(self, prompt: str) -> object:
-        """Invoke the LLM with retry logic."""
-        return await self._llm.ainvoke([HumanMessage(content=prompt)])
+    async def _invoke(
+        self,
+        prompt: str,
+        response_format_param: dict | None = None,
+    ) -> object:
+        """Invoke the LLM with retry logic.
 
-    async def complete(self, prompt: str, response_format: str = "json") -> str:
+        Args:
+            prompt: The prompt to send.
+            response_format_param: Optional response_format dict to bind to
+                the LLM before invoking. When None the LLM is invoked as-is.
+        """
+        if response_format_param is not None:
+            llm = self._llm.bind(response_format=response_format_param)
+        else:
+            llm = self._llm
+        return await llm.ainvoke([HumanMessage(content=prompt)])
+
+    async def complete(
+        self,
+        prompt: str,
+        response_format: str = "json",
+        output_schema: dict | None = None,
+        schema_name: str = "tool_output",
+    ) -> str:
         """Call the LLM with the given prompt and return the raw string content.
 
         Wraps the call in an OTel llm_span for distributed tracing and
         records token usage to the metrics subsystem.
 
         Args:
-            prompt: The prompt to send to the LLM.
-            response_format: If "json", appends instruction to return valid JSON only.
+            prompt: The full rendered prompt string.
+            response_format: "json" or "text". When "json" and output_schema
+                is None, uses the legacy json_object hint for backward compat.
+            output_schema: JSON schema dict derived from a Pydantic model via
+                model.model_json_schema(). When provided, attempts provider-
+                native structured output (OpenAI json_schema type, strict=True).
+                Falls back to json_object mode if the provider rejects the schema.
+            schema_name: Name field for the json_schema object. Used in error
+                messages and provider logs.
 
         Returns:
             The raw string content of the LLM response.
@@ -101,17 +128,66 @@ class LLMClient:
                 "Just the raw JSON object."
             )
 
+        provider = os.getenv("LLM_PROVIDER", "openai").lower()
         tool_name = _current_tool_name.get()
         conversation_id = _current_conversation_id.get()
+
+        # Determine the response_format parameter to pass to the API.
+        # Layer 1: provider-native structured output when a schema is available.
+        # Layer 0: legacy json_object hint when no schema is provided.
+        schema_enforcement_active = False
+        if output_schema is not None and response_format == "json":
+            if provider == "ollama":
+                # Ollama does not universally support the json_schema type.
+                # The schema is used as a prompt hint only; enforce via Layer 2.
+                logger.debug(
+                    "Ollama provider: output_schema for '%s' is used as "
+                    "a prompt hint only — provider schema enforcement skipped.",
+                    schema_name,
+                )
+                response_format_param: dict | None = {"type": "json_object"}
+            else:
+                response_format_param = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema_name,
+                        "strict": True,
+                        "schema": output_schema,
+                    },
+                }
+                schema_enforcement_active = True
+        elif response_format == "json":
+            # Legacy fallback — used by tool calls not yet migrated to schemas.
+            response_format_param = {"type": "json_object"}
+        else:
+            response_format_param = None
 
         async with llm_span(
             tool_name, conversation_id, model=self.model_name
         ) as span:
             try:
-                response = await self._invoke(prompt)
+                response = await self._invoke(prompt, response_format_param)
             except Exception as e:
-                logger.error("LLM call failed after retries: %s", str(e))
-                raise LLMCallException(f"LLM call failed: {str(e)}") from e
+                if schema_enforcement_active and _is_schema_rejection(e):
+                    # The provider refused the strict schema constraint.
+                    # Fall back to json_object mode so the pipeline can continue.
+                    logger.warning(
+                        "Provider rejected strict schema for '%s': %s. "
+                        "Falling back to json_object mode. "
+                        "schema_enforcement_fallback=True",
+                        schema_name, str(e)[:200],
+                    )
+                    span.set_attribute("schema_enforcement_fallback", True)
+                    try:
+                        response = await self._invoke(prompt, {"type": "json_object"})
+                    except Exception as e2:
+                        logger.error(
+                            "LLM call failed after schema fallback: %s", str(e2)
+                        )
+                        raise LLMCallException(f"LLM call failed: {str(e2)}") from e2
+                else:
+                    logger.error("LLM call failed after retries: %s", str(e))
+                    raise LLMCallException(f"LLM call failed: {str(e)}") from e
 
             content = response.content
 
@@ -159,3 +235,22 @@ class LLMClient:
             if stripped.rstrip().endswith("```"):
                 stripped = stripped.rstrip()[:-3].rstrip()
         return stripped
+
+
+def _is_schema_rejection(exc: Exception) -> bool:
+    """Return True when the exception indicates a provider-side schema rejection.
+
+    This is heuristic: OpenAI returns HTTP 400 / BadRequestError with messages
+    mentioning schema, json_schema, or strict when it cannot satisfy a structured
+    output constraint. We match on the exception message rather than importing
+    openai directly, keeping this module provider-agnostic.
+
+    Args:
+        exc: The exception raised by _invoke().
+
+    Returns:
+        True if the exception looks like a schema enforcement rejection.
+    """
+    msg = str(exc).lower()
+    schema_keywords = ("json_schema", "strict", "schema", "invalid_schema")
+    return any(kw in msg for kw in schema_keywords)

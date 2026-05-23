@@ -75,6 +75,8 @@ describe('governance API', () => {
       status: 500,
       headers: { get: () => null },
     } as unknown as Response);
-    await expect(getTradeOffs('s1', 'jwt')).rejects.toThrow('500');
+    await expect(getTradeOffs('s1', 'jwt')).rejects.toThrow(
+      'Something went wrong on the server. Please try again.',
+    );
   });
 });

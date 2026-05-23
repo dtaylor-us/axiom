@@ -13,12 +13,15 @@ import json
 import logging
 
 from app.llm.client import LLMClient
+from app.llm.schemas import SCHEMAS
 from app.memory.store import MemoryStore
 from app.models import ArchitectureContext
 from app.prompts.loader import load_prompt
 from app.tools.base import BaseTool, ToolExecutionException
 
 logger = logging.getLogger(__name__)
+
+_STAGE = "architecture_generation"
 
 # Number of architecture styles in the Richards catalog.
 # Layered, Modular Monolith, Microkernel, Pipeline,
@@ -38,6 +41,13 @@ DISTRIBUTED_SIGNAL_CHARACTERISTICS = frozenset({
     "agility",
     "deployability",
     "fault_tolerance",
+})
+
+INVALID_INTERACTION_FIELD_VALUES = frozenset({
+    "",
+    "undefined",
+    "null",
+    "unknown",
 })
 
 
@@ -95,20 +105,38 @@ class ArchitectureGeneratorTool(BaseTool):
             similar_past_designs=similar,
             architecture_override=context.architecture_override,
             buy_vs_build_preferences=context.buy_vs_build_preferences,
+            canonical_decisions=context.canonical_decisions,
         )
 
-        raw = await self.llm_client.complete(prompt, response_format="json")
+        raw = await self.llm_client.complete(
+            prompt,
+            response_format="json",
+            output_schema=SCHEMAS.get(_STAGE),
+            schema_name=_STAGE,
+        )
 
+        repair_attempted = False
         try:
             result = json.loads(raw)
         except json.JSONDecodeError as exc:
-            logger.error(
-                "ArchitectureGenerator LLM returned invalid JSON: %s",
-                raw[:500],
+            logger.warning(
+                "ArchitectureGenerator JSON parse failed, attempting repair. error=%s",
+                exc,
             )
-            raise ToolExecutionException(
-                f"LLM returned invalid JSON: {exc}"
-            ) from exc
+            repair_attempted = True
+            raw = await self.attempt_repair(
+                original_prompt=prompt,
+                failed_response=raw,
+                error_description=f"Invalid JSON: {exc}",
+                output_schema=SCHEMAS.get(_STAGE),
+                schema_name=_STAGE,
+            )
+            try:
+                result = json.loads(raw)
+            except json.JSONDecodeError as e2:
+                raise ToolExecutionException(
+                    f"Stage output could not be parsed after repair attempt. error={e2}"
+                ) from e2
 
         # --- Validate style selection ---
         self._validate_style_selection(result, context)
@@ -119,6 +147,9 @@ class ArchitectureGeneratorTool(BaseTool):
             raise ToolExecutionException(
                 "Architecture generator returned an empty components list."
             )
+        result["interactions"] = self._validate_interactions(
+            result.get("interactions", [])
+        )
 
         # Write style scores into the dedicated context field
         style_selection = result.get("style_selection", {})
@@ -148,12 +179,61 @@ class ArchitectureGeneratorTool(BaseTool):
 
         logger.info(
             "ArchitectureGenerator produced design with %d components, "
-            "style=%s, runner_up=%s",
+            "style=%s, runner_up=%s repair_attempted=%s",
             len(components),
             style_selection.get("selected_style", "unknown"),
             style_selection.get("runner_up", "unknown"),
+            repair_attempted,
         )
         return context
+
+    def _validate_interactions(
+        self,
+        interactions: list[dict],
+    ) -> list[dict]:
+        """Reject interactions with undefined protocol or purpose.
+
+        Args:
+            interactions: Raw interaction objects from the architecture
+                generator response.
+
+        Returns:
+            Interactions that satisfy the minimum interoperability contract.
+        """
+        valid: list[dict] = []
+        for interaction in interactions:
+            protocol = interaction.get("protocol", "").strip()
+            purpose = interaction.get("purpose", "").strip()
+
+            if protocol.lower() in INVALID_INTERACTION_FIELD_VALUES:
+                logger.warning(
+                    "Interaction rejected: undefined protocol. from=%s to=%s",
+                    interaction.get("from"),
+                    interaction.get("to"),
+                )
+                continue
+
+            if purpose.lower() in INVALID_INTERACTION_FIELD_VALUES:
+                logger.warning(
+                    "Interaction rejected: undefined purpose. from=%s to=%s",
+                    interaction.get("from"),
+                    interaction.get("to"),
+                )
+                continue
+
+            valid.append(interaction)
+
+        rejected_count = len(interactions) - len(valid)
+        if rejected_count:
+            logger.warning(
+                "Interaction validation: %d of %d interactions passed. "
+                "%d rejected for undefined fields.",
+                len(valid),
+                len(interactions),
+                rejected_count,
+            )
+
+        return valid
 
     def _validate_style_selection(
         self, result: dict, context: ArchitectureContext

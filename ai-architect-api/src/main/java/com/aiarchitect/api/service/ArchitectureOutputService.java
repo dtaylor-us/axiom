@@ -225,7 +225,9 @@ public class ArchitectureOutputService {
                     (String) m.getOrDefault("title", ""),
                     (String) m.getOrDefault("description", ""),
                     (String) m.getOrDefault("mermaid_source", ""),
-                    (String) m.getOrDefault("characteristic_addressed", "")
+                    (String) m.getOrDefault("characteristic_addressed", ""),
+                    Boolean.TRUE.equals(m.get("has_syntax_error")),
+                    (String) m.getOrDefault("syntax_error_description", "")
             )).toList();
         } catch (JsonProcessingException e) {
             log.warn("Failed to parse diagrams_json", e);

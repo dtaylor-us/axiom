@@ -6,6 +6,9 @@ ORIGINAL REQUIREMENTS:
 PARSED ENTITIES:
 {{ parsed_entities | tojson(indent=2) }}
 
+MISSING REQUIREMENTS:
+{{ missing_requirements | tojson(indent=2) }}
+
 ARCHITECTURE DESIGN:
 {{ architecture_design | tojson(indent=2) }}
 
@@ -24,6 +27,9 @@ WEAKNESSES:
 FMEA RISKS:
 {{ fmea_risks | tojson(indent=2) }}
 
+BUY-VS-BUILD ANALYSIS:
+{{ buy_vs_build_analysis | tojson(indent=2) }}
+
 ASSUMPTION CHALLENGES:
 {{ assumption_challenges | tojson(indent=2) }}
 
@@ -33,15 +39,64 @@ TRADE-OFF CHALLENGES:
 ADL ISSUES:
 {{ adl_issues | tojson(indent=2) }}
 
-Score the architecture across four dimensions (each 0-25 points, total 0-100):
+ARTIFACT-GROUNDED SCORING RULES:
+For each dimension, you MUST reference specific artifacts from the pipeline output.
+Generic assessments are rejected. State the specific evidence for every score you give.
 
-1. **Requirement Coverage** (0-25): How well does the design address all stated and inferred requirements? Deduct for missing requirements, unaddressed ambiguities, and unchallenged assumptions.
+DIMENSION 1 — Requirement coverage (0-20)
+Count how many requirements from missing_requirements were addressed by specific components in architecture_design.
+20: All identified requirements have a traceable component
+15: >80% of requirements have a traceable component
+10: 50-80% of requirements have a traceable component
+5:  <50% of requirements have a traceable component
+0:  No traceability between requirements and components
+State: "N of M requirements are traceable to components"
 
-2. **Architectural Soundness** (0-25): Is the style selection justified? Are components well-defined with clear responsibilities? Are interactions appropriate? Deduct for challenged trade-offs and style mismatches.
+DIMENSION 2 — Characteristic alignment (0-20)
+For each characteristic with measurable_target, check if the architecture design explicitly addresses it.
+20: All primary characteristics have dedicated components
+15: >75% of primary characteristics are addressed
+10: 50-75% addressed, including the top-ranked one
+5:  Only the top-ranked characteristic is addressed
+0:  Architecture style does not serve primary characteristics
+State: "N of M primary characteristics have dedicated design"
 
-3. **Risk Mitigation** (0-25): How well are weaknesses and FMEA risks addressed? Are high-RPN risks being actioned? Deduct for unmitigated critical risks and missing cascade failure protections.
+DIMENSION 3 — Trade-off quality (0-20)
+Count trade-offs in trade_offs list. Check each has a specific rationale, names what was sacrificed, and references a characteristic.
+20: Every component or style decision has a documented trade-off with specific sacrifice and rationale
+15: Most decisions have trade-offs, some are generic
+10: Trade-offs exist but are generic and context-free
+5:  Fewer than 3 trade-offs total
+0:  No trade-off documentation
+State: "N trade-offs documented, N with specific rationale"
 
-4. **Governance Completeness** (0-25): Do ADL blocks adequately cover the architecture? Are enforcement levels appropriate? Deduct for missing ADL coverage, weak assertions, and governance gaps.
+DIMENSION 4 — ADL enforceability (0-20)
+Count ADL blocks in adl_blocks. Check each has a non-empty REQUIRES field and a PROMPT field >= 50 characters.
+20: N >= 5 ADL blocks, all with testable ASSERT conditions
+15: N = 3-4 ADL blocks, all enforceable
+10: N = 2 ADL blocks or some are vague
+5:  N = 1 ADL block
+0:  No ADL blocks generated
+State: "N ADL blocks, N with specific enforcement tooling"
+
+DIMENSION 5 — Risk awareness (0-20)
+Use fmea_risks list. Count risks by RPN and degradation type.
+20: >=6 FMEA risks identified, >=2 with RPN>100 and mitigations specified, degradation types classified
+15: 4-5 risks with mitigations
+10: 2-3 risks identified, mitigations generic or absent
+5:  1-2 risks identified
+0:  No FMEA risks
+State: "N FMEA risks, N critical (RPN>100), N with mitigations"
+
+DIMENSION 6 — Cross-section consistency (0-10 bonus)
+Check whether buy-vs-build decisions are honoured in the architecture design.
+For each BUY or ADOPT decision in buy_vs_build_analysis:
+If the component appears as "external" in architecture_design: +2 points (max 10)
+If the component appears as an internal service despite a buy/adopt recommendation: -2 points
+State: "N of M buy/adopt decisions reflected as external components"
+
+IMPORTANT: Calculate the score from the actual counts above.
+Do not estimate. The score MUST match the counts you state.
 
 Also determine improvement recommendations and whether re-iteration is needed.
 Re-iteration is recommended when the total score is below 60 OR when any single dimension scores below 10.
@@ -50,11 +105,20 @@ Return a JSON object with exactly this structure. No markdown, no preamble:
 {
   "governance_score_breakdown": {
     "requirement_coverage": 20,
-    "architectural_soundness": 18,
-    "risk_mitigation": 15,
-    "governance_completeness": 22,
-    "total": 75,
+    "characteristic_alignment": 18,
+    "trade_off_quality": 15,
+    "adl_enforceability": 12,
+    "risk_awareness": 16,
+    "consistency_bonus": 4,
     "justification": "string — 2-3 sentence explanation of the overall score"
+  },
+  "score_evidence": {
+    "requirement_coverage": "string — N of M requirements traceable",
+    "characteristic_alignment": "string — N of M characteristics addressed",
+    "trade_off_quality": "string — N trade-offs, N specific",
+    "adl_enforceability": "string — N ADL blocks, N enforceable",
+    "risk_awareness": "string — N FMEA risks, N critical",
+    "consistency_bonus": "string — N of M buy/adopt as external"
   },
   "improvement_recommendations": [
     {

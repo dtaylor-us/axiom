@@ -7,13 +7,15 @@ interface CopyButtonProps {
   label?: string;
   className?: string;
   title?: string;
+  /** Optional test id for the underlying button */
+  testId?: string;
 }
 
 /**
  * Inline clipboard copy button.
  * Shows a clipboard icon that briefly swaps to a checkmark on success.
  */
-export function CopyButton({ text, label, className = '', title = 'Copy to clipboard' }: CopyButtonProps) {
+export function CopyButton({ text, label, className = '', title = 'Copy to clipboard', testId }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -31,6 +33,7 @@ export function CopyButton({ text, label, className = '', title = 'Copy to clipb
     <button
       type="button"
       onClick={handleCopy}
+      data-testid={testId}
       title={copied ? 'Copied!' : title}
       aria-label={copied ? 'Copied!' : title}
       className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${className}`}

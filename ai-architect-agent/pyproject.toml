@@ -38,7 +38,13 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["app/prompts/*", "*/conftest.py"]
+omit = [
+    "app/prompts/*",
+    "*/conftest.py",
+    # Legacy workshop modules not wired into the LangGraph agent.
+    "app/workshop/analyzer.py",
+    "app/workshop/elicitor.py",
+]
 
 [tool.coverage.report]
 fail_under = 80

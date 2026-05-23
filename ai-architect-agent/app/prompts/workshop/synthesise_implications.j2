@@ -1,0 +1,100 @@
+You are deriving architectural requirements and constraints
+from QAW scenarios for a software architecture reasoning engine.
+
+CRITICAL DISTINCTION — read this before writing anything:
+A REQUIREMENT states what must be true about the system.
+A MECHANISM is a solution that achieves a requirement.
+
+The workshop produces REQUIREMENTS. The reasoning engine
+produces MECHANISMS.
+
+You MUST output requirements, not mechanisms.
+
+WRONG — mechanism:
+"The architecture must include a consensus protocol"
+"The architecture must include an async worker pool"
+"The architecture must include a circuit breaker"
+"The architecture must use event sourcing"
+"The architecture must implement a saga pattern"
+
+RIGHT — requirement:
+"Inventory consistency must be maintained when WMS
+synchronisation fails — no robot task should be based
+on stale inventory state"
+"Task distribution must continue safely under peak load
+without dropping or duplicating assignments"
+"The system must detect and respond to failures within
+the response time specified in the safety scenario"
+
+The test: can you read the statement without knowing WHAT
+the solution is? If yes, it is a requirement. If it names
+or implies a specific design decision, it is a mechanism
+and must be rephrased.
+
+IMPLICATION FORMAT:
+Every implication must follow this structure:
+"Because [specific scenario stimulus and environment],
+[quality property] must be [specific measurable or
+describable condition]."
+
+Examples of correct format:
+"Because collision avoidance scenarios require robots to
+halt within 100ms of a safety signal, safety-critical
+signals must be delivered through a path that guarantees
+sub-100ms latency under all load conditions including
+peak fulfillment windows."
+
+"Because WAN degradation scenarios require continued
+robot coordination without cloud connectivity, local
+orchestration must remain fully operational during
+cloud disconnection periods of up to 15 minutes."
+
+"Because inventory synchronisation scenarios require
+consistency between WMS, robots, and scanners, task
+assignment must never be based on stale inventory state
+regardless of the network conditions at the time of
+assignment."
+
+TRADEOFF GUIDANCE — REQUIRED:
+For each implication, state the tradeoff it creates.
+Which other quality attribute does satisfying this
+requirement make harder to achieve?
+
+Examples:
+"Tradeoff: this requirement prioritises safety over
+throughput — accepting reduced task assignment rate
+is acceptable to prevent unsafe conditions."
+"Tradeoff: this requirement prioritises consistency over
+availability — the system may delay task assignment
+rather than assign based on potentially stale state."
+"Tradeoff: this requirement prioritises local autonomy
+over central optimisation — accepting suboptimal
+routing decisions during WAN degradation is preferable
+to halting operations."
+
+SCENARIOS TO DERIVE FROM:
+{{ driver_scenarios | tojson(indent=2) }}
+
+ALL SCENARIOS FOR CONTEXT:
+{{ all_scenarios | tojson(indent=2) }}
+
+QUALITY ATTRIBUTES:
+{{ attributes | tojson(indent=2) }}
+
+Return JSON only. No markdown, no preamble:
+{
+  "implications": [
+    {
+      "implication_id": "IMP-001",
+      "source_scenario_id": "string",
+      "source_scenario_title": "string",
+      "implication": "string — Because X, Y must be Z. No mechanism names. No solution prescriptions. States what must be true, not how to achieve it.",
+      "tradeoff": "string — Tradeoff: this requirement prioritises A over B because...",
+      "affected_quality_attrs": ["string — quality attribute names"],
+      "constraint_type": "safety | consistency | availability | performance | security | recoverability | observability | operational",
+      "strength": "must | should | may",
+      "measurable_condition": "string — the specific measurable threshold or testable condition, extracted from scenario response_measure if available, otherwise described qualitatively"
+    }
+  ],
+  "synthesis_summary": "string — one paragraph summarising the dominant architectural constraints and the tradeoff hierarchy they collectively establish. Example: 'Safety is non-negotiable and constrains throughput. Consistency is required over speed. Local autonomy takes precedence over central optimisation during network degradation.' Do not name mechanisms or patterns."
+}

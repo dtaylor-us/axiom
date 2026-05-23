@@ -67,9 +67,19 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
+    <!-- SMTP-based transactional email for password reset; provider chosen via env vars. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!-- Short-lived idempotency cache for duplicate workshop pipeline submissions. -->
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
     </dependency>
     <dependency>
       <groupId>io.micrometer</groupId>
@@ -190,6 +200,9 @@
             <exclude>com/aiarchitect/api/domain/model/**</exclude>
             <exclude>com/aiarchitect/api/dto/**</exclude>
             <exclude>com/aiarchitect/api/exception/AgentCommunicationException.class</exclude>
+            <exclude>com/aiarchitect/api/exception/RateLimitExceededException.class</exclude>
+            <exclude>com/aiarchitect/api/exception/InvalidResetTokenException.class</exclude>
+            <exclude>com/aiarchitect/api/exception/PasswordValidationException.class</exclude>
           </excludes>
         </configuration>
       </plugin>

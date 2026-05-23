@@ -4,12 +4,14 @@ import json
 import logging
 
 from app.llm.client import LLMClient
+from app.llm.schemas import SCHEMAS
 from app.models import ArchitectureContext
 from app.prompts.loader import load_prompt
 from app.tools.base import BaseTool, ToolExecutionException
 
 logger = logging.getLogger(__name__)
 
+_STAGE = "trade_off_analysis"
 _VALID_CONFIDENCE = {"high", "medium", "low"}
 
 
@@ -35,17 +37,34 @@ class TradeOffEngineTool(BaseTool):
             scenarios=context.scenarios,
         )
 
-        raw = await self.llm_client.complete(prompt, response_format="json")
+        raw = await self.llm_client.complete(
+            prompt,
+            response_format="json",
+            output_schema=SCHEMAS.get(_STAGE),
+            schema_name=_STAGE,
+        )
 
+        repair_attempted = False
         try:
             result = json.loads(raw)
         except json.JSONDecodeError as e:
-            logger.error(
-                "TradeOffEngine LLM returned invalid JSON: %s", raw[:500]
+            logger.warning(
+                "TradeOffEngine JSON parse failed, attempting repair. error=%s", e
             )
-            raise ToolExecutionException(
-                f"LLM returned invalid JSON: {e}"
-            ) from e
+            repair_attempted = True
+            raw = await self.attempt_repair(
+                original_prompt=prompt,
+                failed_response=raw,
+                error_description=f"Invalid JSON: {e}",
+                output_schema=SCHEMAS.get(_STAGE),
+                schema_name=_STAGE,
+            )
+            try:
+                result = json.loads(raw)
+            except json.JSONDecodeError as e2:
+                raise ToolExecutionException(
+                    f"Stage output could not be parsed after repair attempt. error={e2}"
+                ) from e2
 
         decisions = result.get("decisions", [])
         validated: list[dict] = []
@@ -83,8 +102,10 @@ class TradeOffEngineTool(BaseTool):
         )
 
         logger.info(
-            "TradeOffEngine produced %d validated decisions (dropped %d)",
+            "TradeOffEngine produced %d validated decisions (dropped %d) "
+            "repair_attempted=%s",
             len(validated),
             len(decisions) - len(validated),
+            repair_attempted,
         )
         return context

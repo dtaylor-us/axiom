@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useConversation } from '../hooks/useConversation';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { CopyButton } from '../components/CopyButton';
 import { useStore } from '../store/useStore';
 
 const EXAMPLES: { label: string; prompt: string }[] = [
@@ -42,6 +43,19 @@ export function ChatView() {
   } = useConversation();
   const canReattach = useStore((s) => s.canReattach);
   const lastStageCompleted = useStore((s) => s.lastStageCompleted);
+  const pipelineHasGaps = useStore((s) => s.pipelineHasGaps);
+  const pipelineGaps = useStore((s) => s.pipelineGaps);
+  const workshopSeed = useStore((s) => s.workshopSeed);
+  const setWorkshopSeed = useStore((s) => s.setWorkshopSeed);
+
+  /* Auto-submit workshop seed — kicks off the pipeline after Send to Pipeline. */
+  useEffect(() => {
+    if (!workshopSeed || isStreaming) return;
+    const msg = workshopSeed;
+    // Clear first so a re-render while streaming doesn't re-submit.
+    setWorkshopSeed(null);
+    void sendMessage(msg);
+  }, [workshopSeed, isStreaming, sendMessage, setWorkshopSeed]);
 
   /* Auto-scroll on new content */
   useEffect(() => {
@@ -242,9 +256,17 @@ export function ChatView() {
                         <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" />
                       </svg>
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-gray-800 mb-1">You</p>
                       <p className="text-[15px] text-gray-700 leading-relaxed">{m.content}</p>
+                      <div className="mt-1 -ml-0.5">
+                        <CopyButton
+                          text={m.content}
+                          title="Copy message"
+                          className="text-[11px] py-0.5 px-1"
+                          testId="chat-copy-message"
+                        />
+                      </div>
                     </div>
                   </div>
                 );
@@ -260,6 +282,14 @@ export function ChatView() {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-gray-800 mb-1">Archon</p>
                     <MarkdownRenderer content={m.content} />
+                    <div className="mt-1 -ml-0.5">
+                      <CopyButton
+                        text={m.content}
+                        title="Copy message"
+                        className="text-[11px] py-0.5 px-1"
+                        testId="chat-copy-message"
+                      />
+                    </div>
                   </div>
                 </div>
               );
@@ -272,6 +302,39 @@ export function ChatView() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
+            {/* Pipeline gap banner — shown when optional stages were skipped */}
+            {pipelineHasGaps && !isStreaming && (
+              <div
+                className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3"
+                data-testid="pipeline-gap-banner"
+              >
+                <svg
+                  className="w-4 h-4 text-amber-500 mt-0.5 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-amber-800">
+                    Architecture generated with partial analysis
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    {pipelineGaps.length} optional stage{pipelineGaps.length !== 1 ? 's' : ''} could
+                    not complete. The architecture is based on the stages that succeeded. You can
+                    refine your requirements and run again for a more complete result.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -289,6 +352,14 @@ export function ChatView() {
                     <>
                       <MarkdownRenderer content={streamingText} />
                       <span className="inline-block w-1.5 h-4 bg-gray-800 animate-pulse align-text-bottom ml-0.5" />
+                      <div className="mt-1 -ml-0.5 block">
+                        <CopyButton
+                          text={streamingText}
+                          title="Copy message"
+                          className="text-[11px] py-0.5 px-1"
+                          testId="chat-copy-message"
+                        />
+                      </div>
                     </>
                   ) : (
                     <div className="flex items-center gap-1.5 py-2">

@@ -1,0 +1,55 @@
+You are analysing stakeholder input for a Quality Attribute Workshop.
+Your job is to extract what is present and identify what is missing — not to derive quality attributes yet.
+
+INPUT PROVIDED BY THE USER:
+{{ raw_input }}
+
+FACTS ALREADY KNOWN FROM PRIOR TURNS:
+{% if prior_known_facts %}
+{% for fact in prior_known_facts %}
+- [{{ fact.category }}] {{ fact.fact }}
+{% endfor %}
+Focus your extraction on NEW information not already in this list.
+Do not re-extract facts that are already known.
+{% else %}
+None — this is the first turn.
+{% endif %}
+
+EXISTING SESSION CONTEXT:
+System name: {{ system_name or "not yet identified" }}
+Current phase: {{ workshop_phase }}
+Prior inputs: {{ prior_input_count }} turns of context
+
+ANALYSIS TASK:
+Identify what can be determined from this input and what cannot.
+Extract if present:
+  - System name or description
+  - Business purpose or mission
+  - Stakeholder roles mentioned
+  - User types or personas
+  - Load or scale numbers mentioned
+  - Integration points named
+  - Constraints explicitly stated
+  - Pain points or failure modes described
+  - Any implicit quality concerns
+
+Do NOT derive quality attributes yet. Do NOT make assumptions about
+what the system needs. Only extract what is stated or clearly implied.
+
+Return JSON only. No markdown, no preamble:
+{
+  "system_name": "string or empty",
+  "extracted_facts": [
+    {
+      "category": "business | usage | technical | risk",
+      "fact": "string — what was stated or clearly implied",
+      "source_quote": "verbatim phrase from input that supports this",
+      "confidence": "explicit | implied"
+    }
+  ],
+  "implicit_concerns": [
+    "string — quality concern suggested but not stated directly"
+  ],
+  "input_quality": "rich | adequate | sparse | insufficient",
+  "input_quality_reason": "string — why this rating"
+}

@@ -37,6 +37,35 @@ Estimated total setup time: **45–60 minutes**.
 
 ---
 
+## Development
+
+### Local password reset email testing
+
+To test password reset locally:
+
+1. Start the stack with `docker compose up`.
+2. Open <http://loc›alhost:8025>. This is the Mailhog web UI.
+3. Request a password reset in the application.
+4. Confirm the reset email appears in Mailhog immediately.
+5. Click the reset link from the Mailhog UI.
+
+For local development, use the Mailhog SMTP settings from `.env.example`:
+
+```bash
+SMTP_HOST=mailhog
+SMTP_PORT=1025
+SMTP_AUTH=false
+SMTP_STARTTLS=false
+EMAIL_FROM_ADDRESS=noreply@aiarchitect.local
+APP_BASE_URL=http://localhost:3000
+```
+
+For production, configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, and
+`SMTP_PASSWORD` with your email provider. `.env.example` includes provider
+examples for SendGrid and AWS SES.
+
+---
+
 ## Step 1 — Gather your Azure information
 
 ### Values you need to collect

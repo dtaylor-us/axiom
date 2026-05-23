@@ -24,6 +24,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Slf4j
 public class AuthController {
 
+        private static final String AUTO_LOCAL_DOMAIN = "@auto.local";
+
         private final UserRepository userRepository;
         private final JwtService jwtService;
         private final PasswordEncoder passwordEncoder;
@@ -35,15 +37,17 @@ public class AuthController {
         @PostMapping("/register")
         @ResponseStatus(HttpStatus.CREATED)
         public AuthResponse register(@RequestBody @Valid AuthRequest request) {
+                String normalizedEmail = normalizeEmail(request.getEmail());
+
                 // Check if email already registered
-                if (userRepository.existsByEmail(request.getEmail())) {
+                if (userRepository.findByEmailIgnoreCase(normalizedEmail).isPresent()) {
                         throw new ResponseStatusException(
                                         HttpStatus.CONFLICT, "Email already registered");
                 }
 
                 // Create and save new user with encoded password
                 User user = userRepository.save(User.builder()
-                                .email(request.getEmail())
+                                .email(normalizedEmail)
                                 .password(passwordEncoder.encode(request.getPassword()))
                                 .name(request.getName())
                                 .build());
@@ -65,9 +69,9 @@ public class AuthController {
          */
         @PostMapping("/token")
         public AuthResponse token(@RequestBody @Valid TokenRequest request) {
-                String syntheticEmail = request.getUsername().toLowerCase().replaceAll("\\s+", ".") + "@auto.local";
+                String syntheticEmail = request.getUsername().toLowerCase().replaceAll("\\s+", ".") + AUTO_LOCAL_DOMAIN;
 
-                User user = userRepository.findByEmail(syntheticEmail)
+                User user = userRepository.findByEmailIgnoreCase(syntheticEmail)
                                 .orElseGet(() -> userRepository.save(User.builder()
                                                 .email(syntheticEmail)
                                                 .password(passwordEncoder.encode("auto-" + System.currentTimeMillis()))
@@ -89,8 +93,10 @@ public class AuthController {
          */
         @PostMapping("/login")
         public AuthResponse login(@RequestBody @Valid AuthRequest request) {
+                String normalizedEmail = normalizeEmail(request.getEmail());
+
                 // Find user by email or throw UNAUTHORIZED
-                User user = userRepository.findByEmail(request.getEmail())
+                User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                                 .orElseThrow(() -> new ResponseStatusException(
                                                 HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
@@ -114,5 +120,9 @@ public class AuthController {
                                 .token(token)
                                 .email(user.getEmail())
                                 .build();
+        }
+
+        private String normalizeEmail(String email) {
+                return email == null ? "" : email.trim().toLowerCase();
         }
 }

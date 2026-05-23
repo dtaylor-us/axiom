@@ -32,7 +32,7 @@ class AuthControllerIntegrationTest {
     void register_createsUserAndReturnsToken() {
         webTestClient.post().uri("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"email\":\"alice@test.com\",\"password\":\"password123\",\"name\":\"Alice\"}")
+                .bodyValue("{\"email\":\"alice@test.com\",\"password\":\"password1234\",\"name\":\"Alice\"}")
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody()
@@ -46,13 +46,13 @@ class AuthControllerIntegrationTest {
     void register_returns409ForDuplicateEmail() {
         userRepository.save(User.builder()
                 .email("dup@test.com")
-                .password(passwordEncoder.encode("password123"))
+                .password(passwordEncoder.encode("password1234"))
                 .name("First")
                 .build());
 
         webTestClient.post().uri("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"email\":\"dup@test.com\",\"password\":\"password123\",\"name\":\"Second\"}")
+                .bodyValue("{\"email\":\"dup@test.com\",\"password\":\"password1234\",\"name\":\"Second\"}")
                 .exchange()
                 .expectStatus().is4xxClientError();
     }
@@ -61,13 +61,13 @@ class AuthControllerIntegrationTest {
     void login_returnsTokenForValidCredentials() {
         userRepository.save(User.builder()
                 .email("bob@test.com")
-                .password(passwordEncoder.encode("password123"))
+                .password(passwordEncoder.encode("password1234"))
                 .name("Bob")
                 .build());
 
         webTestClient.post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"email\":\"bob@test.com\",\"password\":\"password123\"}")
+                .bodyValue("{\"email\":\"bob@test.com\",\"password\":\"password1234\"}")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -79,13 +79,13 @@ class AuthControllerIntegrationTest {
     void login_returns401ForWrongPassword() {
         userRepository.save(User.builder()
                 .email("carol@test.com")
-                .password(passwordEncoder.encode("correctpass"))
+                .password(passwordEncoder.encode("correctpass12"))
                 .name("Carol")
                 .build());
 
         webTestClient.post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"email\":\"carol@test.com\",\"password\":\"wrongpass1\"}")
+                .bodyValue("{\"email\":\"carol@test.com\",\"password\":\"wrongpass1234\"}")
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
@@ -94,7 +94,7 @@ class AuthControllerIntegrationTest {
     void login_returns401ForNonexistentUser() {
         webTestClient.post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"email\":\"nobody@test.com\",\"password\":\"password123\"}")
+                .bodyValue("{\"email\":\"nobody@test.com\",\"password\":\"password1234\"}")
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
@@ -103,14 +103,14 @@ class AuthControllerIntegrationTest {
     void login_returns403ForDisabledUser() {
         userRepository.save(User.builder()
                 .email("disabled@test.com")
-                .password(passwordEncoder.encode("password123"))
+                .password(passwordEncoder.encode("password1234"))
                 .name("Disabled")
                 .enabled(false)
                 .build());
 
         webTestClient.post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"email\":\"disabled@test.com\",\"password\":\"password123\"}")
+                .bodyValue("{\"email\":\"disabled@test.com\",\"password\":\"password1234\"}")
                 .exchange()
                 .expectStatus().isForbidden();
     }
@@ -119,7 +119,7 @@ class AuthControllerIntegrationTest {
     void register_returns400ForInvalidEmail() {
         webTestClient.post().uri("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"email\":\"not-an-email\",\"password\":\"password123\"}")
+                .bodyValue("{\"email\":\"not-an-email\",\"password\":\"password1234\"}")
                 .exchange()
                 .expectStatus().isBadRequest();
     }

@@ -1,0 +1,33 @@
+You are refining a quality attribute scenario to make it precise,
+measurable, and testable.
+
+The user has confirmed that this attribute matters. Your job is to
+fill the gaps in the scenario using information from the conversation.
+
+ATTRIBUTE TO REFINE:
+{{ attribute | tojson(indent=2) }}
+
+FULL CONVERSATION CONTEXT:
+{{ context_summary }}
+
+SCENARIO REFINEMENT RULES:
+  - Every part of the scenario must be grounded in something the user said
+  - The response_measure must be quantitative — numbers, percentages,
+    time limits, or clear pass/fail criteria
+  - Do not invent stimulus sources the user did not mention
+  - If the artifact is unclear, use the most likely system component
+    based on the described behaviour
+  - A refined scenario is not complete unless response_measure is filled
+
+Return JSON only. No markdown, no preamble:
+{
+  "scenario_id": "string — same as the input scenario_id",
+  "stimulus": "string — refined, specific",
+  "source": "string — who or what generates the stimulus",
+  "environment": "string — conditions under which this occurs",
+  "artifact": "string — which part of the system is affected",
+  "response": "string — what the system must do",
+  "response_measure": "string — quantitative success criterion",
+  "completeness": "complete | partial | needs_measure | aspirational",
+  "refinement_notes": "string — what was clarified and why"
+}

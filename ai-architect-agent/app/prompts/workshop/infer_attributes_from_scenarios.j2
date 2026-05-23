@@ -1,0 +1,46 @@
+You are inferring quality attributes from concrete operational scenarios.
+The scenarios are the evidence — the attributes are the labels.
+
+SCENARIOS DERIVED THIS SESSION:
+{{ scenarios | tojson(indent=2) }}
+
+EXISTING ATTRIBUTES (do not re-derive these unless upgrading confidence):
+{{ existing_attributes | tojson(indent=2) }}
+
+For each scenario, identify which quality attributes it exercises. If an attribute is exercised by multiple scenarios, it has stronger evidence — upgrade its confidence.
+
+INFERENCE RULES:
+  - An attribute exercised by 2+ scenarios: inferred confidence
+  - An attribute exercised by 1 scenario with response_measure: inferred
+  - An attribute exercised by 1 scenario without measure: tentative
+  - An attribute stated explicitly by a stakeholder: confirmed
+
+Do NOT derive attributes that have no scenario evidence.
+Do NOT re-derive attributes already in the existing list unless you are upgrading their confidence.
+
+Return JSON only. No markdown, no preamble:
+{
+  "new_attributes": [
+    {
+      "attribute_id": "QA-001",
+      "name": "string",
+      "category": "string",
+      "description": "string — specific to this system",
+      "importance": "critical | high | medium | low",
+      "confidence": "confirmed | inferred | tentative",
+      "evidence_quotes": ["from scenario evidence_quote fields"],
+      "source_scenarios": ["SC-001", "SC-002"],
+      "scenario": {},
+      "open_questions": ["questions to complete the scenario"]
+    }
+  ],
+  "confidence_upgrades": [
+    {
+      "attribute_id": "existing ID",
+      "new_confidence": "string",
+      "reason": "string — which additional scenario supports upgrade"
+    }
+  ]
+}
+
+The "scenario" object should mirror the best supporting scenario (six parts plus scenario_id).

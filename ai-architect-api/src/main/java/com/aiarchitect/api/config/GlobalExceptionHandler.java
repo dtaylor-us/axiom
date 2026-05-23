@@ -1,11 +1,15 @@
 package com.aiarchitect.api.config;
 
+import com.aiarchitect.api.exception.AgentCommunicationException;
+import com.aiarchitect.api.exception.InvalidResetTokenException;
+import com.aiarchitect.api.exception.PasswordValidationException;
+import com.aiarchitect.api.exception.RateLimitExceededException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
-import com.aiarchitect.api.exception.AgentCommunicationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,6 +20,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -100,6 +105,46 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST, ex.getMessage());
         pd.setTitle("Bad Request");
         return pd;
+    }
+
+    /**
+     * Handles password reset request throttling with a Retry-After hint.
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimit(RateLimitExceededException ex) {
+        log.warn("Password reset rate limit exceeded: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", "3600")
+                .body(Map.of(
+                        "error", "rate_limit_exceeded",
+                        "message", ex.getMessage()
+                ));
+    }
+
+    /**
+     * Handles expired, missing, or already-consumed reset tokens.
+     */
+    @ExceptionHandler(InvalidResetTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidToken(InvalidResetTokenException ex) {
+        log.warn("Invalid reset token: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(Map.of(
+                        "error", "invalid_token",
+                        "message", ex.getMessage()
+                ));
+    }
+
+    /**
+     * Handles password-reset password policy violations with a typed response body.
+     */
+    @ExceptionHandler(PasswordValidationException.class)
+    public ResponseEntity<Map<String, Object>> handlePasswordValidation(PasswordValidationException ex) {
+        log.warn("Password validation failed: {}", ex.getMessage());
+        return ResponseEntity.badRequest()
+                .body(Map.of(
+                        "error", "password_invalid",
+                        "message", ex.getMessage()
+                ));
     }
 
     /**

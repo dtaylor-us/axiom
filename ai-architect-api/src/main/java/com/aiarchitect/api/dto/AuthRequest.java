@@ -16,8 +16,8 @@ public class AuthRequest {
     @NotBlank @Email
     private String email;
 
-    /** User password. Must not be blank and must be between 8 and 128 characters. */
-    @NotBlank @Size(min = 8, max = 128)
+    /** User password. Must not be blank and must be between 12 and 128 characters. */
+    @NotBlank @Size(min = 12, max = 128)
     private String password;
 
     /** Optional user name. */

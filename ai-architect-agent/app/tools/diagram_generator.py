@@ -18,11 +18,14 @@ import json
 import logging
 
 from app.llm.client import LLMClient
+from app.llm.schemas import SCHEMAS
 from app.models.context import (
     ArchitectureContext, Diagram, DiagramType
 )
 from app.prompts.loader import load_prompt
 from app.tools.base import BaseTool, ToolExecutionException
+
+_STAGE_SINGLE = "diagram_generation_single"
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,8 @@ EXPECTED_SYNTAX_PREFIXES: dict[DiagramType, tuple[str, ...]] = {
     DiagramType.FLOWCHART:        ("flowchart",),
 }
 
+MERMAID_OPENING_KEYWORDS = EXPECTED_SYNTAX_PREFIXES
+
 
 class DiagramGeneratorTool(BaseTool):
     """Generates between 3 and 5 Mermaid diagrams for an architecture.
@@ -68,7 +73,11 @@ class DiagramGeneratorTool(BaseTool):
     async def run(
         self, context: ArchitectureContext
     ) -> ArchitectureContext:
-        """Select diagram types and generate detailed Mermaid source.
+        """Select diagram types and generate one Mermaid diagram per type.
+
+        Each diagram type is generated in a dedicated LLM call so the model
+        focuses entirely on one diagram at a time.  Partial success is
+        preferred — only raises if ALL types fail.
 
         Args:
             context: Pipeline state — reads architecture_design
@@ -79,7 +88,7 @@ class DiagramGeneratorTool(BaseTool):
 
         Raises:
             ToolExecutionException: If architecture_design is empty,
-                LLM returns invalid JSON, or all diagrams fail validation.
+                or all diagram types fail generation/validation.
         """
         if not context.architecture_design:
             raise ToolExecutionException(
@@ -104,45 +113,34 @@ class DiagramGeneratorTool(BaseTool):
             [t.value for t in selected_types],
             context.conversation_id
         )
-
-        prompt = load_prompt(
-            "diagram_generator",
-            parsed_entities=context.parsed_entities,
-            architecture_design=context.architecture_design,
-            characteristics=context.characteristics,
-            selected_diagram_types=[t.value for t in selected_types],
+        logger.info(
+            "DIAGNOSTIC: Diagram generation starting. "
+            "method=per_type_sequential selected_types=%s session=%s",
+            [t.value for t in selected_types],
+            context.conversation_id,
         )
 
-        raw = await self.llm_client.complete(
-            prompt, response_format="json"
-        )
+        failed_types: list[str] = []
+        validated: list[Diagram] = []
 
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            logger.error(
-                "DiagramGenerator LLM returned invalid JSON: %s",
-                raw[:500],
-            )
+        for diagram_type in selected_types:
+            diagram = await self._generate_single_diagram(diagram_type, context)
+            if diagram is not None:
+                validated.append(diagram)
+            else:
+                failed_types.append(diagram_type.value)
+                logger.warning(
+                    "Diagram type %s failed generation. conversation_id=%s",
+                    diagram_type.value, context.conversation_id,
+                )
+
+        if not validated:
             raise ToolExecutionException(
-                f"Diagram generator returned invalid JSON: {exc}. "
-                f"Raw: {raw[:200]}"
-            ) from exc
-
-        raw_diagrams = parsed.get("diagrams", [])
-        if not raw_diagrams:
-            raise ToolExecutionException(
-                "Diagram generator returned empty diagrams list."
+                f"All diagram types failed generation. "
+                f"Requested types: {[t.value for t in selected_types]}"
             )
-
-        validated = self._validate_diagrams(
-            raw_diagrams, selected_types
-        )
 
         context.diagrams = validated
-
-        # Populate backward-compatible fields for any code
-        # still referencing the Phase 3 flat string properties.
         context.mermaid_component_diagram = context.get_diagram(
             DiagramType.C4_CONTAINER
         )
@@ -151,14 +149,268 @@ class DiagramGeneratorTool(BaseTool):
         )
 
         logger.info(
-            "Diagram generation complete: %d diagrams produced. "
-            "types=%s conversation_id=%s",
-            len(validated),
+            "Diagram generation complete: %d/%d diagrams produced. "
+            "types=%s failed_types=%s conversation_id=%s",
+            len(validated), len(selected_types),
             [d.type.value for d in validated],
-            context.conversation_id
+            failed_types,
+            context.conversation_id,
         )
 
         return context
+
+    async def _generate_single_diagram(
+        self,
+        diagram_type: DiagramType,
+        context: ArchitectureContext,
+    ) -> Diagram | None:
+        """Generate a single Mermaid diagram for the given type.
+
+        Args:
+            diagram_type: The diagram type to generate.
+            context: Current pipeline context.
+
+        Returns:
+            Validated Diagram instance, or None if generation/validation failed.
+        """
+        prompt = load_prompt(
+            "diagram_generator_single",
+            diagram_type=diagram_type.value,
+            parsed_entities=context.parsed_entities,
+            architecture_design=context.architecture_design,
+            characteristics=context.characteristics,
+            canonical_decisions=context.canonical_decisions,
+        )
+
+        try:
+            raw = await self.llm_client.complete(
+                prompt,
+                response_format="json",
+                output_schema=SCHEMAS.get(_STAGE_SINGLE),
+                schema_name=_STAGE_SINGLE,
+            )
+        except Exception as exc:
+            logger.warning(
+                "LLM call failed for diagram type %s: %s",
+                diagram_type.value, exc,
+            )
+            return None
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "JSON parse failed for diagram type %s, attempting repair. error=%s",
+                diagram_type.value, exc,
+            )
+            try:
+                raw = await self.attempt_repair(
+                    original_prompt=prompt,
+                    failed_response=raw,
+                    error_description=f"Invalid JSON: {exc}",
+                    output_schema=SCHEMAS.get(_STAGE_SINGLE),
+                    schema_name=_STAGE_SINGLE,
+                )
+                parsed = json.loads(raw)
+            except Exception as repair_exc:
+                logger.warning(
+                    "Repair failed for diagram type %s: %s",
+                    diagram_type.value, repair_exc,
+                )
+                raise ToolExecutionException(
+                    f"invalid JSON for diagram type {diagram_type.value}"
+                ) from repair_exc
+
+        if isinstance(parsed, dict) and "diagrams" in parsed:
+            raw_diagrams = parsed.get("diagrams", [])
+            if not raw_diagrams:
+                raise ToolExecutionException("empty diagrams list")
+            matching = [
+                diagram for diagram in raw_diagrams
+                if diagram.get("type") == diagram_type.value
+            ]
+            parsed = matching[0] if matching else raw_diagrams[0]
+
+        # Inject the expected type so _rejection_reason can validate prefix
+        parsed.setdefault("type", diagram_type.value)
+        parsed.setdefault("diagram_id", diagram_type.value)
+
+        reason = self._rejection_reason(parsed)
+        if reason:
+            logger.warning(
+                "Diagram type %s rejected after generation: %s",
+                diagram_type.value, reason,
+            )
+            return None
+
+        source = parsed.get("mermaid_source", "")
+        is_valid, error = self._validate_mermaid_syntax(
+            source, diagram_type
+        )
+        if not is_valid:
+            logger.warning(
+                "Mermaid syntax validation failed. type=%s error=%s "
+                "attempting repair. conversation_id=%s",
+                diagram_type.value,
+                error,
+                context.conversation_id,
+            )
+            repaired_source = await self._repair_mermaid_source(
+                source, diagram_type, error
+            )
+            is_valid_after_repair, error_after = (
+                self._validate_mermaid_syntax(
+                    repaired_source, diagram_type
+                )
+            )
+            if is_valid_after_repair:
+                source = repaired_source
+                logger.info(
+                    "Mermaid repair succeeded. type=%s conversation_id=%s",
+                    diagram_type.value,
+                    context.conversation_id,
+                )
+            else:
+                logger.warning(
+                    "Mermaid repair failed. type=%s error_after_repair=%s "
+                    "storing with error. conversation_id=%s",
+                    diagram_type.value,
+                    error_after,
+                    context.conversation_id,
+                )
+                return Diagram(
+                    diagram_id=f"D-{diagram_type.value.upper()}",
+                    type=diagram_type,
+                    title=parsed.get("title", diagram_type.value),
+                    description=parsed.get("description", ""),
+                    mermaid_source=source,
+                    characteristic_addressed=parsed.get(
+                        "characteristic_addressed", ""
+                    ),
+                    has_syntax_error=True,
+                    syntax_error_description=error_after,
+                )
+
+        try:
+            return Diagram(
+                diagram_id=f"D-{diagram_type.value.upper()}",
+                type=diagram_type,
+                title=parsed.get("title", ""),
+                description=parsed.get("description", ""),
+                mermaid_source=source,
+                characteristic_addressed=parsed.get("characteristic_addressed", ""),
+                has_syntax_error=False,
+                syntax_error_description="",
+            )
+        except Exception as exc:
+            logger.warning(
+                "Diagram model construction failed for type %s: %s",
+                diagram_type.value, exc,
+            )
+            return None
+
+    async def _repair_mermaid_source(
+        self,
+        source: str,
+        diagram_type: DiagramType,
+        error: str,
+    ) -> str:
+        """Ask the LLM for one syntax-only Mermaid repair.
+
+        Args:
+            source: Original Mermaid source.
+            diagram_type: Diagram type being repaired.
+            error: Validation error that triggered repair.
+
+        Returns:
+            Repaired Mermaid source with accidental fences stripped.
+        """
+        repair_prompt = (
+            "The following Mermaid diagram has a syntax error:\n"
+            f"Error: {error}\n\n"
+            f"Original source:\n{source}\n\n"
+            "Fix ONLY the syntax error. Return valid "
+            f"{diagram_type.value} Mermaid syntax. No markdown fences. "
+            "No explanation. Common fixes:\n"
+            "  - Quote edge labels containing special chars: |\"label text\"|\n"
+            "  - Replace 'undefined' with a descriptive string\n"
+            "  - Use --> not -> for directed edges in graph TD\n"
+            "Return only the corrected Mermaid source."
+        )
+        repaired_raw = await self.llm_client.complete(
+            repair_prompt, response_format="text"
+        )
+        repaired_source = repaired_raw.strip()
+        if repaired_source.startswith("```"):
+            lines = repaired_source.split("\n")
+            repaired_source = "\n".join(lines[1:-1])
+        return repaired_source
+
+    def _validate_mermaid_syntax(
+        self,
+        source: str,
+        diagram_type: DiagramType,
+    ) -> tuple[bool, str]:
+        """Perform lightweight Mermaid syntax validation before storage.
+
+        Args:
+            source: Mermaid source returned by the model.
+            diagram_type: Expected diagram type.
+
+        Returns:
+            Tuple of validity flag and error description.
+        """
+        if not source or not source.strip():
+            return False, "Empty Mermaid source"
+
+        lines = [line for line in source.strip().split("\n") if line.strip()]
+        if len(lines) < 3:
+            return False, f"Too few lines: {len(lines)}"
+
+        first_line = lines[0].strip().lower()
+        expected = MERMAID_OPENING_KEYWORDS.get(diagram_type, ())
+        if expected and not any(
+            first_line.startswith(keyword.lower())
+            for keyword in expected
+        ):
+            return False, (
+                f"Wrong opening for {diagram_type.value}: "
+                f"'{lines[0].strip()[:40]}'"
+            )
+
+        for line in lines:
+            lower_line = line.lower()
+            is_interaction = (
+                "-->" in line or "---" in line or "[" in line or "(" in line
+            )
+            if (
+                ("undefined" in lower_line or "null" in lower_line)
+                and is_interaction
+            ):
+                return False, (
+                    "Literal undefined/null in interaction: "
+                    f"{line.strip()[:60]}"
+                )
+
+            if "-->" in line or "---" in line:
+                if "|" in line:
+                    first_label_delimiter = line.index("|")
+                    second_label_delimiter = line.find(
+                        "|", first_label_delimiter + 1
+                    )
+                    label_part = (
+                        line[first_label_delimiter:second_label_delimiter + 1]
+                        if second_label_delimiter != -1
+                        else line[first_label_delimiter:]
+                    )
+                    has_quotes = '"' in label_part or "'" in label_part
+                    if "(" in label_part and not has_quotes:
+                        return False, (
+                            "Unquoted parentheses in edge label: "
+                            f"{line.strip()[:60]}"
+                        )
+
+        return True, ""
 
     def _select_diagram_types(
         self,
