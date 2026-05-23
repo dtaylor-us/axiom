@@ -100,10 +100,11 @@ async def test_complete_ollama_passes_num_ctx_in_options() -> None:
     """Ollama options include the selected context window."""
     client, captured_payload = _ollama_client_with_transport()
 
+    # requirement_parsing is no longer a fast stage — it uses primary context.
     await client._complete_ollama("prompt", "json", None, "requirement_parsing")
     client._test_patcher.stop()
 
-    assert captured_payload["options"]["num_ctx"] == client._num_ctx_fast
+    assert captured_payload["options"]["num_ctx"] == client._num_ctx_primary
 
 
 @pytest.mark.asyncio
@@ -115,6 +116,22 @@ async def test_complete_ollama_passes_temperature_in_options() -> None:
     client._test_patcher.stop()
 
     assert captured_payload["options"]["temperature"] == client._temperature
+
+
+@pytest.mark.asyncio
+async def test_complete_ollama_disables_thinking_mode() -> None:
+    """Ollama payload sets think=False for all structured-output calls.
+
+    qwen3 models generate <think>...</think> tokens before answering. When
+    Ollama's format constraint is active, those tokens are not valid JSON, so
+    the grammar collapses the output to {}. think=False prevents this.
+    """
+    client, captured_payload = _ollama_client_with_transport()
+
+    await client._complete_ollama("prompt", "json", None, "requirement_parsing")
+    client._test_patcher.stop()
+
+    assert captured_payload["think"] is False
 
 
 def test_timeout_for_stage_returns_300_for_ollama_reasoning_stage() -> None:
@@ -143,7 +160,8 @@ def test_max_tokens_for_stage_returns_reasonable_fraction_of_context() -> None:
         client = LLMClient()
 
     assert client._max_tokens_for_stage("architecture_generation", 8192) == 3276
-    assert client._max_tokens_for_stage("requirement_parsing", 8192) == 2048
+    # requirement_parsing is in LARGE_OUTPUT_STAGES — gets the larger budget.
+    assert client._max_tokens_for_stage("requirement_parsing", 8192) == 3276
 
 
 @pytest.mark.asyncio

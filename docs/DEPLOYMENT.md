@@ -41,55 +41,99 @@ Estimated total setup time: **45–60 minutes**.
 
 ### Local Development with Ollama
 
-Ollama runs LLM inference locally in Docker. Local development defaults to
-`LLM_PROVIDER=ollama`; production can switch to OpenAI with only an `.env`
-change and an agent restart.
+Ollama runs all LLM inference locally using Apple Silicon GPU (Metal backend)
+for fast inference with zero API costs.
 
-#### Hardware requirements
+#### CRITICAL: Ollama must run natively on macOS
 
-| Tier | VRAM | Primary model | Fast model | Recommended for |
-|---|---:|---|---|---|
-| 1 | 8 GB | `qwen3:8b` | `qwen3:8b` | Prompt iteration |
-| 2 | 12-16 GB | `qwen3:14b` | `qwen3:8b` | Daily development |
-| 3 | 24 GB+ | `qwen3:32b` | `qwen3:14b` | Quality validation |
-| CPU | None | `qwen3:8b` | `qwen3:8b` | Emergency fallback |
+Do NOT run Ollama in Docker on macOS.
 
-Tier 2 is the recommended development configuration. Apple Silicon with
-16GB+ unified memory works well as a Tier 2 equivalent when Ollama runs
-natively on macOS because Ollama uses Metal automatically. The Docker Compose
-service is CPU-safe by default so it also starts on machines without the
-NVIDIA container runtime.
+Docker Desktop uses a Linux VM that cannot access the Apple Silicon GPU.
+Ollama inside Docker runs on CPU only, which is 5-10x slower than native and
+causes pipeline failures:
 
-#### First-time setup
+- Stage timeouts from 8-12 tok/sec instead of 40-60 tok/sec
+- Empty responses from JSON schema overflow under memory pressure
+- `characteristic_inference` returning `{}` causing pipeline abort
 
-```bash
-cp .env.example .env
-```
+Running Ollama natively via Homebrew uses the Metal GPU backend automatically.
+No configuration is required.
 
-Set your hardware tier in `.env`:
+#### Setup (one time)
 
-```bash
-OLLAMA_HARDWARE_TIER=2
-```
+1. Install Ollama natively:
 
-Start the stack and pull the configured models:
+   ```bash
+   brew install ollama
+   brew services start ollama
+   ```
 
-```bash
-docker compose up -d
-docker compose run --rm ollama-init
-```
+2. Pull the models:
 
-Verify Ollama and open the application:
+   ```bash
+   ollama pull qwen3:14b
+   ollama pull qwen3:8b
+   ```
 
-```bash
-curl http://localhost:11434/api/tags
-```
+3. Verify GPU inference is working:
 
-```text
-http://localhost:3000
-```
+   ```bash
+   ollama run qwen3:8b "respond with the word hello"
+   ```
 
-#### Switching back to OpenAI
+   It should respond in under 2 seconds on M-series chips. If it takes 10+
+   seconds, check that the native Ollama service is running, not a Docker
+   version.
+
+4. Copy and configure `.env`:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   The default `OLLAMA_BASE_URL=http://host.docker.internal:11434` is correct.
+
+5. Start the application stack:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   Ollama is not in Compose. The agent container connects to native Ollama via
+   `host.docker.internal:11434`.
+
+6. Open the application:
+
+   ```text
+   http://localhost:3000
+   ```
+
+#### Hardware configuration by Mac model
+
+| Mac model | Unified memory | Primary model | Fast model |
+|---|---:|---|---|
+| M1 / M2 base | 8 GB | `qwen3:8b` | `qwen3:8b` |
+| M1 Pro / M2 Pro | 16 GB | `qwen3:14b` | `qwen3:8b` |
+| M1 Max / M2 Max | 32 GB | `qwen3:32b` | `qwen3:14b` |
+| M2 Ultra / M3 Max/Ultra | 64-192 GB | `qwen3:32b` | `qwen3:14b` |
+
+The default configuration targets M1 Pro / M2 Pro with 16GB. Adjust `.env` for
+other models.
+
+#### Expected performance (M2 Pro 16GB)
+
+| Stage | Model | Typical duration |
+|---|---|---:|
+| Requirement parsing | `qwen3:8b` | 10-20s |
+| Requirement challenge | `qwen3:14b` | 25-50s |
+| Characteristic inference | `qwen3:14b` | 20-40s |
+| Architecture generation | `qwen3:14b` | 45-90s |
+| Full pipeline run | mixed | 8-15 minutes |
+
+CPU-only inference multiplies these times by 5-10x. Stages can fail with empty
+responses rather than complete.
+
+#### Switching between Ollama and OpenAI
 
 Edit `.env`:
 
@@ -104,59 +148,34 @@ Restart the agent:
 docker compose restart agent
 ```
 
-#### Managing model storage
-
-Model weights are stored in the named `ollama_models` Docker volume. It is
-explicitly named `aiarchitect-ollama-models` so models survive compose restarts.
-
-```bash
-docker system df -v | grep aiarchitect-ollama-models
-docker volume rm aiarchitect-ollama-models
-```
-
-After removing the volume, run `docker compose run --rm ollama-init` again.
-
-#### Performance tuning
-
-`OLLAMA_KEEP_ALIVE=24h` keeps models warm between requests. Reduce it only if
-you need to free VRAM while not actively developing.
-
-`OLLAMA_NUM_PARALLEL=2` allows the workshop and main pipeline to run
-concurrently. Reduce it to `1` if you observe VRAM pressure.
-
-`OLLAMA_TEMPERATURE=0.1` is set low for structured output reliability. Keep it
-at or below `0.3` for pipeline runs.
-
-For Linux machines with the NVIDIA container runtime installed, GPU passthrough
-can be enabled by adding a local Compose override for the `ollama` service with
-an NVIDIA device reservation. Do not add that reservation to the default
-compose file; Docker Desktop and CPU-only hosts fail startup when the `nvidia`
-driver is not available.
-
-#### Expected Tier 2 performance
-
-| Stage | Model | Typical duration |
-|---|---|---:|
-| Requirement parsing | `qwen3:8b` | 8-15s |
-| Characteristic inference | `qwen3:14b` | 20-40s |
-| Architecture generation | `qwen3:14b` | 45-90s |
-| Diagram generation | `qwen3:14b` | 20-35s per type |
-| FMEA analysis | `qwen3:14b` | 40-80s |
-| ADL generation | `qwen3:14b` | 25-50s |
-| Full pipeline run | mixed | 8-15 minutes |
-
 #### Troubleshooting
 
+Pipeline fails at `requirement_challenge` or `characteristic_inference`:
+
 ```bash
-docker compose ps ollama
-docker compose exec ollama curl http://localhost:11434/api/tags
+curl http://localhost:11434/api/tags
 ```
 
-If structured output errors appear, avoid very small quantisations such as
-`:q2_K`. Use `:latest`, `:q4_K_M`, or `:q6_K`.
+Check Activity Monitor. If "Virtual Machine Service for Docker" shows high CPU
+and Ollama shows 0.0 in the GPU column, Ollama is running in Docker instead of
+natively.
 
-If pipeline runs time out, increase `AGENT_READ_TIMEOUT` in `.env`. If context
-errors appear, reduce `OLLAMA_NUM_CTX_PRIMARY` to match your VRAM headroom.
+Agent logs show UNIMPLEMENTED errors every 15 seconds:
+
+```bash
+grep OTEL_EXPORTER_OTLP_ENDPOINT .env
+```
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT=` empty in `.env` to disable local export.
+
+Ollama is not reachable from the agent container:
+
+```bash
+brew services list | grep ollama
+curl http://localhost:11434/api/tags
+```
+
+Docker Desktop resolves `host.docker.internal` automatically on macOS.
 
 ### Local password reset email testing
 

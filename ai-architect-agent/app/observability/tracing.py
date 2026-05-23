@@ -43,18 +43,36 @@ def setup_tracing() -> None:
     if _tracer_provider is not None:
         return
 
-    otlp_endpoint = os.getenv(
-        "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"
-    )
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+    is_otel_disabled = os.getenv("OTEL_SDK_DISABLED", "").lower() == "true"
     service_name = os.getenv(
         "OTEL_SERVICE_NAME", "ai-architect-agent"
     )
 
     resource = Resource.create({SERVICE_NAME: service_name})
-    exporter = OTLPSpanExporter(endpoint=otlp_endpoint)
-
     _tracer_provider = TracerProvider(resource=resource)
-    _tracer_provider.add_span_processor(BatchSpanProcessor(exporter))
+
+    if is_otel_disabled or not otlp_endpoint:
+        trace.set_tracer_provider(_tracer_provider)
+        logger.info(
+            "OTel tracing using no-op provider. Set "
+            "OTEL_EXPORTER_OTLP_ENDPOINT to enable trace export."
+        )
+        return
+
+    try:
+        exporter = OTLPSpanExporter(endpoint=otlp_endpoint)
+        _tracer_provider.add_span_processor(BatchSpanProcessor(exporter))
+    except Exception as exc:
+        logger.warning(
+            "OTel tracing exporter setup failed. endpoint=%s error=%s. "
+            "Falling back to no-op provider.",
+            otlp_endpoint,
+            str(exc),
+        )
+        trace.set_tracer_provider(_tracer_provider)
+        return
+
     trace.set_tracer_provider(_tracer_provider)
 
     logger.info(

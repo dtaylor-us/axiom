@@ -170,6 +170,23 @@ async def run_pipeline(
                 node_fn = _NODE_FN_MAP[node_name]
 
                 try:
+                    if node_name == "architecture_generation" and not context.characteristics:
+                        logger.error(
+                            "PIPELINE_GUARD: characteristics is empty before "
+                            "architecture_generation. This indicates "
+                            "characteristic_inference failed silently. "
+                            "Aborting pipeline with informative error. "
+                            "conversation_id=%s",
+                            context.conversation_id,
+                        )
+                        raise ToolExecutionException(
+                            "Architecture generation requires inferred "
+                            "characteristics from stage 4. Characteristics are "
+                            "empty; stage 4 likely failed silently due to an "
+                            "empty model response. Check "
+                            "characteristic_inference logs for details."
+                        )
+
                     updated_state = await node_fn(state)
                 except ToolExecutionException as stage_exc:
                     elapsed = time.monotonic() - stage_start_time

@@ -65,7 +65,8 @@ def test_budget_string_truncates_and_adds_notice_when_over_budget() -> None:
 
 def test_get_input_budget_returns_smaller_budget_for_large_output_stages() -> None:
     """Large-output stages reserve more context for generation."""
-    standard_budget = get_input_budget("requirement_parsing", "ollama", 10000)
+    # identify_gaps is a standard fast stage; architecture_generation is large-output.
+    standard_budget = get_input_budget("identify_gaps", "ollama", 10000)
     large_budget = get_input_budget("architecture_generation", "ollama", 10000)
 
     assert large_budget < standard_budget

@@ -22,9 +22,9 @@ def mock_registry():
     Each mock wires .execute() → .run() to match the production
     BaseTool.execute() delegation pattern used by pipeline nodes.
     """
-    def _make_tool():
+    def _make_tool(name: str):
         tool = AsyncMock()
-        tool.run = AsyncMock(side_effect=lambda ctx: ctx)
+        tool.run = AsyncMock(side_effect=_mock_tool_run(name))
 
         async def _exec(ctx, _t=tool):
             return await _t.run(ctx)
@@ -33,20 +33,36 @@ def mock_registry():
         return tool
 
     return {
-        "requirement_parser": _make_tool(),
-        "challenge_engine": _make_tool(),
-        "scenario_modeler": _make_tool(),
-        "characteristic_reasoner": _make_tool(),
-        "tactics_advisor": _make_tool(),
-        "conflict_analyzer": _make_tool(),
-        "architecture_generator": _make_tool(),
-        "buy_vs_build_analyzer": _make_tool(),
-        "diagram_generator": _make_tool(),
-        "trade_off_engine": _make_tool(),
-        "adl_generator": _make_tool(),
-        "weakness_analyzer": _make_tool(),
-        "fmea_analyzer": _make_tool(),
+        "requirement_parser": _make_tool("requirement_parser"),
+        "challenge_engine": _make_tool("challenge_engine"),
+        "scenario_modeler": _make_tool("scenario_modeler"),
+        "characteristic_reasoner": _make_tool("characteristic_reasoner"),
+        "tactics_advisor": _make_tool("tactics_advisor"),
+        "conflict_analyzer": _make_tool("conflict_analyzer"),
+        "architecture_generator": _make_tool("architecture_generator"),
+        "buy_vs_build_analyzer": _make_tool("buy_vs_build_analyzer"),
+        "diagram_generator": _make_tool("diagram_generator"),
+        "trade_off_engine": _make_tool("trade_off_engine"),
+        "adl_generator": _make_tool("adl_generator"),
+        "weakness_analyzer": _make_tool("weakness_analyzer"),
+        "fmea_analyzer": _make_tool("fmea_analyzer"),
     }
+
+
+def _mock_tool_run(name: str):
+    """Return a tool side effect that preserves pipeline prerequisites."""
+    def _run(ctx: ArchitectureContext) -> ArchitectureContext:
+        if name == "characteristic_reasoner":
+            ctx.characteristics = [{"name": "availability"}]
+        if name == "architecture_generator":
+            ctx.architecture_design = {
+                "style_selection": {"selected_style": "service-based"},
+                "components": [],
+                "interactions": [],
+            }
+        return ctx
+
+    return _run
 
 
 @pytest.fixture

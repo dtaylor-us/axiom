@@ -23,8 +23,8 @@ function makeAttribute(overrides: Partial<QualityAttribute> = {}): QualityAttrib
     questionsResolvedCount: 0,
     firstGenerationPass: null,
     lastGenerationPass: null,
-    lastUpdateSummary: null,
-    lastUpdatedTurn: null,
+    lastUpdateSummary: undefined,
+    lastUpdatedTurn: undefined,
     ...overrides,
   };
 }

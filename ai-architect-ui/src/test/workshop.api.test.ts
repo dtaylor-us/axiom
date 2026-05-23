@@ -121,7 +121,7 @@ describe('workshop API', () => {
 
     const result = await completeWorkshopSession('jwt', 'ws-1');
 
-    expect((result as { confirmed: number }).confirmed).toBe(3);
+    expect((result as unknown as { confirmed: number }).confirmed).toBe(3);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/workshop/sessions/ws-1/complete',
       expect.objectContaining({ method: 'POST' }),
@@ -172,7 +172,7 @@ describe('workshop API', () => {
 
     const result = await assessGenerationReadiness('ws-1', 'jwt');
 
-    expect((result as { ready: boolean }).ready).toBe(true);
+    expect((result as unknown as { ready: boolean }).ready).toBe(true);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/workshop/sessions/ws-1/generation-readiness',
       expect.any(Object),
@@ -184,7 +184,7 @@ describe('workshop API', () => {
 
     const result = await generateAttributes('ws-1', 'jwt');
 
-    expect((result as { generated: number }).generated).toBe(5);
+    expect((result as unknown as { generated: number }).generated).toBe(5);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/workshop/sessions/ws-1/generate',
       expect.objectContaining({ method: 'POST' }),

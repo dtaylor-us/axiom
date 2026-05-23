@@ -99,7 +99,7 @@ describe('governance API', () => {
   it('getGovernanceReport_fetchesCorrectEndpoint', async () => {
     mockFetch({ score: 85, summary: 'good' });
     const result = await getGovernanceReport('s1', 'jwt');
-    expect((result as { score: number }).score).toBe(85);
+    expect((result as unknown as { score: number }).score).toBe(85);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/sessions/s1/governance',
       expect.any(Object),
@@ -128,7 +128,7 @@ describe('governance API', () => {
   it('getTacticsSummary_fetchesCorrectEndpoint', async () => {
     mockFetch({ totalCount: 5 });
     const result = await getTacticsSummary('s1', 'jwt');
-    expect((result as { totalCount: number }).totalCount).toBe(5);
+    expect((result as unknown as { totalCount: number }).totalCount).toBe(5);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/sessions/s1/tactics/summary',
       expect.any(Object),

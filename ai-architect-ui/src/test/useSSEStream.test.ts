@@ -107,8 +107,11 @@ describe('useSSEStream', () => {
     mockStreamChat.mockRejectedValue(new Error('Proxy disconnect'));
     mockGetRunStatus.mockResolvedValue({
       runId: 'run-abc',
+      conversationId: 'conv-poll',
       status: 'RUNNING',
       lastStageCompleted: 'requirement_parsing',
+      startedAt: '2024-01-01T00:00:00Z',
+      eventCount: 0,
     });
     useStore.setState({ token: 'jwt', conversationId: 'conv-poll' });
 

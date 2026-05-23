@@ -20,8 +20,8 @@ function makeAttribute(overrides: Partial<QualityAttribute> = {}): QualityAttrib
     resolvedAnswers: [],
     firstGenerationPass: null,
     lastGenerationPass: null,
-    lastUpdateSummary: null,
-    lastUpdatedTurn: null,
+    lastUpdateSummary: undefined,
+    lastUpdatedTurn: undefined,
     ...overrides,
   };
 }

@@ -12,7 +12,7 @@ from app.api.workshop import router as workshop_router
 from app.llm.client import LLMClient
 from app.workshop.agent import QualityAttributeWorkshopAgent
 from app.memory.store import MemoryStore
-from app.observability import setup_tracing, setup_metrics
+from app.observability import configure_telemetry
 from app.pipeline import compile_pipeline, init_registry, init_review_agent
 from app.review.agent import ArchitectReviewAgent
 from app.tools.registry import build_registry
@@ -39,8 +39,7 @@ async def lifespan(app: FastAPI):
     logger.info("Archon Agent starting up")
 
     # Observability must initialise first — before any other component
-    setup_tracing()
-    setup_metrics()
+    configure_telemetry()
 
     # Instrument FastAPI and httpx automatically
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -50,6 +49,7 @@ async def lifespan(app: FastAPI):
 
     # Initialise shared LLM client
     llm_client = LLMClient()
+    await llm_client.check_connectivity()
     app.state.llm_client = llm_client
     logger.info("LLMClient attached to app.state")
 

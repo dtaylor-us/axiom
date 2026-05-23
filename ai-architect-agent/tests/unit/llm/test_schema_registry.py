@@ -37,6 +37,8 @@ ALL_EXPECTED_STAGE_KEYS = {
 # Keys known to be strict-compatible (must appear in SCHEMAS).
 EXPECTED_STRICT_KEYS = {
     "diagram_generation_single",
+    "requirement_challenge",
+    "characteristic_inference",
 }
 
 # Keys known to contain freeform dict fields (must NOT appear in SCHEMAS).

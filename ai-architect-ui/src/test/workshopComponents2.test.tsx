@@ -415,8 +415,8 @@ function makeAttribute(overrides: Partial<QualityAttribute> = {}): QualityAttrib
     resolvedAnswers: [],
     firstGenerationPass: null,
     lastGenerationPass: null,
-    lastUpdateSummary: null,
-    lastUpdatedTurn: null,
+    lastUpdateSummary: undefined,
+    lastUpdatedTurn: undefined,
     ...overrides,
   };
 }
@@ -474,7 +474,7 @@ describe('AttributeCard', () => {
   it('rendersStaleWarningWhenAttributesStaleAndNoSummary', () => {
     render(
       <AttributeCard
-        attribute={makeAttribute({ firstGenerationPass: 1, lastUpdateSummary: null })}
+        attribute={makeAttribute({ firstGenerationPass: 1, lastUpdateSummary: undefined })}
         sessionAttributesStale
       />,
     );

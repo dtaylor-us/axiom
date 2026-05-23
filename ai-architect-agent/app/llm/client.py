@@ -27,11 +27,13 @@ logger = logging.getLogger(__name__)
 DEFAULT_OPENAI_CONTEXT_WINDOW = 128000
 DEFAULT_OPENAI_MODEL = "gpt-4o"
 DEFAULT_OPENAI_TEMPERATURE = 0.2
-DEFAULT_OLLAMA_BASE_URL = "http://ollama:11434"
+DEFAULT_OLLAMA_BASE_URL = "http://host.docker.internal:11434"
 DEFAULT_OLLAMA_TEMPERATURE = 0.1
 MAX_STRUCTURED_OUTPUT_TEMPERATURE = 0.3
 OPENAI_TIMEOUT_SECONDS = 120
-OLLAMA_STANDARD_TIMEOUT_SECONDS = 120
+# Allow up to 5 minutes for standard stages; cold native model loads can exceed
+# the previous 120 s limit on first use.
+OLLAMA_STANDARD_TIMEOUT_SECONDS = 300
 OLLAMA_REASONING_TIMEOUT_SECONDS = 300
 
 TIER_DEFAULTS = {
@@ -62,7 +64,6 @@ TIER_DEFAULTS = {
 }
 
 FAST_MODEL_STAGES = {
-    "requirement_parsing",
     "identify_gaps",
     "analyze_input",
     "reconcile_gaps",
@@ -90,6 +91,10 @@ LARGE_OUTPUT_STAGES = {
     "trade_off_analysis",
     "generate_utility_tree",
     "synthesise_implications",
+    # requirement_parsing produces a fully structured JSON document encoding
+    # every parsed requirement; complex inputs routinely exceed the 2048-token
+    # default budget, truncating the output mid-string.
+    "requirement_parsing",
 }
 
 _current_tool_name: ContextVar[str] = ContextVar(
@@ -211,6 +216,77 @@ class LLMClient:
             return self._fast_model, self._num_ctx_fast
         return self._primary_model, self._num_ctx_primary
 
+    async def check_connectivity(self) -> None:
+        """
+        Verify that the configured LLM provider is reachable.
+
+        For Ollama, the check also warns when the base URL points at the
+        removed Docker service name, because that topology is CPU-only on
+        macOS Docker Desktop and causes the empty structured-output failures
+        seen under memory pressure.
+        """
+        if self._provider != LLMProvider.OLLAMA:
+            return
+
+        if "ollama:11434" in self._base_url:
+            logger.warning(
+                "OLLAMA_WARNING: base_url=%s points to a Docker service name. "
+                "On macOS this means CPU-only inference because Docker Desktop "
+                "cannot access the Apple Silicon GPU (Metal). Use "
+                "OLLAMA_BASE_URL=http://host.docker.internal:11434 and install "
+                "Ollama natively via: brew install ollama && "
+                "brew services start ollama",
+                self._base_url,
+            )
+
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+                response = await client.get(f"{self._base_url}/api/tags")
+                response.raise_for_status()
+                data = response.json()
+        except httpx.HTTPError as exc:
+            logger.error(
+                "OLLAMA_STARTUP: cannot reach Ollama at %s. error=%s. "
+                "On macOS: brew install ollama && brew services start ollama",
+                self._base_url,
+                str(exc),
+            )
+            return
+
+        models = [model["name"] for model in data.get("models", [])]
+        primary_available = any(
+            _ollama_model_matches(self._primary_model, model) for model in models
+        )
+        fast_available = any(
+            _ollama_model_matches(self._fast_model, model) for model in models
+        )
+
+        if not primary_available:
+            logger.error(
+                "OLLAMA_STARTUP: primary model '%s' not found. Available: %s. "
+                "Run: ollama pull %s",
+                self._primary_model,
+                models,
+                self._primary_model,
+            )
+        if not fast_available:
+            logger.warning(
+                "OLLAMA_STARTUP: fast model '%s' not found. Available: %s. "
+                "Run: ollama pull %s",
+                self._fast_model,
+                models,
+                self._fast_model,
+            )
+        if primary_available and fast_available:
+            logger.info(
+                "OLLAMA_STARTUP: connected. base_url=%s primary=%s fast=%s "
+                "available_models=%s",
+                self._base_url,
+                self._primary_model,
+                self._fast_model,
+                models,
+            )
+
     async def complete(
         self,
         prompt: str,
@@ -305,6 +381,13 @@ class LLMClient:
             "model": model,
             "prompt": prompt,
             "stream": False,
+            # Disable qwen3 extended thinking for structured-output stages.
+            # When `format` is set (JSON mode), Ollama's grammar enforces valid
+            # JSON from the very first token. qwen3's <think>...</think> tokens
+            # are not valid JSON, so the grammar collapses the output to `{}`
+            # immediately after the thinking phase. Setting think=False lets the
+            # model skip the thinking step and produce real content instead.
+            "think": False,
             "options": {
                 "temperature": self._temperature,
                 "num_ctx": num_ctx,
@@ -323,7 +406,28 @@ class LLMClient:
             response = await client.post(f"{self._base_url}/api/generate", json=payload)
             response.raise_for_status()
             data = response.json()
-            return str(data.get("response", ""))
+            content = str(data.get("response", ""))
+
+            if not content or not content.strip():
+                logger.error(
+                    "Ollama returned empty response. stage=%s model=%s "
+                    "num_ctx=%d prompt_len_chars=%d. This typically means "
+                    "the context window was exceeded or the JSON schema could "
+                    "not be satisfied under current memory pressure. If "
+                    "running on macOS, ensure Ollama is installed natively via "
+                    "Homebrew, not in Docker.",
+                    stage_name,
+                    model,
+                    num_ctx,
+                    len(prompt),
+                )
+                raise ValueError(
+                    f"Ollama returned empty response for stage={stage_name}. "
+                    f"Model={model} num_ctx={num_ctx}. Reduce context window "
+                    "or input size."
+                )
+
+            return content
 
     async def _complete_openai(
         self,
@@ -458,6 +562,23 @@ def _append_json_instruction(prompt: str) -> str:
         "No markdown fences, no preamble, no explanation. "
         "Just the raw JSON object."
     )
+
+
+def _ollama_model_matches(expected_model: str, available_model: str) -> bool:
+    """
+    Return whether an available Ollama model satisfies the expected model.
+
+    Args:
+        expected_model: Configured model name, optionally with a tag.
+        available_model: Model name returned by Ollama.
+
+    Returns:
+        True when the names match exactly, or when the expected model has no
+        tag and matches the available model family.
+    """
+    if ":" in expected_model:
+        return available_model == expected_model
+    return available_model.split(":")[0] == expected_model
 
 
 def get_llm_client() -> LLMClient:

@@ -29,7 +29,7 @@ describe('authFetchJson', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(403);
   });
@@ -59,7 +59,7 @@ describe('authFetchJson', () => {
       json: async () => ({ detail: 'Validation failed', title: 'Bad input' }),
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err.message).toBe('Validation failed');
   });
 
@@ -70,7 +70,7 @@ describe('authFetchJson', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err.message).toMatch(/418/);
   });
 
@@ -81,7 +81,7 @@ describe('authFetchJson', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err.message).toMatch(/temporarily unavailable/);
   });
 
@@ -92,7 +92,7 @@ describe('authFetchJson', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err.message).toMatch(/invalid/i);
   });
 
@@ -103,7 +103,7 @@ describe('authFetchJson', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err.message).toMatch(/timed out/i);
   });
 
@@ -114,7 +114,7 @@ describe('authFetchJson', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err.message).toMatch(/many requests/i);
   });
 
@@ -125,7 +125,7 @@ describe('authFetchJson', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err.message).toMatch(/conflict/i);
   });
 
@@ -136,7 +136,7 @@ describe('authFetchJson', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err.message).toMatch(/temporarily unreachable/i);
   });
 
@@ -147,7 +147,7 @@ describe('authFetchJson', () => {
       headers: { get: () => null },
     } as unknown as Response);
 
-    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e);
+    const err = await authFetchJson('/api/resource', 'tok').catch((e) => e) as ApiError;
     expect(err.message).toMatch(/took too long/i);
   });
 });

@@ -36,10 +36,8 @@ class TestSetupMetrics:
         mod._token_counter = original_counter
         mod._stage_duration = original_hist
 
-    @patch("app.observability.metrics.OTLPMetricExporter")
-    @patch("app.observability.metrics.PeriodicExportingMetricReader")
     @patch("app.observability.metrics.metrics")
-    def test_setup_creates_meter_provider(self, mock_metrics, mock_reader, mock_exp):
+    def test_setup_creates_meter_provider(self, mock_metrics):
         """setup_metrics() creates a MeterProvider and registers instruments."""
         mock_meter = MagicMock()
         mock_metrics.get_meter.return_value = mock_meter
@@ -54,10 +52,8 @@ class TestSetupMetrics:
         mock_meter.create_counter.assert_called_once()
         mock_meter.create_histogram.assert_called_once()
 
-    @patch("app.observability.metrics.OTLPMetricExporter")
-    @patch("app.observability.metrics.PeriodicExportingMetricReader")
     @patch("app.observability.metrics.metrics")
-    def test_setup_is_idempotent(self, mock_metrics, mock_reader, mock_exp):
+    def test_setup_is_idempotent(self, mock_metrics):
         """Calling setup_metrics() twice creates instruments only once."""
         mock_meter = MagicMock()
         mock_metrics.get_meter.return_value = mock_meter
