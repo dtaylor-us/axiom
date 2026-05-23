@@ -203,6 +203,12 @@
             <exclude>com/aiarchitect/api/exception/RateLimitExceededException.class</exclude>
             <exclude>com/aiarchitect/api/exception/InvalidResetTokenException.class</exclude>
             <exclude>com/aiarchitect/api/exception/PasswordValidationException.class</exclude>
+            <!-- Workshop DTOs: pure records with no business logic, parallel to api/dto/** exclusion -->
+            <exclude>com/aiarchitect/api/workshop/dto/**</exclude>
+            <!-- Simple exception with no logic; counterpart to the other exception exclusions above -->
+            <exclude>com/aiarchitect/api/workshop/exception/WorkshopTurnTimeoutException.class</exclude>
+            <!-- Interface: no executable lines to cover; only the impl is measured -->
+            <exclude>com/aiarchitect/api/workshop/client/WorkshopAgentClient.class</exclude>
           </excludes>
         </configuration>
       </plugin>
