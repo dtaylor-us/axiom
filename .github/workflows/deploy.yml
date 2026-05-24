@@ -273,8 +273,11 @@ jobs:
             --set keyVault.tenantId=${{ secrets.KEY_VAULT_TENANT_ID }} \
             --set keyVault.userAssignedIdentityClientId=${{ secrets.AKS_KUBELET_CLIENT_ID }} \
             --set ingress.host=${{ steps.ingress.outputs.host }} \
-            --set ingress.tls.enabled=true \
-            --set "ingress.tls.issuer=${{ secrets.TLS_ISSUER || 'letsencrypt-prod' }}"
+            --set ingress.tls.enabled=true
+            # ingress.tls.issuer intentionally NOT set here.
+            # values.yaml defaults to letsencrypt-prod. The TLS_ISSUER
+            # GitHub secret previously held 'letsencrypt-staging' and
+            # overrode the fallback, preventing the switch to prod.
 
       - name: Force TLS re-issuance if staging cert detected
         # cert-manager does not automatically re-issue when the ClusterIssuer
@@ -284,8 +287,21 @@ jobs:
         # Certificate object and the TLS secret so cert-manager provisions a
         # fresh prod certificate on its next reconcile loop.
         run: |
-          DESIRED_ISSUER="${{ secrets.TLS_ISSUER || 'letsencrypt-prod' }}"
+          # Always target prod — never read from TLS_ISSUER secret (it was
+          # previously set to 'letsencrypt-staging' and poisoned CI deploys).
+          DESIRED_ISSUER="letsencrypt-prod"
           echo "Desired issuer: $DESIRED_ISSUER"
+
+          # Force the ingress annotation to the desired issuer before
+          # checking the cert. This ensures cert-manager recreates the
+          # Certificate with the correct issuer even if Helm's three-way
+          # merge did not patch the annotation (e.g. due to field-manager
+          # conflicts with a previous server-side apply).
+          kubectl annotate ingress ai-architect-ingress \
+            --namespace ai-architect \
+            --overwrite \
+            "cert-manager.io/cluster-issuer=${DESIRED_ISSUER}"
+          echo "Ingress annotation set to ${DESIRED_ISSUER}"
 
           CERT_ISSUER=$(kubectl get secret ai-architect-tls \
             --namespace ai-architect \
@@ -304,7 +320,7 @@ jobs:
               --namespace ai-architect --ignore-not-found
             kubectl delete secret ai-architect-tls \
               --namespace ai-architect --ignore-not-found
-            echo "Deleted. cert-manager will re-issue using $DESIRED_ISSUER."
+            echo "Deleted. cert-manager will re-issue using ${DESIRED_ISSUER}."
           else
             echo "Cert issuer is already production — no re-issuance needed."
           fi
