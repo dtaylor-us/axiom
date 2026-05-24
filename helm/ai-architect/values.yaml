@@ -46,10 +46,13 @@ agent:
       value: agent
       effect: NoSchedule
   env:
+    # Tracing is disabled (sampler ratio 0.0) until a collector is deployed
+    # in the cluster. Keeping the endpoint set prevents startup warnings;
+    # zero-ratio sampling means no spans are exported and no connections made.
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger-collector:4317"
     OTEL_SERVICE_NAME: "archon-agent"
     OTEL_TRACES_SAMPLER: "parentbased_traceidratio"
-    OTEL_TRACES_SAMPLER_ARG: "0.1"
+    OTEL_TRACES_SAMPLER_ARG: "0.0"
     LLM_PROVIDER: "openai"
     QDRANT_URL: "http://ai-architect-qdrant:6333"
   # Secret references — actual values sourced from Key Vault CSI
@@ -83,9 +86,12 @@ api:
     maxReplicas: 6
     targetCPU: 70
   env:
+    # Tracing is disabled (probability 0.0) until a collector is deployed
+    # in the cluster. Zero probability means no spans are sampled and the
+    # OTLP exporter never attempts to connect to the endpoint.
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger-collector:4317"
     OTEL_SERVICE_NAME: "archon-api"
-    MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.1"
+    MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
     AGENT_BASE_URL: "http://ai-architect-agent:8001"
   secretEnv:
     - name: DB_PASSWORD

@@ -276,6 +276,39 @@ jobs:
             --set ingress.tls.enabled=true \
             --set "ingress.tls.issuer=${{ secrets.TLS_ISSUER || 'letsencrypt-prod' }}"
 
+      - name: Force TLS re-issuance if staging cert detected
+        # cert-manager does not automatically re-issue when the ClusterIssuer
+        # changes — it only re-issues when the cert is near expiry or the SANs
+        # change. If the secret holds a staging cert (issued by the STAGING CA)
+        # and the chart now requests letsencrypt-prod, delete both the
+        # Certificate object and the TLS secret so cert-manager provisions a
+        # fresh prod certificate on its next reconcile loop.
+        run: |
+          DESIRED_ISSUER="${{ secrets.TLS_ISSUER || 'letsencrypt-prod' }}"
+          echo "Desired issuer: $DESIRED_ISSUER"
+
+          CERT_ISSUER=$(kubectl get secret ai-architect-tls \
+            --namespace ai-architect \
+            --output jsonpath='{.data.tls\.crt}' 2>/dev/null \
+            | base64 -d \
+            | openssl x509 -noout -issuer 2>/dev/null \
+            || echo "")
+
+          echo "Current cert issuer: $CERT_ISSUER"
+
+          # The Let's Encrypt staging CA includes "(STAGING)" in its CN.
+          # Prod issuer CNs do not contain that string.
+          if echo "$CERT_ISSUER" | grep -qi "staging"; then
+            echo "Staging cert detected — deleting certificate and secret to trigger prod re-issuance"
+            kubectl delete certificate ai-architect-tls \
+              --namespace ai-architect --ignore-not-found
+            kubectl delete secret ai-architect-tls \
+              --namespace ai-architect --ignore-not-found
+            echo "Deleted. cert-manager will re-issue using $DESIRED_ISSUER."
+          else
+            echo "Cert issuer is already production — no re-issuance needed."
+          fi
+
       - name: Verify rollout
         run: |
           kubectl rollout status deployment/ai-architect-api \
