@@ -4,6 +4,14 @@ An AI-powered architecture governance and design assistant that helps software t
 
 Given a set of requirements, the assistant runs a multi-stage pipeline that parses requirements, challenges assumptions, models scenarios, infers quality characteristics, detects conflicts, generates architecture designs with diagrams, and performs automated review — all streamed back in real time.
 
+## Deployed Instance
+
+The current development deployment is live at:
+
+**<https://axiom-dev.eastus2.cloudapp.azure.com/>**
+
+---
+
 ## Architecture Overview
 
 The system is composed of two services, two databases, and a Docker Compose orchestration layer:

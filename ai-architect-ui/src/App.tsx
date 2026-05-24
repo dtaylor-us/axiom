@@ -690,6 +690,7 @@ function AppContent() {
                 resetConversation();
                 setActiveView('chat');
               }}
+              onNavigateToWorkshop={() => setActiveView('workshop')}
             />
           )}
           {activeView === 'chat' && <ChatView />}

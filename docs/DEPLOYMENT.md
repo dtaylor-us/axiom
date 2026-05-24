@@ -648,7 +648,11 @@ ai-architect-ui-5b8e7f-xxxx          1/1     Running   0
 
 ### Open your application
 
-Navigate to your HTTPS URL (use `terraform output https_url` to see it). You should
+The current development deployment is live at:
+
+**<https://axiom-dev.eastus2.cloudapp.azure.com/>**
+
+For any other deployment, navigate to your HTTPS URL (use `terraform output https_url` to see it). You should
 see the AI Architect Assistant interface. HTTP requests are automatically redirected
 to HTTPS by the nginx `ssl-redirect` annotation.
 

@@ -63,6 +63,8 @@ docker compose up --build
 
 Open [http://localhost:3000](http://localhost:3000) in your browser, enter a username to log in, then describe your system requirements to start an architecture analysis.
 
+> **Deployed instance (Azure dev):** <https://axiom-dev.eastus2.cloudapp.azure.com/>
+
 ### 4. Stop all services
 
 ```bash

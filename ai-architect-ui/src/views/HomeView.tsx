@@ -6,8 +6,10 @@
  */
 export function HomeView({
   onStartSession,
+  onNavigateToWorkshop,
 }: {
   onStartSession: () => void;
+  onNavigateToWorkshop?: () => void;
 }) {
   const PIPELINE = [
     { id: '01', name: 'Requirement parsing' },
@@ -337,6 +339,166 @@ export function HomeView({
                     and produces a governance score (0–100) across five dimensions.
                   </p>
                 </article>
+              </div>
+            </section>
+
+            <section
+              className="archon-reveal"
+              style={{ ['--reveal-delay' as any]: '170ms' }}
+              aria-labelledby="workshop-title"
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  className="w-4 h-4 text-gray-700"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                  <path d="M9 5a2 2 0 002 2h0a2 2 0 002-2" />
+                  <path d="M9 5a2 2 0 012-2h0a2 2 0 012 2" />
+                  <path d="M6.5 10.5h3" />
+                  <path d="M6.5 8.5h5" />
+                </svg>
+                <h2 id="workshop-title" className="text-lg font-bold text-gray-900">
+                  Quality Attribute Workshop
+                </h2>
+              </div>
+
+              <div className="mt-3">
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Before running the architecture pipeline, use the built-in Quality Attribute Workshop (QAW) to elicit
+                  and structure your quality requirements. Based on the SEI QAW methodology, it guides a structured
+                  conversation that asks the right questions before asserting any design decisions.
+                </p>
+
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <article className="rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="flex items-start gap-2">
+                      <svg
+                        className="w-4 h-4 text-gray-700 mt-0.5 shrink-0"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 5.5h5" />
+                        <path d="M3 8.5h8" />
+                        <path d="M3 11.5h6" />
+                        <circle cx="12" cy="11" r="2.5" />
+                        <path d="M14 13l1.5 1.5" />
+                      </svg>
+                      <h3 className="text-sm font-semibold text-gray-900">Conversational elicitation</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                      A phase-guided conversation draws out concrete quality scenarios — asking about operational events,
+                      failure modes, and business goals rather than accepting vague requirements.
+                    </p>
+                  </article>
+
+                  <article className="rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="flex items-start gap-2">
+                      <svg
+                        className="w-4 h-4 text-gray-700 mt-0.5 shrink-0"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="8" cy="8" r="6" />
+                        <path d="M8 5v3.5l2.5 1.5" />
+                      </svg>
+                      <h3 className="text-sm font-semibold text-gray-900">Information gap tracking</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                      Each turn identifies which information is still missing. A live gap tracker shows completion
+                      progress and surfaces open gaps so elicitation stays focused.
+                    </p>
+                  </article>
+
+                  <article className="rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="flex items-start gap-2">
+                      <svg
+                        className="w-4 h-4 text-gray-700 mt-0.5 shrink-0"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M8 2.5v3M4.5 5L8 2.5 11.5 5" />
+                        <path d="M5 8.5H2.5M8 8.5H5M11 8.5H8M13.5 8.5H11" />
+                        <path d="M3.5 8.5v4" />
+                        <path d="M8 8.5v4" />
+                        <path d="M12.5 8.5v4" />
+                      </svg>
+                      <h3 className="text-sm font-semibold text-gray-900">SEI utility tree</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                      Once 5 or more scenarios span 3 or more attributes, a priority tree is generated. Architectural
+                      drivers — scenarios scored (H,H) or (H,M) — are highlighted automatically.
+                    </p>
+                  </article>
+
+                  <article className="rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="flex items-start gap-2">
+                      <svg
+                        className="w-4 h-4 text-gray-700 mt-0.5 shrink-0"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M6.5 3.5h7v9h-7" />
+                        <path d="M6.5 5.5H3.5v5h3" />
+                        <path d="M8.8 8h2.4" />
+                        <path d="M9.8 7l1 1-1 1" />
+                      </svg>
+                      <h3 className="text-sm font-semibold text-gray-900">Pipeline handoff with constraints</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                      Architectural implications — must and should constraints derived from the scenarios — are
+                      automatically pre-loaded when the workshop sends its output to the architecture pipeline.
+                    </p>
+                  </article>
+                </div>
+
+                {onNavigateToWorkshop && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToWorkshop}
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-colors"
+                  >
+                    Open Quality Attribute Workshop
+                    <svg
+                      className="w-4 h-4"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M6 3l5 5-5 5" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </section>
 
