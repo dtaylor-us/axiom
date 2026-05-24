@@ -97,4 +97,31 @@ describe('useGovernance', () => {
 
     expect(result.current.error).toBe('API down');
   });
+
+  it('delaysFetchByTimeoutWhenPipelineVersionIsPositive', () => {
+    // Covers the setTimeout/clearTimeout branch (lines 79-80) triggered when
+    // the hook detects a pipeline completion rather than an initial render.
+    // waitFor is intentionally avoided: it also uses setTimeout internally,
+    // which deadlocks with fake timers. The mock call is synchronous up to
+    // the first await inside fetchAll, so a plain assertion suffices.
+    vi.useFakeTimers();
+    try {
+      useStore.setState({ token: 'jwt', conversationId: 'c1', pipelineVersion: 1 });
+      mockGetTradeOffs.mockResolvedValue([]);
+      mockGetAdl.mockResolvedValue({ document: 'doc', rules: [] });
+      mockGetWeaknesses.mockResolvedValue({ weaknesses: [], summary: 'ok' });
+      mockGetFmea.mockResolvedValue([]);
+      mockGetGovernanceReport.mockResolvedValue(null as never);
+
+      renderHook(() => useGovernance());
+      // Fetch must not fire immediately — it waits 1500 ms for the DB flush.
+      expect(mockGetTradeOffs).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1500);
+
+      expect(mockGetTradeOffs).toHaveBeenCalledWith('c1', 'jwt');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

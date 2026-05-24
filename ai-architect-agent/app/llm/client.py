@@ -64,7 +64,6 @@ TIER_DEFAULTS = {
 }
 
 FAST_MODEL_STAGES = {
-    "requirement_parsing",
     "identify_gaps",
     "analyze_input",
     "reconcile_gaps",
@@ -382,6 +381,9 @@ class LLMClient:
             "model": model,
             "prompt": prompt,
             "stream": False,
+            # Disable chain-of-thought tokens (qwen3 <think>...</think>) so the
+            # output is valid JSON when Ollama's format constraint is active.
+            "think": False,
             "options": {
                 "temperature": self._temperature,
                 "num_ctx": num_ctx,

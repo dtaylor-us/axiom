@@ -94,4 +94,27 @@ describe('useBuyVsBuild', () => {
     await result.current.refresh();
     expect(mockedGet.mock.calls.length).toBeGreaterThan(callsBefore);
   });
+
+  it('delaysFetchByTimeoutWhenPipelineVersionIsPositive', () => {
+    // Covers the setTimeout/clearTimeout branch (lines 41-42) triggered when
+    // the hook detects a pipeline completion rather than an initial render.
+    // waitFor is intentionally avoided: it also uses setTimeout internally,
+    // which deadlocks with fake timers. The mock call is synchronous up to
+    // the first await inside fetchSummary, so a plain assertion suffices.
+    vi.useFakeTimers();
+    try {
+      useStore.setState({ token: 'tok', conversationId: 'conv-1', pipelineVersion: 1 });
+      mockedGet.mockResolvedValue(SUMMARY as never);
+
+      renderHook(() => useBuyVsBuild());
+      // Fetch must not fire immediately — it waits 1500 ms for the DB flush.
+      expect(mockedGet).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1500);
+
+      expect(mockedGet).toHaveBeenCalledWith('conv-1', 'tok', undefined);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
