@@ -1,9 +1,12 @@
 from __future__ import annotations
+import logging
+import uuid
 from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-import uuid
+
+logger = logging.getLogger(__name__)
 
 
 class TacticRecommendation(BaseModel):
@@ -309,6 +312,11 @@ class ArchitectureContext(BaseModel):
         decisions: list[dict] = []
         for decision in self.buy_vs_build_analysis:
             recommendation = decision.get("recommendation", "").lower()
+            logger.debug(
+                "CANONICAL_DECISIONS: evaluating component=%s recommendation=%s",
+                decision.get("component_name"),
+                recommendation,
+            )
             if recommendation not in ("buy", "adopt"):
                 continue
 
@@ -323,7 +331,7 @@ class ArchitectureContext(BaseModel):
                     f"{component_name} capability is provided by "
                     f"{recommended_solution} ({recommendation.upper()}). "
                     "Do not design an internal implementation for this "
-                    "capability."
+                    "capability. Model it as an EXTERNAL component."
                 ),
             })
         return decisions

@@ -1299,6 +1299,48 @@ ASSERT canonical_decision_propagation {
   consistency failure that MUST reduce the governance score.
 }
 
+ASSERT conversation_routing_integrity {
+  EVERY SSE event written to an emitter MUST be logged
+  with SSE_AUDIT prefix including conversationId, userId,
+  eventType, stage, emitterCount, and threadId.
+
+  EVERY SSE event received from the agent MUST be validated
+  for conversationId match before forwarding.
+
+  Events with non-matching conversationId MUST be discarded
+  with ROUTING_VIOLATION error log — never forwarded.
+
+  PipelineRunService.startRun() MUST check for an existing
+  RUNNING pipeline for the conversationId before creating
+  a new one — duplicate runs MUST throw
+  DuplicatePipelineRunException.
+
+  React store startStream() MUST set conversationId and
+  isStreaming in a single atomic update — never in two
+  separate set() calls.
+
+  A submit handler MUST check isStreaming before making
+  any API call — duplicate submissions MUST be blocked
+  client-side before reaching the server.
+}
+
+ASSERT adl_minimum_blocks {
+  ADL generation MUST produce a minimum of 5 blocks per run.
+  Fewer than 3 blocks is a quality failure and MUST log
+  a WARNING with the block count.
+  The adl_generator prompt MUST include an explicit minimum
+  block count instruction of 5.
+}
+
+ASSERT canonical_decision_traceability {
+  When buy_vs_build_analysis produces buy or adopt decisions,
+  architecture_generation MUST log CANONICAL_DECISIONS with
+  the decision count and component names.
+  Zero canonical decisions MUST log a WARNING.
+  buy_vs_build_analysis MUST log its decision count and
+  classification breakdown on every run.
+}
+
 ASSERT interaction_contract {
   Every interaction object in architecture_design.interactions
   MUST have non-empty, non-undefined protocol and purpose fields.

@@ -1,11 +1,16 @@
 package com.aiarchitect.api.service;
 
-import com.aiarchitect.api.domain.model.*;
-import com.aiarchitect.api.dto.*;
+import com.aiarchitect.api.domain.model.Conversation;
+import com.aiarchitect.api.domain.model.MessageRole;
+import com.aiarchitect.api.dto.AgentRequest;
+import com.aiarchitect.api.dto.AgentResponse;
+import com.aiarchitect.api.dto.ChatRequest;
 import com.aiarchitect.api.exception.AgentCommunicationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -18,11 +23,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class ChatServiceTest {
 
     @Mock private ConversationService conversationService;
@@ -212,5 +225,100 @@ class ChatServiceTest {
                 createRequest("hello", convId), "user1"))
                 .expectError(AgentCommunicationException.class)
                 .verify();
+    }
+
+    @Test
+    void auditEventWrite_logsSseAuditWithRequiredFields(CapturedOutput output) {
+        UUID conversationId = UUID.randomUUID();
+        when(pipelineRunBroadcaster.activeCount()).thenReturn(3);
+
+        chatService.auditEventWrite(
+                conversationId, "user1", "STAGE_START", "architecture_generation");
+
+        assertTrue(output.getOut().contains("SSE_AUDIT write"));
+        assertTrue(output.getOut().contains("conversationId=" + conversationId));
+        assertTrue(output.getOut().contains("userId=user1"));
+        assertTrue(output.getOut().contains("eventType=STAGE_START"));
+        assertTrue(output.getOut().contains("stage=architecture_generation"));
+        assertTrue(output.getOut().contains("emitterCount=3"));
+        assertTrue(output.getOut().contains("threadId="));
+    }
+
+    @Test
+    void streamChat_discardsEventWhenConversationIdDoesNotMatch() {
+        UUID conversationId = UUID.randomUUID();
+        Conversation conversation = Conversation.builder()
+                .id(conversationId).userId("user1").title("t").build();
+        AgentResponse wrongConversationEvent = new AgentResponse();
+        wrongConversationEvent.setType(AgentResponse.EventType.STAGE_START);
+        wrongConversationEvent.setStage("architecture_generation");
+        wrongConversationEvent.setConversationId(UUID.randomUUID().toString());
+        when(conversationService.resolveConversation(any(), eq("user1"), any()))
+                .thenReturn(conversation);
+        when(conversationService.getRecentMessages(conversationId, 20))
+                .thenReturn(List.of());
+        when(agentBridgeService.stream(any()))
+                .thenReturn(Flux.just(wrongConversationEvent));
+
+        StepVerifier.create(chatService.streamChat(
+                createRequest("design", conversationId), "user1"))
+                .expectNextMatches(response ->
+                        response.getType() == AgentResponse.EventType.RUN_CREATED)
+                .verifyComplete();
+
+        verify(pipelineRunService, never()).appendEvent(
+                any(), eq(AgentResponse.EventType.STAGE_START.name()), any(), any());
+    }
+
+    @Test
+    void streamChat_logsRoutingViolationWhenDiscarding(CapturedOutput output) {
+        UUID conversationId = UUID.randomUUID();
+        Conversation conversation = Conversation.builder()
+                .id(conversationId).userId("user1").title("t").build();
+        AgentResponse wrongConversationEvent = new AgentResponse();
+        wrongConversationEvent.setType(AgentResponse.EventType.STAGE_COMPLETE);
+        wrongConversationEvent.setStage("diagram_generation");
+        wrongConversationEvent.setPayload(Map.of("conversationId", UUID.randomUUID().toString()));
+        when(conversationService.resolveConversation(any(), eq("user1"), any()))
+                .thenReturn(conversation);
+        when(conversationService.getRecentMessages(conversationId, 20))
+                .thenReturn(List.of());
+        when(agentBridgeService.stream(any()))
+                .thenReturn(Flux.just(wrongConversationEvent));
+
+        StepVerifier.create(chatService.streamChat(
+                createRequest("design", conversationId), "user1"))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        assertTrue(output.getOut().contains("ROUTING_VIOLATION"));
+        assertTrue(output.getOut().contains("expected=" + conversationId));
+        assertTrue(output.getOut().contains("eventType=STAGE_COMPLETE"));
+    }
+
+    @Test
+    void streamChat_forwardsEventWhenConversationIdMatches() {
+        UUID conversationId = UUID.randomUUID();
+        Conversation conversation = Conversation.builder()
+                .id(conversationId).userId("user1").title("t").build();
+        AgentResponse matchingConversationEvent = new AgentResponse();
+        matchingConversationEvent.setType(AgentResponse.EventType.STAGE_START);
+        matchingConversationEvent.setStage("architecture_generation");
+        matchingConversationEvent.setConversationId(conversationId.toString());
+        when(conversationService.resolveConversation(any(), eq("user1"), any()))
+                .thenReturn(conversation);
+        when(conversationService.getRecentMessages(conversationId, 20))
+                .thenReturn(List.of());
+        when(agentBridgeService.stream(any()))
+                .thenReturn(Flux.just(matchingConversationEvent));
+
+        StepVerifier.create(chatService.streamChat(
+                createRequest("design", conversationId), "user1"))
+                .expectNextMatches(response ->
+                        response.getType() == AgentResponse.EventType.RUN_CREATED)
+                .expectNextMatches(response ->
+                        response.getType() == AgentResponse.EventType.STAGE_START
+                                && "architecture_generation".equals(response.getStage()))
+                .verifyComplete();
     }
 }

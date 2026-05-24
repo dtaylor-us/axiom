@@ -75,7 +75,14 @@ export function ChatView() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isStreaming) return;
+    if (!input.trim()) return;
+    if (isStreaming) {
+      console.error(
+        'ROUTING_GUARD: submit blocked - stream already active. conversationId=' +
+          useStore.getState().conversationId,
+      );
+      return;
+    }
     const msg = input.trim();
     setInput('');
     await sendMessage(msg);

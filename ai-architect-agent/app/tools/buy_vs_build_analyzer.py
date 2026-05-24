@@ -14,12 +14,11 @@ projects, not hypothetical ones. It considers:
   - User-stated preferences and constraints
   - Team operational capacity
 
-Pipeline position: stage 6b — after architecture_generation (stage 6) and before
-diagram_generation (stage 7).
+Pipeline position: stage 6b — before architecture_generation (stage 6) so
+buy/adopt decisions can constrain the generated component model.
 
-The analysis runs on the finalised architecture design so it can reference
-actual named components. It cannot run before stage 6 because the component
-list does not exist yet.
+The analysis prefers an existing component list, but can derive candidate
+capabilities from parsed requirements when architecture_generation has not run.
 """
 
 from __future__ import annotations
@@ -37,6 +36,17 @@ logger = logging.getLogger(__name__)
 _STAGE = "buy_vs_build_analysis"
 MIN_RATIONALE_LENGTH = 60
 
+COMMODITY_CAPABILITY_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Payment Provider", ("payment", "billing", "invoice", "charge", "checkout")),
+    ("Email Delivery", ("email", "notification", "sendgrid", "postmark")),
+    ("SMS Delivery", ("sms", "text message", "twilio")),
+    ("Identity Provider", ("auth", "oauth", "saml", "sso", "identity")),
+    ("Observability Platform", ("monitoring", "observability", "logging", "tracing")),
+    ("Search Platform", ("search", "indexing", "catalog")),
+    ("CDN Provider", ("cdn", "edge", "cache invalidation")),
+    ("DRM Provider", ("drm", "license server")),
+)
+
 
 class BuyVsBuildAnalyzerTool(BaseTool):
     """Evaluates architecture components for build vs buy vs adopt sourcing."""
@@ -46,7 +56,8 @@ class BuyVsBuildAnalyzerTool(BaseTool):
         Performs buy-vs-build analysis for each architecture component.
 
         Reads:
-            context.architecture_design (must be populated)
+            context.architecture_design when available, otherwise parsed
+            requirements and raw requirements for candidate capabilities
             context.characteristics
             context.buy_vs_build_preferences
             context.scenarios
@@ -62,37 +73,18 @@ class BuyVsBuildAnalyzerTool(BaseTool):
         architecture_design = context.architecture_design or {}
         components = architecture_design.get("components", []) if architecture_design else []
 
-        if not architecture_design:
-            raise ToolExecutionException(
-                "Cannot perform buy-vs-build analysis without an "
-                "architecture design. Ensure stage 6 completed."
-            )
-        if not components:
-            raise ToolExecutionException(
-                "Cannot perform buy-vs-build analysis without an "
-                "architecture components list. Ensure stage 6 completed."
-            )
+        logger.info(
+            "BUY_VS_BUILD: starting analysis. components_to_evaluate=%d "
+            "conversation_id=%s",
+            len(components),
+            context.conversation_id,
+        )
 
-        relevant_components: list[dict] = []
-        for c in components:
-            c_type = (c.get("type") or "").strip().lower()
-            if c_type == "external":
-                continue
-            if c_type in {"service", "database", "queue", "cache", "gateway"}:
-                relevant_components.append(c)
+        relevant_components = self._components_to_evaluate(context, components)
         if not relevant_components:
-            # Defensive fallback: some architecture styles emit component types
-            # like "processing-unit" or "core-system". We still need sourcing
-            # decisions for major components, so fall back to all non-external
-            # components rather than returning an empty analysis.
-            relevant_components = [
-                c for c in components
-                if str(c.get("type", "")).strip().lower() != "external"
-            ]
-            logger.warning(
-                "BuyVsBuildAnalyzer found no components of expected types; "
-                "falling back to all non-external components. conversation_id=%s",
-                context.conversation_id,
+            raise ToolExecutionException(
+                "Cannot perform buy-vs-build analysis without an "
+                "architecture components list or inferred candidate capabilities."
             )
 
         prompt = load_prompt(
@@ -101,7 +93,7 @@ class BuyVsBuildAnalyzerTool(BaseTool):
             characteristics=context.characteristics,
             buy_vs_build_preferences=context.buy_vs_build_preferences,
             scenarios=context.scenarios,
-            architecture_style=architecture_design.get("style", ""),
+            architecture_style=architecture_design.get("style", "pre-architecture"),
             parsed_entities=context.parsed_entities,
         )
 
@@ -137,6 +129,11 @@ class BuyVsBuildAnalyzerTool(BaseTool):
                 ) from e2
 
         raw_decisions = parsed.get("decisions", [])
+        logger.info(
+            "BUY_VS_BUILD: raw analysis returned decisions=%d conversation_id=%s",
+            len(raw_decisions) if isinstance(raw_decisions, list) else 0,
+            context.conversation_id,
+        )
         if not isinstance(raw_decisions, list):
             raise ToolExecutionException(
                 "LLM returned invalid decisions format; expected a list."
@@ -169,17 +166,23 @@ class BuyVsBuildAnalyzerTool(BaseTool):
         build_count = sum(1 for d in decisions if d.recommendation == "build")
         buy_count = sum(1 for d in decisions if d.recommendation == "buy")
         adopt_count = sum(1 for d in decisions if d.recommendation == "adopt")
-        conflict_count = sum(1 for d in decisions if d.conflicts_with_user_preference)
-
         logger.info(
-            "Buy-vs-build analysis: %d decisions. build=%d buy=%d adopt=%d conflicts=%d conversation_id=%s",
+            "BUY_VS_BUILD: analysis complete. decisions=%d buy_count=%d "
+            "adopt_count=%d build_count=%d conversation_id=%s",
             len(decisions),
-            build_count,
             buy_count,
             adopt_count,
-            conflict_count,
+            build_count,
             context.conversation_id,
         )
+
+        if not decisions:
+            logger.warning(
+                "BUY_VS_BUILD: returned zero decisions. The prompt may not "
+                "be finding buy candidates, or the components list is empty. "
+                "architecture_design has %d components.",
+                len(components),
+            )
 
         if rejected:
             logger.warning(
@@ -192,6 +195,76 @@ class BuyVsBuildAnalyzerTool(BaseTool):
         context.buy_vs_build_summary = parsed.get("buy_vs_build_summary", "") or ""
 
         return context
+
+    def _components_to_evaluate(
+        self,
+        context: ArchitectureContext,
+        components: list[dict],
+    ) -> list[dict]:
+        """Return architecture components or inferred sourcing candidates."""
+        if components:
+            relevant_components: list[dict] = []
+            for component in components:
+                component_type = (component.get("type") or "").strip().lower()
+                if component_type == "external":
+                    continue
+                if component_type in {"service", "database", "queue", "cache", "gateway"}:
+                    relevant_components.append(component)
+            if relevant_components:
+                return relevant_components
+
+            logger.warning(
+                "BuyVsBuildAnalyzer found no components of expected types; "
+                "falling back to all non-external components. conversation_id=%s",
+                context.conversation_id,
+            )
+            return [
+                component for component in components
+                if str(component.get("type", "")).strip().lower() != "external"
+            ]
+
+        candidates = self._candidate_components_from_requirements(context)
+        logger.info(
+            "BUY_VS_BUILD: derived %d candidate components before architecture "
+            "generation. conversation_id=%s",
+            len(candidates),
+            context.conversation_id,
+        )
+        return candidates
+
+    def _candidate_components_from_requirements(
+        self,
+        context: ArchitectureContext,
+    ) -> list[dict]:
+        """Infer commodity capabilities from parsed and raw requirements."""
+        parsed_components = context.parsed_entities.get("components", [])
+        if isinstance(parsed_components, list) and parsed_components:
+            return [
+                {
+                    "name": str(component.get("name", component)),
+                    "type": str(component.get("type", "service")),
+                    "responsibility": str(component.get("responsibility", "")),
+                }
+                if isinstance(component, dict)
+                else {"name": str(component), "type": "service", "responsibility": ""}
+                for component in parsed_components
+            ]
+
+        requirements_text = (
+            f"{context.raw_requirements} {json.dumps(context.parsed_entities)}"
+        ).lower()
+        candidates: list[dict] = []
+        for capability_name, keywords in COMMODITY_CAPABILITY_HINTS:
+            if any(keyword in requirements_text for keyword in keywords):
+                candidates.append({
+                    "name": capability_name,
+                    "type": "service",
+                    "responsibility": (
+                        f"Provide {capability_name.lower()} capability identified "
+                        "from requirements."
+                    ),
+                })
+        return candidates
 
     def _validate_decision(self, raw: dict) -> str | None:
         """

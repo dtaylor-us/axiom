@@ -17,6 +17,7 @@ export function useSSEStream() {
   const setRunState = useStore((s) => s.setRunState);
   const beginUserTurn = useStore((s) => s.beginUserTurn);
   const abortStreaming = useStore((s) => s.abortStreaming);
+  const startStream = useStore((s) => s.startStream);
 
   const send = useCallback(
     async (message: string) => {
@@ -24,20 +25,30 @@ export function useSSEStream() {
         setError('Not authenticated');
         return;
       }
+      const state = useStore.getState();
+      if (state.isStreaming) {
+        console.error(
+          'ROUTING_GUARD: submit blocked - stream already active. ' +
+            'conversationId=' + state.conversationId,
+        );
+        return;
+      }
+      const activeConversationId = state.conversationId;
+      const idempotencyKey = crypto.randomUUID();
 
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
-      setStreaming(true);
-      setError(null);
+      startStream(activeConversationId);
       beginUserTurn(message);
 
       try {
         await streamChat(
           token,
           message,
-          conversationId ?? undefined,
+          activeConversationId ?? undefined,
+          idempotencyKey,
           handleEvent,
           controller.signal,
         );
@@ -47,9 +58,9 @@ export function useSSEStream() {
 
           // The API stream may end without a COMPLETE when a proxy disconnects.
           // Detect that case by polling durable run status.
-          if (conversationId) {
+          if (activeConversationId) {
             try {
-              const status = await getRunStatus(conversationId, token);
+              const status = await getRunStatus(activeConversationId, token);
               if (status && status.status === 'RUNNING') {
                 setRunState({
                   runId: status.runId,
@@ -67,7 +78,7 @@ export function useSSEStream() {
         setStreaming(false);
       }
     },
-    [token, conversationId, handleEvent, setStreaming, setError, setRunState, beginUserTurn],
+    [token, handleEvent, setError, setRunState, beginUserTurn, startStream],
   );
 
   const reconnect = useCallback(async () => {

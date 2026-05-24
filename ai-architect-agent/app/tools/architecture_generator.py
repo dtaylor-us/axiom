@@ -86,6 +86,21 @@ class ArchitectureGeneratorTool(BaseTool):
                 "characteristics is empty; run CharacteristicReasoningEngine first"
             )
 
+        canonical = context.canonical_decisions
+        logger.info(
+            "CANONICAL_DECISIONS: architecture_generation received %d canonical decisions. "
+            "conversation_id=%s decisions=%s",
+            len(canonical),
+            context.conversation_id,
+            [(d.get("component"), d.get("decision")) for d in canonical],
+        )
+        if not canonical:
+            logger.warning(
+                "CANONICAL_DECISIONS: no buy/adopt decisions available for "
+                "architecture generation. Either buy_vs_build ran before this "
+                "stage and found no buy candidates, or it did not run."
+            )
+
         # Retrieve similar past designs from Qdrant (best-effort)
         similar = await self._memory.retrieve_similar(
             context.raw_requirements, limit=3

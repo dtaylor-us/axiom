@@ -6,6 +6,7 @@ import com.aiarchitect.api.domain.model.PipelineRun;
 import com.aiarchitect.api.domain.model.PipelineRunStatus;
 import com.aiarchitect.api.domain.repository.PipelineEventRepository;
 import com.aiarchitect.api.domain.repository.PipelineRunRepository;
+import com.aiarchitect.api.exception.DuplicatePipelineRunException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,18 +35,50 @@ public class PipelineRunService {
      */
     public Optional<UUID> createRun(Conversation conversation, int iteration) {
         try {
-            PipelineRun run = PipelineRun.builder()
-                    .conversation(conversation)
-                    .iteration(iteration)
-                    .status(PipelineRunStatus.RUNNING)
-                    .startedAt(Instant.now())
-                    .hasGaps(false)
-                    .build();
-            return Optional.of(runRepository.save(run).getId());
+            return Optional.of(startRun(conversation, iteration).getId());
+        } catch (DuplicatePipelineRunException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to create pipeline run. conversationId={}", conversation.getId(), e);
             return Optional.empty();
         }
+    }
+
+    /**
+     * Starts a durable pipeline run unless the conversation already has one running.
+     *
+     * @param conversation owning conversation
+     * @param iteration pipeline iteration number
+     * @return persisted RUNNING pipeline run
+     * @throws DuplicatePipelineRunException when another run is already active
+     */
+    public PipelineRun startRun(Conversation conversation, int iteration) {
+        Optional<PipelineRun> existingRun = runRepository.findByConversationIdAndStatus(
+                conversation.getId(), PipelineRunStatus.RUNNING);
+
+        if (existingRun.isPresent()) {
+            log.error(
+                    "DUPLICATE_RUN_DETECTED: pipeline already running "
+                            + "for conversationId={}. runId={}. "
+                            + "Rejecting duplicate start.",
+                    conversation.getId(),
+                    existingRun.get().getId()
+            );
+            throw new DuplicatePipelineRunException(
+                    "A pipeline run is already active for conversation "
+                            + conversation.getId() + ". Existing run: "
+                            + existingRun.get().getId()
+            );
+        }
+
+        PipelineRun run = PipelineRun.builder()
+                .conversation(conversation)
+                .iteration(iteration)
+                .status(PipelineRunStatus.RUNNING)
+                .startedAt(Instant.now())
+                .hasGaps(false)
+                .build();
+        return runRepository.save(run);
     }
 
     /**
@@ -180,4 +213,3 @@ public class PipelineRunService {
         }
     }
 }
-

@@ -85,14 +85,29 @@ export async function streamChat(
   token: string,
   message: string,
   conversationId: string | undefined,
-  onEvent: (event: AgentEvent) => void,
-  signal?: AbortSignal,
+  idempotencyKeyOrOnEvent: string | ((event: AgentEvent) => void),
+  onEventOrSignal?: ((event: AgentEvent) => void) | AbortSignal,
+  maybeSignal?: AbortSignal,
 ): Promise<void> {
+  const idempotencyKey =
+    typeof idempotencyKeyOrOnEvent === 'string'
+      ? idempotencyKeyOrOnEvent
+      : crypto.randomUUID();
+  const onEvent =
+    typeof idempotencyKeyOrOnEvent === 'function'
+      ? idempotencyKeyOrOnEvent
+      : (onEventOrSignal as (event: AgentEvent) => void);
+  const signal =
+    typeof idempotencyKeyOrOnEvent === 'function'
+      ? (onEventOrSignal as AbortSignal | undefined)
+      : maybeSignal;
+
   const res = await fetch(STREAM_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
+      'Idempotency-Key': idempotencyKey,
     },
     body: JSON.stringify({ message, conversationId }),
     signal,

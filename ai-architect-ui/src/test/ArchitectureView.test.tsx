@@ -88,7 +88,7 @@ describe('ArchitectureView', () => {
             type: 'c4_container',
             title: 'C4 Container View',
             description: 'Container architecture',
-            mermaidSource: 'graph TD\nA-->B',
+            mermaidSource: 'graph TD\nA-->B\nB-->C',
             characteristicAddressed: 'modularity',
           },
           {
@@ -96,7 +96,7 @@ describe('ArchitectureView', () => {
             type: 'sequence_primary',
             title: 'Primary Flow',
             description: 'Happy path sequence',
-            mermaidSource: 'sequenceDiagram\nA->>B: call',
+            mermaidSource: 'sequenceDiagram\nA->>B: call\nB-->>A: response',
             characteristicAddressed: 'performance',
           },
           {
@@ -104,7 +104,7 @@ describe('ArchitectureView', () => {
             type: 'state',
             title: 'Order State Machine',
             description: 'Order lifecycle states',
-            mermaidSource: 'stateDiagram-v2\n[*] --> pending',
+            mermaidSource: 'stateDiagram-v2\n[*] --> pending\npending --> complete',
             characteristicAddressed: 'reliability',
           },
         ],

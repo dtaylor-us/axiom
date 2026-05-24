@@ -22,6 +22,13 @@ public class PipelineRunBroadcaster {
 
     private final Map<UUID, CopyOnWriteArrayList<SseEmitter>> subscribers = new ConcurrentHashMap<>();
 
+    /**
+     * Returns the total number of live reattach emitters.
+     */
+    public int activeCount() {
+        return subscribers.values().stream().mapToInt(CopyOnWriteArrayList::size).sum();
+    }
+
     public void register(UUID runId, SseEmitter emitter) {
         subscribers.computeIfAbsent(runId, _k -> new CopyOnWriteArrayList<>()).add(emitter);
         emitter.onCompletion(() -> unregister(runId, emitter));
@@ -61,4 +68,3 @@ public class PipelineRunBroadcaster {
         }
     }
 }
-

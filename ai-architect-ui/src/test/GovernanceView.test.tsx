@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { GovernanceView } from '../views/GovernanceView';
+import { GovernanceView, ScoreDimension } from '../views/GovernanceView';
 
 let governanceState: Record<string, unknown>;
 
@@ -123,5 +123,34 @@ describe('GovernanceView', () => {
     await user.click(screen.getByTestId('tab-fmea'));
     expect(screen.getByTestId('panel-fmea')).toBeInTheDocument();
     expect(screen.getByTestId('mock-severity-grid')).toHaveTextContent('1 entries');
+  });
+
+  it('scoreDimension_rendersEvidenceTextBelowBar', () => {
+    render(
+      <ScoreDimension
+        label="Requirement coverage"
+        score={16}
+        maxScore={20}
+        evidence="Covered 8 of 10 requirements."
+        positive
+      />,
+    );
+
+    expect(screen.getByText('Covered 8 of 10 requirements.')).toBeInTheDocument();
+    expect(screen.getByText('+16/20')).toBeInTheDocument();
+  });
+
+  it('scoreDimension_showsCorrectColorForScoreRatio', () => {
+    render(
+      <ScoreDimension
+        label="Trade-off quality"
+        score={18}
+        maxScore={20}
+        evidence="Strong trade-off coverage."
+        positive
+      />,
+    );
+
+    expect(screen.getByText('+18/20')).toHaveClass('text-emerald-700');
   });
 });

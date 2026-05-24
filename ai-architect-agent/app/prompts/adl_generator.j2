@@ -58,20 +58,50 @@ TRADE-OFF DECISIONS:
 ARCHITECTURE CHARACTERISTICS TO ENFORCE:
 {{ characteristics | tojson(indent=2) }}
 
+MINIMUM ADL BLOCK REQUIREMENT:
+You MUST generate a minimum of 5 ADL blocks and a maximum of 12.
+
+A system with multiple services, external integrations, and quality
+characteristics has multiple architectural constraints worth enforcing.
+One block is never sufficient.
+
+Generate ADL blocks for:
+  - Service boundary isolation — which services must NOT depend on
+    which other services
+  - External dependency enforcement — for every BUY or ADOPT decision,
+    a block asserting no internal reimplementation
+  - Data ownership — which service owns which data store
+  - LLM/AI boundary — if AI components exist, assert they are isolated
+    from core business logic
+  - Security boundary — authentication must not be bypassed
+  - Technology prohibition — banned patterns or libraries
+  - Deployment constraint — if relevant to the architecture
+
+INTERNAL COMPONENTS TO GOVERN:
+{{ components | tojson(indent=2) }}
+
+EXTERNAL COMPONENTS TO PROTECT FROM REIMPLEMENTATION:
+{{ external_components | tojson(indent=2) }}
+
 {% if canonical_decisions %}
-EXTERNAL DEPENDENCY RULES (derive ADL blocks for these):
+CANONICAL DECISIONS TO ENFORCE WITH ADL:
 {% for d in canonical_decisions %}
-{{ d.component }} is provided by {{ d.recommended_solution }}.
 Generate an ADL block asserting:
-ASSERT(InternalServices has NO DEPENDENCY ON {{ d.component }}Implementation)
-This enforces that no internal code reimplements a capability
-that has been designated as a buy/adopt decision.
+{{ d.component }} capability must be provided by
+{{ d.recommended_solution }} — no internal implementation.
 {% endfor %}
+{% else %}
+No canonical buy/adopt decisions to enforce.
 {% endif %}
+
+ARCHITECTURE CHARACTERISTICS TO ENFORCE:
+{% for char in characteristics[:5] %}
+Consider whether {{ char.name }} requires an ADL enforcement rule.
+{% endfor %}
 
 ━━━ WHAT TO GENERATE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Generate between 8 and 15 ADL blocks. Each block must:
+Generate between 5 and 12 ADL blocks. Each block must:
   1. Target one specific architectural concern
   2. Use DEFINE SYSTEM at the top to establish namespace context
   3. Contain at least one ASSERT or FOREACH statement
@@ -98,6 +128,9 @@ Cover these concern categories across the full set of blocks:
   ASSERT(payment_service has NO DEPENDENCY ON fraud_service CLASSES)
 
 ━━━ RETURN FORMAT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Return between 5 and 12 ADL blocks. Return exactly the JSON schema
+below — no more, no less. Do not return fewer than 5.
 
 Return a JSON array. No markdown fences, no preamble. Each element:
 
