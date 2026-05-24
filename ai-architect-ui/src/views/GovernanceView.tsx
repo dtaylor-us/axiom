@@ -6,7 +6,7 @@ import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { SeverityGrid } from '../components/SeverityGrid';
 import { CopyButton } from '../components/CopyButton';
 import { StructuredExportBar, MarkdownExportActions } from '../components/StructuredData';
-import type { Weakness, TacticRecommendation, TradeOffDecision, AdlDocument, FmeaEntry, BuyVsBuildDecision } from '../types/api';
+import type { Weakness, TacticRecommendation, TradeOffDecision, AdlDocument, FmeaEntry, BuyVsBuildDecision, BuyVsBuildSummary } from '../types/api';
 
 /* ── Badge helpers ────────────────────────────── */
 
@@ -148,14 +148,42 @@ function tacticsMarkdown(tactics: TacticRecommendation[]): string {
   ].join('\n\n')).join('\n\n');
 }
 
+function sourcingMarkdown(summary: BuyVsBuildSummary): string {
+  const lines: string[] = [
+    '# Sourcing Decisions',
+    '',
+    summary.summaryText ?? '',
+    '',
+    `**Total:** ${summary.totalDecisions}  |  **Build:** ${summary.buildCount}  |  **Buy:** ${summary.buyCount}  |  **Adopt:** ${summary.adoptCount}`,
+    '',
+    '---',
+    '',
+  ];
+  for (const d of summary.decisions) {
+    lines.push(`## ${d.componentName} — ${d.recommendation.toUpperCase()}`);
+    if (d.recommendedSolution) lines.push(`**Solution:** ${d.recommendedSolution}`);
+    lines.push(`**Rationale:** ${d.rationale}`);
+    lines.push(`**Estimated cost:** ${d.estimatedBuildCost}`);
+    lines.push(`**Lock-in risk:** ${d.vendorLockInRisk}  |  **Integration effort:** ${d.integrationEffort}`);
+    if ((d.alternativesConsidered ?? []).length > 0) {
+      lines.push(`**Alternatives:** ${d.alternativesConsidered.join(', ')}`);
+    }
+    if (d.conflictsWithUserPreference && d.conflictExplanation) {
+      lines.push(`**⚠ Preference conflict:** ${d.conflictExplanation}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
 /* ── Types ────────────────────────────────────── */
 
-type Tab = 'trade-offs' | 'adl' | 'weaknesses' | 'fmea' | 'tactics';
+type Tab = 'trade-offs' | 'adl' | 'weaknesses' | 'fmea' | 'tactics' | 'sourcing';
 
 /* ── Component ────────────────────────────────── */
 
 export function GovernanceView() {
-  const [activeTab, setActiveTab] = useState<Tab | 'sourcing'>('trade-offs');
+  const [activeTab, setActiveTab] = useState<Tab>('trade-offs');
   const [sourcingFilter, setSourcingFilter] = useState<'all' | 'build' | 'buy' | 'adopt'>('all');
   const [sourcingConflictsOnly, setSourcingConflictsOnly] = useState(false);
   const { tradeOffs, adl, weaknesses, fmea, governanceReport, loading, error } = useGovernance();
@@ -164,7 +192,7 @@ export function GovernanceView() {
     recommendation: sourcingFilter === 'all' ? undefined : sourcingFilter,
   });
 
-  const tabs: { key: Tab | 'sourcing'; label: string }[] = [
+  const tabs: { key: Tab; label: string }[] = [
     { key: 'trade-offs', label: 'Trade-offs' },
     { key: 'adl', label: 'ADL' },
     { key: 'weaknesses', label: 'Weaknesses' },
@@ -194,8 +222,11 @@ export function GovernanceView() {
         return tactics.length > 0
           ? { md: tacticsMarkdown(tactics), filename: 'tactics.md' }
           : null;
-      case 'sourcing':
-        return null;
+      case 'sourcing': {
+        return sourcingSummary && sourcingSummary.totalDecisions > 0
+          ? { md: sourcingMarkdown(sourcingSummary), filename: 'sourcing-decisions.md' }
+          : null;
+      }
     }
   }
 
@@ -331,19 +362,26 @@ export function GovernanceView() {
             </div>
           </div>
           {scoreRows.length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 space-y-3" data-testid="governance-score-breakdown">
-              <h3 className="text-sm font-semibold text-gray-800">Score breakdown</h3>
-              {scoreRows.map((row) => (
-                <ScoreDimension
-                  key={row.label}
-                  label={row.label}
-                  score={row.value}
-                  maxScore={row.max}
-                  evidence={row.evidence ?? ''}
-                  positive={row.positive}
-                />
-              ))}
-            </div>
+            <details className="group bg-white border border-gray-200 rounded-xl overflow-hidden" data-testid="governance-score-breakdown">
+              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none">
+                <h3 className="text-sm font-semibold text-gray-800">Score breakdown</h3>
+                <svg className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+              </summary>
+              <div className="px-4 pb-4 space-y-3">
+                {scoreRows.map((row) => (
+                  <ScoreDimension
+                    key={row.label}
+                    label={row.label}
+                    score={row.value}
+                    maxScore={row.max}
+                    evidence={row.evidence ?? ''}
+                    positive={row.positive}
+                  />
+                ))}
+              </div>
+            </details>
           )}
         </div>
       )}
@@ -570,34 +608,57 @@ export function GovernanceView() {
                 />
               </div>
               <div className="space-y-2">
-                {adl.rules.map((r, i) => (
-                  <div
-                    key={i}
-                    className="group border border-gray-200 rounded-lg p-3 text-xs bg-gray-50 hover:border-gray-300 transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-bold text-emerald-700 uppercase shrink-0">{r.category}</span>
-                        <span className="font-mono text-gray-400 shrink-0">{r.rule_id}</span>
-                        <span className="font-medium text-purple-700 truncate">{r.subject}</span>
+                {adl.rules.map((r, i) => {
+                  const isAssertion = /^(ASSERT|REQUIRE|PROHIBIT|DENY|ALLOW)\b/i.test(r.statement?.trim() ?? '');
+                  const hasValidation = Boolean(r.validation_hint?.pseudo_code || r.validation_hint?.type);
+                  return (
+                    <div
+                      key={i}
+                      className="group border border-gray-200 rounded-lg overflow-hidden bg-white hover:border-gray-300 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 border-b border-gray-100">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                          {r.category && <span className="font-bold text-emerald-700 text-[11px] uppercase tracking-wide shrink-0">{r.category}</span>}
+                          {r.rule_id && <span className="font-mono text-gray-400 text-[11px] shrink-0">{r.rule_id}</span>}
+                          {r.subject && <span className="font-medium text-purple-700 text-xs truncate">{r.subject}</span>}
+                          {hasValidation && (
+                            <span className="text-[11px] font-medium rounded px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                              Enforceable
+                            </span>
+                          )}
+                        </div>
+                        <CopyButton
+                          text={`[${r.rule_id}] ${r.subject}\n${r.statement}${r.rationale ? `\nRationale: ${r.rationale}` : ''}`}
+                          className="opacity-0 group-hover:opacity-100 shrink-0"
+                          title="Copy rule"
+                        />
                       </div>
-                      <CopyButton
-                        text={`[${r.rule_id}] ${r.subject}\n${r.statement}${r.rationale ? `\nRationale: ${r.rationale}` : ''}`}
-                        className="opacity-0 group-hover:opacity-100 shrink-0"
-                        title="Copy rule"
-                      />
+                      <div className="px-3 py-2.5">
+                        {isAssertion ? (
+                          <pre className="text-xs font-mono text-emerald-800 bg-emerald-50 border border-emerald-100 rounded p-2.5 overflow-x-auto whitespace-pre-wrap">
+                            {r.statement}
+                          </pre>
+                        ) : (
+                          <p className="text-xs text-gray-800">{r.statement}</p>
+                        )}
+                        {r.rationale && (
+                          <p className="text-xs text-gray-500 mt-1.5 italic">{r.rationale}</p>
+                        )}
+                        {r.validation_hint?.pseudo_code && (
+                          <pre className="whitespace-pre-wrap mt-2 text-[11px] font-mono text-gray-600 bg-gray-100 border border-gray-200 rounded p-2 overflow-x-auto">
+                            {r.validation_hint.pseudo_code}
+                          </pre>
+                        )}
+                        {r.validation_hint?.type && !r.validation_hint.pseudo_code && (
+                          <p className="text-xs text-gray-500 mt-1.5">
+                            <span className="font-medium">Validation:</span> {r.validation_hint.type}
+                            {r.validation_hint.enforcement_level && ` (${r.validation_hint.enforcement_level})`}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-gray-700">{r.statement}</p>
-                    {r.rationale && (
-                      <p className="text-gray-500 mt-1 italic">{r.rationale}</p>
-                    )}
-                    {r.validation_hint?.pseudo_code && (
-                      <pre className="whitespace-pre-wrap mt-1 text-gray-500 text-xs bg-gray-100 rounded p-1 overflow-x-auto">
-                        {r.validation_hint.pseudo_code}
-                      </pre>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -781,6 +842,7 @@ export function GovernanceView() {
           )}
         </div>
       )}
+
     </div>
   );
 }

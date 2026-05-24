@@ -64,6 +64,7 @@ TIER_DEFAULTS = {
 }
 
 FAST_MODEL_STAGES = {
+    "requirement_parsing",
     "identify_gaps",
     "analyze_input",
     "reconcile_gaps",
@@ -381,13 +382,6 @@ class LLMClient:
             "model": model,
             "prompt": prompt,
             "stream": False,
-            # Disable qwen3 extended thinking for structured-output stages.
-            # When `format` is set (JSON mode), Ollama's grammar enforces valid
-            # JSON from the very first token. qwen3's <think>...</think> tokens
-            # are not valid JSON, so the grammar collapses the output to `{}`
-            # immediately after the thinking phase. Setting think=False lets the
-            # model skip the thinking step and produce real content instead.
-            "think": False,
             "options": {
                 "temperature": self._temperature,
                 "num_ctx": num_ctx,

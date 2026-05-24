@@ -74,6 +74,8 @@ export interface AuthTokenResponse {
 
 export interface Component {
   name: string;
+  type?: string;
+  ownership?: string;
   responsibility: string;
   technology: string;
 }

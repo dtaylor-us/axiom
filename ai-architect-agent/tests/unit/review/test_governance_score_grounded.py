@@ -70,4 +70,4 @@ def test_consistency_bonus_negative_for_internal_buy_component() -> None:
         {"components": [{"name": "Stripe", "type": "service"}]},
     )
 
-    assert bonus == -2
+    assert bonus == -3

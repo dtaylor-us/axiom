@@ -300,40 +300,74 @@ class ArchitectureContext(BaseModel):
     @property
     def canonical_decisions(self) -> list[dict]:
         """
-        Return buy/adopt architecture decisions as downstream constraints.
+        Return buy/adopt decisions as binding architecture constraints.
 
-        Build recommendations remain in the internal design space. Buy and
-        adopt recommendations remove that capability from internal component
-        design and must be rendered as external dependencies.
+        Handles field name variants from the buy_vs_build LLM output
+        because the model may use "component", "component_name",
+        "capability", or "name" for the component field, and
+        "recommendation", "decision", or "action" for the decision.
 
         Returns:
             Canonical decisions derived from buy_vs_build_analysis.
         """
         decisions: list[dict] = []
-        for decision in self.buy_vs_build_analysis:
-            recommendation = decision.get("recommendation", "").lower()
+        for decision in (self.buy_vs_build_analysis or []):
+            component = (
+                decision.get("component_name")
+                or decision.get("component")
+                or decision.get("capability")
+                or decision.get("name")
+                or ""
+            )
+            recommendation = (
+                decision.get("recommendation")
+                or decision.get("decision")
+                or decision.get("action")
+                or ""
+            ).lower().strip()
+            solution = (
+                decision.get("recommended_solution")
+                or decision.get("solution")
+                or decision.get("provider")
+                or decision.get("tool")
+                or ""
+            )
             logger.debug(
                 "CANONICAL_DECISIONS: evaluating component=%s recommendation=%s",
-                decision.get("component_name"),
+                component,
                 recommendation,
             )
-            if recommendation not in ("buy", "adopt"):
+            if not component or recommendation not in ("buy", "adopt"):
                 continue
 
-            component_name = decision.get("component_name")
-            recommended_solution = decision.get("recommended_solution")
             decisions.append({
-                "component": component_name,
+                "component": component,
                 "decision": recommendation,
-                "recommended_solution": recommended_solution,
+                "recommended_solution": solution,
                 "rationale": decision.get("rationale", "")[:200],
                 "constraint": (
-                    f"{component_name} capability is provided by "
-                    f"{recommended_solution} ({recommendation.upper()}). "
-                    "Do not design an internal implementation for this "
-                    "capability. Model it as an EXTERNAL component."
+                    f"The '{component}' capability MUST be provided "
+                    f"by {solution} ({recommendation.upper()}). "
+                    f"Do NOT generate any internal service, class, "
+                    f"or component that implements this capability. "
+                    f"The only internal component allowed for this "
+                    f"capability is an integration adapter that wraps "
+                    f"the EXTERNAL {solution} API."
                 ),
+                "excluded_component_patterns": [
+                    component.lower(),
+                    component.lower().replace(" ", "_"),
+                    component.lower().replace(" ", "-"),
+                    component.lower().replace(" service", ""),
+                ],
             })
+        if self.buy_vs_build_analysis and not decisions:
+            logger.warning(
+                "CANONICAL_DECISIONS: buy_vs_build_analysis has %d entries "
+                "but no buy/adopt entries were found. Check field variants "
+                "for recommendation, decision, or action.",
+                len(self.buy_vs_build_analysis),
+            )
         return decisions
 
     @property

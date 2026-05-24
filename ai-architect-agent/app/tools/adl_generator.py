@@ -80,13 +80,14 @@ class ADLGeneratorV2Tool(BaseTool):
                 "conversation_id=%s", context.conversation_id
             )
 
+        canonical_decisions = context.canonical_decisions
         prompt = load_prompt(
             "adl_generator",
             parsed_entities=context.parsed_entities,
             architecture_design=context.architecture_design,
             trade_offs=context.trade_offs,
             characteristics=context.characteristics[:8],
-            canonical_decisions=context.canonical_decisions,
+            canonical_decisions=canonical_decisions,
             components=[
                 component for component in context.architecture_design.get("components", [])
                 if component.get("type") != "external"
@@ -158,13 +159,19 @@ class ADLGeneratorV2Tool(BaseTool):
                 f"Got type: {type(parsed).__name__}"
             )
 
-        if len(parsed) < 3:
+        logger.info(
+            "ADL_GENERATION: produced %d blocks. conversation_id=%s",
+            len(parsed), context.conversation_id,
+        )
+
+        minimum_blocks = len(canonical_decisions) + 3
+        if len(parsed) < minimum_blocks:
             logger.warning(
-                "ADL_GENERATION: only %d blocks generated. Minimum is 5. "
+                "ADL_GENERATION: only %d blocks generated. Minimum is %d. "
                 "This may indicate the prompt is not receiving enough "
                 "architecture context, or the model is satisfying the schema "
                 "with minimum output. conversation_id=%s",
-                len(parsed),
+                len(parsed), minimum_blocks,
                 context.conversation_id,
             )
 

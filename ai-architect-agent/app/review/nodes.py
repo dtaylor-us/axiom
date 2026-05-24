@@ -44,32 +44,83 @@ def calculate_consistency_bonus(
         Bonus score from -10 to +10.
     """
     components = architecture_design.get("components", [])
-    component_index = {
-        component.get("name", "").lower(): component
-        for component in components
-    }
     score = 0
     for decision in buy_vs_build_analysis:
-        recommendation = decision.get("recommendation", "").lower()
+        recommendation = (
+            decision.get("recommendation")
+            or decision.get("decision")
+            or decision.get("action")
+            or ""
+        ).lower().strip()
         if recommendation not in ("buy", "adopt"):
             continue
 
-        component_name = decision.get("component_name", "").lower()
-        solution_name = decision.get("recommended_solution", "").lower()
+        component_name = (
+            decision.get("component_name")
+            or decision.get("component")
+            or decision.get("capability")
+            or decision.get("name")
+            or ""
+        ).lower()
+        solution_name = (
+            decision.get("recommended_solution")
+            or decision.get("solution")
+            or decision.get("provider")
+            or decision.get("tool")
+            or ""
+        ).lower()
+        patterns = [
+            component_name,
+            component_name.replace(" ", "_"),
+            component_name.replace(" ", "-"),
+            component_name.replace(" service", ""),
+        ]
         matching_components = [
             component
-            for name, component in component_index.items()
-            if component_name in name or solution_name in name
+            for component in components
+            if _component_overlaps_sourcing_decision(
+                component,
+                patterns,
+                solution_name,
+            )
         ]
-        if any(
+        conflicts = [
+            component for component in matching_components
+            if component.get("type", "").lower() != "external"
+        ]
+        for component in conflicts:
+            logger.warning(
+                "GOVERNANCE_SOURCING_CONFLICT: component=%s capability=%s "
+                "decision=%s solution=%s",
+                component.get("name"),
+                component_name,
+                recommendation,
+                solution_name,
+            )
+        if conflicts:
+            score -= 3 * len(conflicts)
+        elif any(
             component.get("type", "").lower() == "external"
             for component in matching_components
         ):
             score += 2
-        elif matching_components:
-            score -= 2
 
     return min(10, max(-10, score))
+
+
+def _component_overlaps_sourcing_decision(
+    component: dict,
+    capability_patterns: list[str],
+    solution_name: str,
+) -> bool:
+    """Return whether a component name or responsibility overlaps a decision."""
+    haystack = " ".join([
+        str(component.get("name", "")),
+        str(component.get("responsibility", "")),
+    ]).lower()
+    if any(pattern and pattern in haystack for pattern in capability_patterns):
+        return True
+    return bool(solution_name and solution_name in haystack)
 # Truncate exception text to keep payloads and logs bounded.
 
 
@@ -299,6 +350,38 @@ async def score_governance_node(state: ReviewState) -> dict:
             weaknesses=rc.weaknesses,
             fmea_risks=rc.fmea_risks,
             buy_vs_build_analysis=rc.buy_vs_build_analysis,
+            canonical_decisions=[
+                {
+                    "component": (
+                        d.get("component_name")
+                        or d.get("component")
+                        or d.get("capability")
+                        or d.get("name")
+                    ),
+                    "decision": (
+                        d.get("recommendation")
+                        or d.get("decision")
+                        or d.get("action")
+                        or ""
+                    ).lower(),
+                    "recommended_solution": (
+                        d.get("recommended_solution")
+                        or d.get("solution")
+                        or d.get("provider")
+                        or d.get("tool")
+                    ),
+                }
+                for d in rc.buy_vs_build_analysis
+                if (
+                    d.get("recommendation")
+                    or d.get("decision")
+                    or d.get("action")
+                    or ""
+                ).lower() in ("buy", "adopt")
+            ],
+            architecture_components=rc.architecture_design.get(
+                "components", []
+            ),
             assumption_challenges=[c.model_dump() for c in rc.assumption_challenges],
             trade_off_challenges=[c.model_dump() for c in rc.trade_off_challenges],
             adl_issues=[i.model_dump() for i in rc.adl_issues],

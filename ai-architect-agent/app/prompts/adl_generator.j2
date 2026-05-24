@@ -83,16 +83,54 @@ INTERNAL COMPONENTS TO GOVERN:
 EXTERNAL COMPONENTS TO PROTECT FROM REIMPLEMENTATION:
 {{ external_components | tojson(indent=2) }}
 
+━━━ MANDATORY ADL BLOCKS FROM SOURCING DECISIONS ━━━━━━━━
+
 {% if canonical_decisions %}
 CANONICAL DECISIONS TO ENFORCE WITH ADL:
+
+For EACH buy/adopt decision below, you MUST generate one
+ADL block asserting that no internal implementation exists
+for that capability.
+
+These blocks are non-negotiable. They enforce the sourcing
+strategy in the codebase.
+
 {% for d in canonical_decisions %}
-Generate an ADL block asserting:
+REQUIRED BLOCK {{ loop.index }}:
+Capability:  {{ d.component }}
+Decision:    {{ d.decision | upper }}
+Provider:    {{ d.recommended_solution }}
+
 {{ d.component }} capability must be provided by
 {{ d.recommended_solution }} — no internal implementation.
+
+Generate an ADL block that:
+REQUIRES:     ArchUnit or PyTestArch (as appropriate)
+DESCRIPTION:  Assert no internal {{ d.component }} implementation.
+All {{ d.component }} must delegate to
+{{ d.recommended_solution }}.
+PROMPT:       Write a test verifying no class in the codebase
+contains implementation logic for {{ d.component }} — all calls
+must route through the {{ d.recommended_solution }} integration.
+ASSERT:       InternalServices has NO DEPENDENCY ON
+{{ d.component }}CustomImplementation
+
 {% endfor %}
 {% else %}
 No canonical buy/adopt decisions to enforce.
 {% endif %}
+
+━━━ ADDITIONAL ADL BLOCKS FROM ARCHITECTURE ━━━━━━━━━━━━
+
+Beyond the mandatory sourcing blocks above, generate ADL
+blocks for:
+
+Service boundary isolation between internal services
+Data ownership enforcement
+Security boundary enforcement
+Any high-severity FMEA risks that can be structurally enforced
+TOTAL BLOCKS REQUIRED: At minimum {{ (canonical_decisions | length) + 3 }}
+Maximum: 12
 
 ARCHITECTURE CHARACTERISTICS TO ENFORCE:
 {% for char in characteristics[:5] %}
@@ -129,24 +167,26 @@ Cover these concern categories across the full set of blocks:
 
 ━━━ RETURN FORMAT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Return between 5 and 12 ADL blocks. Return exactly the JSON schema
-below — no more, no less. Do not return fewer than 5.
+Return between 5 and 12 ADL blocks. Do not return fewer than 5.
 
-Return a JSON array. No markdown fences, no preamble. Each element:
+Return a JSON object with a single key "adl_blocks" whose value is
+an array of block objects. No markdown fences, no preamble.
 
-[
-  {
-    "adl_id": "ADL-001",
-    "metadata": {
-      "requires": "string — tooling name e.g. ArchUnit Java library",
-      "description": "string — what architectural rule this enforces",
-      "prompt": "string — exact LLM instruction to generate test code"
-    },
-    "adl_source": "string — complete ADL pseudo-code block using only
-                   valid spec keywords. Must include DEFINE SYSTEM and
-                   at least one ASSERT.",
-    "characteristic_enforced": "string — characteristic name from the
-                                 characteristics list above",
-    "enforcement_level": "hard | soft"
-  }
-]
+{
+  "adl_blocks": [
+    {
+      "adl_id": "ADL-001",
+      "metadata": {
+        "requires": "string — tooling name e.g. ArchUnit Java library",
+        "description": "string — what architectural rule this enforces",
+        "prompt": "string — exact LLM instruction to generate test code"
+      },
+      "adl_source": "string — complete ADL pseudo-code block using only
+                     valid spec keywords. Must include DEFINE SYSTEM and
+                     at least one ASSERT.",
+      "characteristic_enforced": "string — characteristic name from the
+                                   characteristics list above",
+      "enforcement_level": "hard | soft"
+    }
+  ]
+}

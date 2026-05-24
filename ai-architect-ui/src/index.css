@@ -50,3 +50,37 @@ body {
 .sidebar-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+.ownership-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.ownership-enterprise {
+  background: #E6F1FB;
+  color: #185FA5;
+}
+
+.ownership-bought {
+  background: #EAF3DE;
+  color: #3B6D11;
+}
+
+.ownership-adopted {
+  background: #FAEEDA;
+  color: #854F0B;
+}
+
+.ownership-adapter {
+  background: var(--color-background-secondary, #F3F4F6);
+  color: var(--color-text-secondary, #4B5563);
+}
+
+.ownership-governance {
+  background: #FBEAF0;
+  color: #993556;
+}
