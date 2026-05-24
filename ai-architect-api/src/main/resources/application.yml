@@ -49,6 +49,14 @@ agent:
   llm-provider: ${LLM_PROVIDER:ollama}
 
 management:
+  health:
+    mail:
+      # Disable the SMTP connectivity health check. The MailHealthIndicator tries to
+      # open a TCP connection to SMTP_HOST at every health probe interval; when no
+      # SMTP server is reachable (e.g. in dev/AKS without a sidecar), it returns DOWN
+      # and drives the entire /actuator/health response to 503, crashing the pod.
+      # Email sending itself is validated at runtime, not at startup.
+      enabled: false
   endpoints:
     web:
       exposure:
