@@ -274,7 +274,7 @@ jobs:
             --set keyVault.userAssignedIdentityClientId=${{ secrets.AKS_KUBELET_CLIENT_ID }} \
             --set ingress.host=${{ steps.ingress.outputs.host }} \
             --set ingress.tls.enabled=true \
-            --set "ingress.tls.issuer=${{ secrets.TLS_ISSUER || 'letsencrypt-staging' }}"
+            --set "ingress.tls.issuer=${{ secrets.TLS_ISSUER || 'letsencrypt-prod' }}"
 
       - name: Verify rollout
         run: |

@@ -173,10 +173,9 @@ ingress:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
   tls:
     enabled: true
-    # Start with staging issuer to verify the ACME flow without consuming the
-    # Let's Encrypt production rate limit (5 duplicate certs per week).
-    # Run scripts/switch-to-prod-tls.sh once staging shows READY = True.
-    issuer: letsencrypt-staging
+    # Production issuer. Let's Encrypt prod CA is trusted by all browsers.
+    # Rate limit: 5 duplicate certificates per domain per week.
+    issuer: letsencrypt-prod
     secretName: ai-architect-tls
   # Overridden at deploy time from the terraform output ingress_fqdn.
   # Set to a custom domain if one is configured; otherwise leave empty and the
