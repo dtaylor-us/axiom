@@ -381,12 +381,8 @@ class LLMClient:
             "model": model,
             "prompt": prompt,
             "stream": False,
-            # Disable qwen3 extended thinking for structured-output stages.
-            # When `format` is set (JSON mode), Ollama's grammar enforces valid
-            # JSON from the very first token. qwen3's <think>...</think> tokens
-            # are not valid JSON, so the grammar collapses the output to `{}`
-            # immediately after the thinking phase. Setting think=False lets the
-            # model skip the thinking step and produce real content instead.
+            # Disable chain-of-thought tokens (qwen3 <think>...</think>) so the
+            # output is valid JSON when Ollama's format constraint is active.
             "think": False,
             "options": {
                 "temperature": self._temperature,

@@ -52,6 +52,18 @@ INVALID_INTERACTION_FIELD_VALUES = frozenset({
     "unknown",
 })
 
+DEFAULT_COMPONENT_OWNERSHIP = {
+    "service": "enterprise-built",
+    "database": "adopted-platform",
+    "queue": "adopted-platform",
+    "cache": "adopted-platform",
+    "gateway": "enterprise-built",
+    "external": "bought-saas",
+    "processing-unit": "enterprise-built",
+    "plugin": "enterprise-built",
+    "core-system": "enterprise-built",
+}
+
 
 class ArchitectureGeneratorTool(BaseTool):
     """Generates a full architecture design driven by inferred characteristics.
@@ -88,18 +100,35 @@ class ArchitectureGeneratorTool(BaseTool):
 
         canonical = context.canonical_decisions
         logger.info(
-            "CANONICAL_DECISIONS: architecture_generation received %d canonical decisions. "
-            "conversation_id=%s decisions=%s",
+            "ARCHITECTURE_GEN_AUDIT: canonical_decisions=%d "
+            "buy_vs_build_analysis_raw=%d "
+            "conversation_id=%s",
             len(canonical),
+            len(context.buy_vs_build_analysis or []),
             context.conversation_id,
-            [(d.get("component"), d.get("decision")) for d in canonical],
         )
-        if not canonical:
-            logger.warning(
-                "CANONICAL_DECISIONS: no buy/adopt decisions available for "
-                "architecture generation. Either buy_vs_build ran before this "
-                "stage and found no buy candidates, or it did not run."
+        for decision in canonical:
+            logger.info(
+                "ARCHITECTURE_GEN_AUDIT: constraint component=%s "
+                "decision=%s solution=%s",
+                decision.get("component"),
+                decision.get("decision"),
+                decision.get("recommended_solution"),
             )
+        if not canonical and context.buy_vs_build_analysis:
+            logger.warning(
+                "ARCHITECTURE_GEN_AUDIT: buy_vs_build_analysis "
+                "has %d entries but canonical_decisions is empty. "
+                "Check that recommendations include 'buy' or 'adopt'.",
+                len(context.buy_vs_build_analysis),
+            )
+            for decision in context.buy_vs_build_analysis:
+                logger.warning(
+                    "ARCHITECTURE_GEN_AUDIT: bvb entry "
+                    "component=%s recommendation=%s",
+                    decision.get("component_name", decision.get("component")),
+                    decision.get("recommendation"),
+                )
 
         # Retrieve similar past designs from Qdrant (best-effort)
         similar = await self._memory.retrieve_similar(
@@ -174,7 +203,11 @@ class ArchitectureGeneratorTool(BaseTool):
         self._validate_style_selection(result, context)
 
         # --- Validate components ---
-        components = result.get("components", [])
+        components = self._apply_canonical_component_constraints(
+            result.get("components", []),
+            canonical,
+        )
+        result["components"] = components
         if not components:
             raise ToolExecutionException(
                 "Architecture generator returned an empty components list."
@@ -218,6 +251,114 @@ class ArchitectureGeneratorTool(BaseTool):
             repair_attempted,
         )
         return context
+
+    def _apply_canonical_component_constraints(
+        self,
+        components: list[dict],
+        canonical_decisions: list[dict],
+    ) -> list[dict]:
+        """Enforce sourcing decisions and fill component ownership."""
+        constrained: list[dict] = []
+        for component in components:
+            normalized = dict(component)
+            matching_decision = self._matching_canonical_decision(
+                normalized,
+                canonical_decisions,
+            )
+            component_type = normalized.get("type", "").lower()
+            if matching_decision and component_type != "external":
+                logger.warning(
+                    "ARCHITECTURE_GEN_AUDIT: removed internal component "
+                    "that conflicts with buy/adopt decision. component=%s "
+                    "capability=%s solution=%s",
+                    normalized.get("name"),
+                    matching_decision.get("component"),
+                    matching_decision.get("recommended_solution"),
+                )
+                continue
+
+            if matching_decision:
+                normalized["type"] = "external"
+                normalized["ownership"] = "bought-saas"
+            else:
+                normalized["ownership"] = self._component_ownership(normalized)
+            constrained.append(normalized)
+
+        for decision in canonical_decisions:
+            if not self._has_external_component_for_decision(
+                constrained,
+                decision,
+            ):
+                constrained.append(self._integration_component(decision))
+
+        return constrained
+
+    def _component_ownership(self, component: dict) -> str:
+        """Return a valid ownership classification for a component."""
+        ownership = component.get("ownership", "")
+        if ownership == "bought-saas":
+            component["type"] = "external"
+            return "bought-saas"
+        if ownership:
+            return ownership
+        component_type = component.get("type", "").lower()
+        return DEFAULT_COMPONENT_OWNERSHIP.get(component_type, "enterprise-built")
+
+    def _matching_canonical_decision(
+        self,
+        component: dict,
+        canonical_decisions: list[dict],
+    ) -> dict | None:
+        """Return the decision whose excluded patterns overlap the component."""
+        haystack = " ".join([
+            str(component.get("name", "")),
+            str(component.get("responsibility", "")),
+        ]).lower()
+        for decision in canonical_decisions:
+            patterns = decision.get("excluded_component_patterns", [])
+            if any(pattern and pattern in haystack for pattern in patterns):
+                return decision
+        return None
+
+    def _has_external_component_for_decision(
+        self,
+        components: list[dict],
+        decision: dict,
+    ) -> bool:
+        """Return True when a bought capability is represented externally."""
+        solution = str(decision.get("recommended_solution", "")).lower()
+        capability = str(decision.get("component", "")).lower()
+        for component in components:
+            if component.get("type", "").lower() != "external":
+                continue
+            text = " ".join([
+                str(component.get("name", "")),
+                str(component.get("technology", "")),
+                str(component.get("responsibility", "")),
+            ]).lower()
+            if (
+                (solution and solution in text)
+                or (capability and capability in text)
+            ):
+                component["ownership"] = "bought-saas"
+                return True
+        return False
+
+    def _integration_component(self, decision: dict) -> dict:
+        """Create the required external integration component."""
+        solution = decision.get("recommended_solution") or decision.get("component")
+        return {
+            "name": f"{solution} Integration",
+            "type": "external",
+            "ownership": "bought-saas",
+            "technology": f"{solution} SDK/API",
+            "responsibility": (
+                f"Delegates all {decision.get('component')} "
+                f"capability logic to {solution}."
+            ),
+            "characteristics": ["sourcing compliance"],
+            "rationale": decision.get("constraint", ""),
+        }
 
     def _validate_interactions(
         self,

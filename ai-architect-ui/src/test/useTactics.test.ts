@@ -89,4 +89,28 @@ describe('useTactics', () => {
     await result.current.refresh();
     expect(mockedGetTactics.mock.calls.length).toBeGreaterThan(callsBefore);
   });
+
+  it('delaysFetchByTimeoutWhenPipelineVersionIsPositive', () => {
+    // Covers the setTimeout/clearTimeout branch (lines 60-61) triggered when
+    // the hook detects a pipeline completion rather than an initial render.
+    // waitFor is intentionally avoided: it also uses setTimeout internally,
+    // which deadlocks with fake timers. The mock call is synchronous up to
+    // the first await inside fetchAll, so a plain assertion suffices.
+    vi.useFakeTimers();
+    try {
+      useStore.setState({ token: 'tok', conversationId: 'conv-1', pipelineVersion: 1 });
+      mockedGetTactics.mockResolvedValue(TACTICS as never);
+      mockedGetSummary.mockResolvedValue(SUMMARY as never);
+
+      renderHook(() => useTactics());
+      // Fetch must not fire immediately — it waits 1500 ms for the DB flush.
+      expect(mockedGetTactics).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1500);
+
+      expect(mockedGetTactics).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

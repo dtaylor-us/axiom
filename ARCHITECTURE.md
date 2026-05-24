@@ -1277,26 +1277,39 @@ ASSERT proactive_measure_elicitation {
 }
 
 ASSERT canonical_decision_propagation {
-  Buy-vs-build decisions with recommendation "buy" or "adopt"
-  MUST be propagated to all pipeline stages after stage 6b
-  as canonical_decisions context property.
+  canonical_decisions property MUST handle field name variants
+  from the buy_vs_build LLM output:
+  component_name, component, capability, name
+  recommendation, decision, action
+  Only buy and adopt decisions produce canonical constraints.
 
-  Stage 6 (architecture_generation) MUST treat buy/adopt
-  decisions as hard constraints — affected components MUST
-  be type="external" in the components list.
+  MUST log ARCHITECTURE_GEN_AUDIT before every architecture
+  generation call showing canonical_decisions count and each
+  component/decision pair.
 
-  Stage 7 (diagram_generation) MUST render buy/adopt
-  components as external system notation.
+  MUST log WARNING when buy_vs_build_analysis is non-empty
+  but canonical_decisions is empty — this indicates a field
+  name mismatch.
 
-  Stage 10 (FMEA) MUST focus on integration risks for
-  buy/adopt components, not internal implementation risks.
+  The architecture generator prompt MUST include explicit
+  excluded_component_patterns for each buy/adopt decision
+  so the model has concrete patterns to check against.
 
-  Stage 12 (architecture_review) MUST flag cross-section
-  consistency violations as governance findings.
+  Every generated component MUST have an ownership field
+  with value from the defined enum:
+  enterprise-built | bought-saas | adopted-platform |
+  integration-adapter | governance-service
 
-  A system where buy-vs-build says "buy Stripe" but the
-  architecture design shows a custom payment service is a
-  consistency failure that MUST reduce the governance score.
+  Bought capabilities MUST appear as type=external with
+  ownership=bought-saas — never as type=service.
+
+  ADL generation MUST receive canonical_decisions as an
+  explicit prompt input and MUST generate one ADL block
+  per buy/adopt decision in addition to structural blocks.
+
+  Governance scoring MUST apply -3 per sourcing conflict
+  (internal component implementing a bought capability)
+  and +2 per respected sourcing decision.
 }
 
 ASSERT conversation_routing_integrity {

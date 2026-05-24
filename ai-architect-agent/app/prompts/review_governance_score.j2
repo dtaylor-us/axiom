@@ -92,8 +92,36 @@ DIMENSION 6 — Cross-section consistency (0-10 bonus)
 Check whether buy-vs-build decisions are honoured in the architecture design.
 For each BUY or ADOPT decision in buy_vs_build_analysis:
 If the component appears as "external" in architecture_design: +2 points (max 10)
-If the component appears as an internal service despite a buy/adopt recommendation: -2 points
+If the component appears as an internal service despite a buy/adopt recommendation: -3 points
 State: "N of M buy/adopt decisions reflected as external components"
+
+CONSISTENCY BONUS — SOURCING CONFLICT ANALYSIS:
+
+For each BUY or ADOPT decision in buy_vs_build_analysis:
+Check whether a component in architecture_design.components
+has a name or responsibility that overlaps with the bought
+capability AND has type != "external".
+
+If such a component exists: this is a sourcing conflict.
+Score: -3 per conflict (can make bonus negative)
+Evidence: "Component X implements capability Y despite
+BUY decision for Z"
+
+If no such component exists: sourcing is respected.
+Score: +2 per respected decision (cap at +10)
+Evidence: "N of M buy/adopt decisions reflected as
+external components"
+
+SOURCING DECISIONS TO CHECK:
+{{ canonical_decisions | tojson(indent=2) }}
+
+ARCHITECTURE COMPONENTS TO CHECK AGAINST:
+{{ architecture_components | tojson(indent=2) }}
+
+Score each conflict explicitly. Show your working.
+A governance score of 65 on a system with 3 sourcing
+conflicts that were ignored is accurate and honest.
+Do not round up to appear better than the evidence supports.
 
 IMPORTANT: Calculate the score from the actual counts above.
 Do not estimate. The score MUST match the counts you state.

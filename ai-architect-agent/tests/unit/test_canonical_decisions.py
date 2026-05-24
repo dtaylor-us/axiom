@@ -88,10 +88,10 @@ def test_canonical_decisions_exclude_build() -> None:
 
 
 def test_canonical_decision_constraint_contains_do_not_design() -> None:
-    """canonical_decisions constraint field contains Do not design."""
+    """canonical_decisions constraint field forbids internal implementation."""
     context = ArchitectureContext(buy_vs_build_analysis=[_decision("buy")])
 
-    assert "Do not design" in context.canonical_decisions[0]["constraint"]
+    assert "Do NOT generate any internal service" in context.canonical_decisions[0]["constraint"]
 
 
 def test_has_canonical_decisions_false_without_decisions() -> None:

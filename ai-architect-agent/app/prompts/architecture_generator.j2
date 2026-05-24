@@ -14,33 +14,55 @@ among many — it only wins when it genuinely outscores all others.
 Domain:      {{ parsed_entities.get('domain', 'unknown') }}
 System type: {{ parsed_entities.get('system_type', 'unknown') }}
 
-━━━ CANONICAL ARCHITECTURE DECISIONS ━━━━━━━━━━━━━━━━━━━━━━
+━━━ BOUGHT AND ADOPTED CAPABILITIES — HARD EXCLUSIONS ━━━━━
 
 {% if canonical_decisions %}
-The following decisions have been made by the buy-vs-build
-analysis stage. These are HARD CONSTRAINTS — they override
-style selection and component design decisions.
+THE FOLLOWING CAPABILITIES MUST NOT APPEAR AS INTERNAL SERVICES.
 
-For each BUY or ADOPT decision:
-DO NOT design an internal component for this capability.
-Model the solution as an EXTERNAL dependency.
-The component type must be "external" in the components list.
+This is a HARD constraint, not a suggestion. The sourcing
+analysis has determined these capabilities should be purchased
+or adopted rather than built. Generating custom internal
+implementations for them wastes engineering effort, creates
+security risk, and contradicts the architecture strategy.
 
-CANONICAL DECISIONS:
+FOR EACH CAPABILITY BELOW:
+✗ DO NOT create a custom internal service for this capability
+✗ DO NOT create internal classes that implement this logic
+✓ DO create one integration adapter component of type "external"
+✓ DO document the external dependency in interactions
+
+BOUGHT/ADOPTED CAPABILITIES — EXCLUDED FROM INTERNAL DESIGN:
+
 {% for d in canonical_decisions %}
-CONSTRAINT: {{ d.constraint }}
+━ {{ d.component | upper }} ━
+Constraint:  {{ d.constraint }}
+Provider:    {{ d.recommended_solution }}
+Type:        {{ d.decision | upper }}
+Exclude names matching: {{ d.excluded_component_patterns | join(", ") }}
+
 {% endfor %}
 
-When generating components:
-Any component whose name or responsibility overlaps with
-a canonical BUY or ADOPT decision MUST be replaced with
-an external dependency referencing the named solution.
-Example: if Payment Processing = BUY Stripe, then
-"Payment Service" becomes "Stripe (external)" with
-type="external" and no internal implementation designed.
+VERIFICATION STEP (apply before returning components list):
+For each component you intend to generate:
+
+Does its name or responsibility match any excluded pattern?
+If yes — REPLACE it with an external integration adapter:
+{ "name": "<Provider> Integration", "type": "external",
+"ownership": "bought-saas", "technology": "<Provider> SDK/API",
+"responsibility": "Integration adapter for <Provider>" }
+If no — include it normally.
+
+EXAMPLE of correct handling for Authentication BUY Okta:
+WRONG: { "name": "Authentication Service", "type": "service" }
+RIGHT: { "name": "Okta Integration",
+"type": "external",
+"ownership": "bought-saas",
+"technology": "Okta SDK",
+"responsibility": "Delegates all authentication to Okta" }
+
 {% else %}
-No canonical architecture decisions have been made yet.
-Design components as if all capabilities are to be built.
+No buy/adopt decisions were made. Design all components
+as internal services unless otherwise constrained.
 {% endif %}
 
 ━━━ USER ARCHITECTURE OVERRIDE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -164,6 +186,19 @@ be justified by at least one architecture characteristic.
 Do not add components that cannot be traced to a requirement or
 characteristic.
 
+COMPONENT OWNERSHIP CLASSIFICATION:
+enterprise-built:    custom code owned and operated by the team
+bought-saas:         external SaaS product (e.g. Okta, Stripe)
+adopted-platform:    open source platform operated by the team
+(e.g. Kafka, PostgreSQL, Redis)
+integration-adapter: thin wrapper around a bought/adopted system
+governance-service:  audit, compliance, policy enforcement service
+
+Apply this for every component. Do not leave ownership empty.
+Bought capabilities from the canonical decisions list must use
+"bought-saas". Components wrapping those must use
+"integration-adapter".
+
 ━━━ RETURN FORMAT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Return a JSON object. No markdown, no preamble:
@@ -263,7 +298,8 @@ Return a JSON object. No markdown, no preamble:
   "components": [
     {
       "name": "string",
-      "type": "service | database | queue | gateway | cache | external | processing-unit | plugin | core-system",
+      "type": "service | external | database | queue | cache | gateway",
+      "ownership": "enterprise-built | bought-saas | adopted-platform | integration-adapter | governance-service",
       "responsibility": "string — one sentence",
       "technology": "string",
       "technology_rationale": "string",

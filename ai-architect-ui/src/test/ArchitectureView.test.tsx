@@ -52,11 +52,11 @@ describe('ArchitectureView', () => {
       conversationId: 'c1',
       style: 'Microservices',
       components: [
-        { name: 'API Gateway', responsibility: 'Routing', technology: 'Spring' },
-        { name: 'Auth Service', responsibility: 'Auth', technology: 'Keycloak' },
+        { name: 'API Gateway', ownership: 'enterprise-built', responsibility: 'Routing', technology: 'Spring' },
+        { name: 'Okta Integration', ownership: 'bought-saas', responsibility: 'Auth', technology: 'Okta SDK' },
       ],
       interactions: [
-        { from: 'API Gateway', to: 'Auth Service', protocol: 'HTTP', purpose: 'Auth' },
+        { from: 'API Gateway', to: 'Okta Integration', protocol: 'HTTP', purpose: 'Auth' },
       ],
       componentDiagram: 'graph LR; A-->B',
       sequenceDiagram: 'sequenceDiagram; A->>B: call',
@@ -65,6 +65,8 @@ describe('ArchitectureView', () => {
     render(<ArchitectureView />);
     expect(screen.getByTestId('architecture-view')).toBeInTheDocument();
     expect(screen.getByText('Microservices')).toBeInTheDocument();
+    expect(screen.getByText('Built')).toBeInTheDocument();
+    expect(screen.getByText('Bought')).toBeInTheDocument();
     // Falls back to two compat diagram sections
     expect(screen.getAllByTestId('mock-mermaid')).toHaveLength(2);
   });
