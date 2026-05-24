@@ -33,8 +33,60 @@ function effortBadgeClass(effort: TacticRecommendation['effort']): string {
   }
 }
 
-function scorePercent(value: number, max: number): string {
-  return `${Math.max(0, Math.min(100, (value / max) * 100))}%`;
+interface ScoreDimensionProps {
+  label: string;
+  score: number;
+  maxScore: number;
+  evidence: string;
+  positive: boolean;
+}
+
+/**
+ * Renders one governance score dimension with evidence for explainability.
+ */
+export function ScoreDimension({
+  label,
+  score,
+  maxScore,
+  evidence,
+  positive,
+}: ScoreDimensionProps) {
+  const pct = Math.round((Math.abs(score) / maxScore) * 100);
+  const color = positive
+    ? score >= maxScore * 0.75 ? 'green' : 'amber'
+    : score < 0 ? 'red' : 'neutral';
+  const fillClass =
+    color === 'green' ? 'bg-emerald-500' :
+    color === 'amber' ? 'bg-amber-500' :
+    color === 'red' ? 'bg-red-500' :
+    'bg-gray-400';
+  const valueClass =
+    color === 'green' ? 'text-emerald-700' :
+    color === 'amber' ? 'text-amber-700' :
+    color === 'red' ? 'text-red-700' :
+    'text-gray-700';
+
+  return (
+    <div className="score-dimension" data-testid="score-dimension">
+      <div className="score-dimension-header flex items-center justify-between gap-3 text-sm">
+        <span className="score-dimension-label font-medium text-gray-800">{label}</span>
+        <span className={`score-dimension-value font-semibold ${valueClass}`}>
+          {score > 0 ? '+' : ''}{score}/{maxScore}
+        </span>
+      </div>
+      <div className="score-dimension-bar mt-1 h-2 rounded bg-gray-100 overflow-hidden">
+        <div
+          className={`score-bar-fill h-full ${fillClass}`}
+          style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
+        />
+      </div>
+      {evidence && (
+        <p className="score-dimension-evidence text-xs text-gray-500 mt-1">
+          {evidence}
+        </p>
+      )}
+    </div>
+  );
 }
 
 /* ── Markdown builders ────────────────────────── */
@@ -176,37 +228,49 @@ export function GovernanceView() {
       label: 'Requirement coverage',
       value: governanceReport.requirementCoverage,
       max: 20,
-      evidence: governanceReport.scoreEvidence?.requirement_coverage,
+      evidence: governanceReport.scoreEvidence?.requirementCoverage ??
+        governanceReport.scoreEvidence?.requirement_coverage,
+      positive: true,
     },
     {
       label: 'Characteristic alignment',
       value: governanceReport.characteristicAlignment ?? governanceReport.architecturalSoundness,
       max: 20,
-      evidence: governanceReport.scoreEvidence?.characteristic_alignment,
+      evidence: governanceReport.scoreEvidence?.characteristicAlignment ??
+        governanceReport.scoreEvidence?.characteristic_alignment,
+      positive: true,
     },
     {
       label: 'Trade-off quality',
       value: governanceReport.tradeOffQuality ?? 0,
       max: 20,
-      evidence: governanceReport.scoreEvidence?.trade_off_quality,
+      evidence: governanceReport.scoreEvidence?.tradeOffQuality ??
+        governanceReport.scoreEvidence?.trade_off_quality,
+      positive: true,
     },
     {
       label: 'ADL enforceability',
       value: governanceReport.adlEnforceability ?? governanceReport.governanceCompleteness,
       max: 20,
-      evidence: governanceReport.scoreEvidence?.adl_enforceability,
+      evidence: governanceReport.scoreEvidence?.adlEnforceability ??
+        governanceReport.scoreEvidence?.adl_enforceability,
+      positive: true,
     },
     {
       label: 'Risk awareness',
       value: governanceReport.riskAwareness ?? governanceReport.riskMitigation,
       max: 20,
-      evidence: governanceReport.scoreEvidence?.risk_awareness,
+      evidence: governanceReport.scoreEvidence?.riskAwareness ??
+        governanceReport.scoreEvidence?.risk_awareness,
+      positive: true,
     },
     {
       label: 'Consistency bonus',
       value: governanceReport.consistencyBonus ?? 0,
       max: 10,
-      evidence: governanceReport.scoreEvidence?.consistency_bonus,
+      evidence: governanceReport.scoreEvidence?.consistencyBonus ??
+        governanceReport.scoreEvidence?.consistency_bonus,
+      positive: (governanceReport.consistencyBonus ?? 0) >= 0,
     },
   ] : [];
 
@@ -268,25 +332,16 @@ export function GovernanceView() {
           </div>
           {scoreRows.length > 0 && (
             <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 space-y-3" data-testid="governance-score-breakdown">
+              <h3 className="text-sm font-semibold text-gray-800">Score breakdown</h3>
               {scoreRows.map((row) => (
-                <div key={row.label}>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="font-medium text-gray-800">{row.label}</span>
-                    <span className="font-semibold text-gray-700">
-                      {row.label === 'Consistency bonus' && row.value > 0 ? '+' : ''}
-                      {row.value}/{row.max}
-                    </span>
-                  </div>
-                  <div className="mt-1 h-2 rounded bg-gray-100 overflow-hidden">
-                    <div
-                      className={row.value < 0 ? 'h-full bg-red-400' : 'h-full bg-accent'}
-                      style={{ width: scorePercent(Math.max(0, row.value), row.max) }}
-                    />
-                  </div>
-                  {row.evidence && (
-                    <p className="text-xs text-gray-500 mt-1">{row.evidence}</p>
-                  )}
-                </div>
+                <ScoreDimension
+                  key={row.label}
+                  label={row.label}
+                  score={row.value}
+                  maxScore={row.max}
+                  evidence={row.evidence ?? ''}
+                  positive={row.positive}
+                />
               ))}
             </div>
           )}

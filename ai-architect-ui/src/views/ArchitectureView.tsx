@@ -4,6 +4,7 @@ import { useTactics } from '../hooks/useTactics';
 import { useBuyVsBuild } from '../hooks/useBuyVsBuild';
 import { useStore } from '../store/useStore';
 import { MermaidDiagram } from '../components/MermaidDiagram';
+import { DiagramErrorBoundary } from '../components/DiagramErrorBoundary';
 import { CopyButton } from '../components/CopyButton';
 import { StructuredDataCard, StructuredExportBar, MarkdownExportActions } from '../components/StructuredData';
 import type { ArchitectureOutput, DiagramCollectionDto, DiagramDto, BuyVsBuildDecision } from '../types/api';
@@ -48,13 +49,55 @@ function buildArchitectureMarkdown(
   return lines.join('\n');
 }
 
+const VALID_MERMAID_OPENINGS = [
+  'graph',
+  'flowchart',
+  'sequencediagram',
+  'classdiagram',
+  'statediagram',
+  'statediagram-v2',
+  'erdiagram',
+  'gantt',
+  'pie',
+  'gitgraph',
+  'c4context',
+] as const;
+
 /**
- * Shows raw Mermaid source when agent-side syntax validation failed.
+ * Validates Mermaid source before invoking the renderer.
  */
-function DiagramDisplay({ diagram }: { diagram: DiagramDto }) {
+export function validateMermaidSource(source: string): string | null {
+  if (!source || !source.trim()) {
+    return 'Empty diagram source';
+  }
+
+  const lines = source.trim().split('\n').filter((line) => line.trim());
+  if (lines.length < 3) {
+    return `Too few lines: ${lines.length}`;
+  }
+
+  if (/-->[^"]*undefined/.test(source) || /---[^"]*undefined/.test(source)) {
+    return 'Literal undefined in edge label';
+  }
+
+  const firstLine = lines[0].toLowerCase();
+  if (!VALID_MERMAID_OPENINGS.some((opening) => firstLine.startsWith(opening))) {
+    return `Unrecognised diagram type: ${lines[0]}`;
+  }
+
+  return null;
+}
+
+/**
+ * Shows degraded diagram states before attempting Mermaid rendering.
+ */
+export function DiagramDisplay({ diagram }: { diagram: DiagramDto }) {
   if (diagram.hasSyntaxError) {
     return (
-      <div className="border border-amber-200 bg-amber-50 rounded-lg p-3" data-testid="diagram-error-state">
+      <div
+        className="diagram-syntax-error border border-amber-200 bg-amber-50 rounded-lg p-3 min-h-[120px] max-w-full overflow-hidden [contain:layout_style]"
+        data-testid="diagram-error-state"
+      >
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-semibold text-amber-950">{diagram.title}</span>
           <span className="text-xs font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-0.5">
@@ -64,12 +107,39 @@ function DiagramDisplay({ diagram }: { diagram: DiagramDto }) {
         <p className="text-sm text-amber-900 mt-2">
           This diagram could not be rendered due to a syntax error. The raw source is shown below for reference.
         </p>
-        <pre className="mt-3 max-h-96 overflow-auto rounded bg-white border border-amber-100 p-3 text-xs text-gray-800 whitespace-pre-wrap">
-          {diagram.mermaidSource}
-        </pre>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs text-amber-900">View raw source</summary>
+          <pre className="diagram-raw-source font-mono text-[11px] overflow-x-auto max-h-[200px] bg-white p-2 rounded mt-2 whitespace-pre">
+            {diagram.mermaidSource}
+          </pre>
+        </details>
         <p className="text-xs text-amber-900 mt-2">
           Error: {diagram.syntaxErrorDescription}
         </p>
+      </div>
+    );
+  }
+
+  const validationError = validateMermaidSource(diagram.mermaidSource);
+  if (validationError) {
+    return (
+      <div
+        className="diagram-validation-error border border-amber-200 bg-amber-50 rounded-lg p-3 min-h-[120px] max-w-full overflow-hidden [contain:layout_style]"
+        data-testid="diagram-validation-error"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-amber-950">{diagram.title}</span>
+          <span className="text-xs font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-0.5">
+            Validation warning
+          </span>
+        </div>
+        <p className="text-sm text-amber-900 mt-2">{validationError}</p>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs text-amber-900">View raw source</summary>
+          <pre className="diagram-raw-source font-mono text-[11px] overflow-x-auto max-h-[200px] bg-white p-2 rounded mt-2 whitespace-pre">
+            {diagram.mermaidSource}
+          </pre>
+        </details>
       </div>
     );
   }
@@ -416,7 +486,13 @@ export function ArchitectureView() {
             {diagram.description && (
               <p className="text-xs text-gray-500 mb-2">{diagram.description}</p>
             )}
-            <DiagramDisplay diagram={diagram} />
+            <DiagramErrorBoundary
+              diagramId={diagram.diagramId}
+              diagramType={diagram.type}
+              source={diagram.mermaidSource}
+            >
+              <DiagramDisplay diagram={diagram} />
+            </DiagramErrorBoundary>
             {diagram.characteristicAddressed && (
               <p className="text-xs text-gray-400 mt-1 italic">
                 Addresses: {diagram.characteristicAddressed}

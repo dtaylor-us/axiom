@@ -85,8 +85,16 @@ class ADLGeneratorV2Tool(BaseTool):
             parsed_entities=context.parsed_entities,
             architecture_design=context.architecture_design,
             trade_offs=context.trade_offs,
-            characteristics=context.characteristics,
+            characteristics=context.characteristics[:8],
             canonical_decisions=context.canonical_decisions,
+            components=[
+                component for component in context.architecture_design.get("components", [])
+                if component.get("type") != "external"
+            ],
+            external_components=[
+                component for component in context.architecture_design.get("components", [])
+                if component.get("type") == "external"
+            ],
         )
 
         raw = await self.llm_client.complete(
@@ -148,6 +156,16 @@ class ADLGeneratorV2Tool(BaseTool):
             raise ToolExecutionException(
                 "ADL generator must return a JSON array or object with adl_blocks. "
                 f"Got type: {type(parsed).__name__}"
+            )
+
+        if len(parsed) < 3:
+            logger.warning(
+                "ADL_GENERATION: only %d blocks generated. Minimum is 5. "
+                "This may indicate the prompt is not receiving enough "
+                "architecture context, or the model is satisfying the schema "
+                "with minimum output. conversation_id=%s",
+                len(parsed),
+                context.conversation_id,
             )
 
         validated = self._validate_blocks(parsed)

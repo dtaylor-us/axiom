@@ -1,7 +1,10 @@
 package com.aiarchitect.api.service;
 
-import com.aiarchitect.api.domain.model.*;
-import com.aiarchitect.api.dto.*;
+import com.aiarchitect.api.domain.model.Conversation;
+import com.aiarchitect.api.domain.model.MessageRole;
+import com.aiarchitect.api.dto.AgentRequest;
+import com.aiarchitect.api.dto.AgentResponse;
+import com.aiarchitect.api.dto.ChatRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SynchronousSink;
 
 import java.util.Map;
 import java.util.UUID;
@@ -83,12 +87,15 @@ public class ChatService {
 
                     AgentResponse runCreatedEvent = new AgentResponse();
                     runCreatedEvent.setType(AgentResponse.EventType.RUN_CREATED);
+                    runCreatedEvent.setConversationId(conversation.getId().toString());
                     runCreatedEvent.setPayload(Map.of(
                             "runId", runIdRef.get() != null ? runIdRef.get().toString() : ""));
 
                     // Apply per-chunk and on-complete hooks to the full stream
                     // (flux includes the first element that was peeked by switchOnFirst).
                     Flux<AgentResponse> monitoredFlux = flux
+                            .<AgentResponse>handle((chunk, sink) -> validateAndAuditAgentEvent(
+                                    chunk, conversation.getId(), userId, sink))
                             .doOnNext(chunk -> {
                                 UUID runId = runIdRef.get();
                                 if (runId != null) {
@@ -228,8 +235,81 @@ public class ChatService {
                                 });
                             });
 
+                    auditEventWrite(
+                            conversation.getId(),
+                            userId,
+                            AgentResponse.EventType.RUN_CREATED.name(),
+                            null
+                    );
                     return Flux.concat(Mono.just(runCreatedEvent), monitoredFlux);
                 });
+    }
+
+    /**
+     * Validates event ownership before an agent event reaches SSE forwarding.
+     */
+    void validateAndAuditAgentEvent(
+            AgentResponse event,
+            UUID conversationId,
+            String userId,
+            SynchronousSink<AgentResponse> sink
+    ) {
+        String eventConversationId = extractConversationId(event);
+        if (!eventConversationId.isEmpty()
+                && !eventConversationId.equals(conversationId.toString())) {
+            log.error(
+                    "ROUTING_VIOLATION: event from wrong conversation discarded. "
+                            + "expected={} received={} eventType={} stage={}",
+                    conversationId,
+                    eventConversationId,
+                    event.getType() != null ? event.getType().name() : "",
+                    event.getStage() != null ? event.getStage() : ""
+            );
+            return;
+        }
+
+        auditEventWrite(
+                conversationId,
+                userId,
+                event.getType() != null ? event.getType().name() : "",
+                event.getStage() != null ? event.getStage() : ""
+        );
+        sink.next(event);
+    }
+
+    /**
+     * Logs every event that is about to be forwarded through the SSE stream.
+     */
+    void auditEventWrite(
+            UUID conversationId,
+            String userId,
+            String eventType,
+            String stageName
+    ) {
+        log.info(
+                "SSE_AUDIT write. conversationId={} userId={} "
+                        + "eventType={} stage={} emitterCount={} "
+                        + "threadId={}",
+                conversationId,
+                userId,
+                eventType,
+                stageName,
+                pipelineRunBroadcaster.activeCount(),
+                Thread.currentThread().getId()
+        );
+    }
+
+    private String extractConversationId(AgentResponse event) {
+        if (event.getConversationId() != null && !event.getConversationId().isBlank()) {
+            return event.getConversationId();
+        }
+        if (event.getPayload() instanceof Map<?, ?> payload) {
+            Object payloadConversationId = payload.get("conversationId");
+            if (payloadConversationId != null) {
+                return payloadConversationId.toString();
+            }
+        }
+        return "";
     }
 
     /**

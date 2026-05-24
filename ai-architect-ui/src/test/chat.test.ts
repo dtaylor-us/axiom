@@ -133,10 +133,11 @@ describe('streamChat', () => {
       '/api/v1/chat/stream',
       expect.objectContaining({
         method: 'POST',
-        headers: {
+        headers: expect.objectContaining({
           'Content-Type': 'application/json',
           Authorization: 'Bearer my-jwt',
-        },
+          'Idempotency-Key': expect.any(String),
+        }),
         body: JSON.stringify({ message: 'build me a thing', conversationId: 'conv-99' }),
       }),
     );

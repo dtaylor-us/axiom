@@ -55,14 +55,21 @@ class TestBuyVsBuildAnalyzerTool:
     def tool(self, mock_llm: AsyncMock) -> BuyVsBuildAnalyzerTool:
         return BuyVsBuildAnalyzerTool(mock_llm)
 
-    async def test_run_raises_when_architecture_design_empty(
-        self, tool: BuyVsBuildAnalyzerTool,
+    async def test_run_derives_candidates_when_architecture_design_empty(
+        self, tool: BuyVsBuildAnalyzerTool, mock_llm: AsyncMock,
     ):
-        ctx = ArchitectureContext(raw_requirements="x")
+        ctx = ArchitectureContext(raw_requirements="needs payment and email")
         ctx.architecture_design = {}
+        mock_llm.complete.return_value = json.dumps({
+            "decisions": [VALID_DECISION],
+            "buy_vs_build_summary": "ok",
+        })
 
-        with pytest.raises(ToolExecutionException, match="without an architecture design"):
-            await tool.run(ctx)
+        await tool.run(ctx)
+
+        prompt_arg = mock_llm.complete.call_args.args[0]
+        assert "Payment Provider" in prompt_arg
+        assert "Email Delivery" in prompt_arg
 
     async def test_run_raises_when_components_list_empty(
         self, tool: BuyVsBuildAnalyzerTool,
@@ -70,7 +77,7 @@ class TestBuyVsBuildAnalyzerTool:
         ctx = ArchitectureContext(raw_requirements="x")
         ctx.architecture_design = {"style": "Layered", "components": []}
 
-        with pytest.raises(ToolExecutionException, match="components list"):
+        with pytest.raises(ToolExecutionException, match="candidate capabilities"):
             await tool.run(ctx)
 
     async def test_run_skips_components_with_type_external(
@@ -257,5 +264,51 @@ class TestBuyVsBuildAnalyzerTool:
         with caplog.at_level(logging.INFO):
             await tool.run(ctx)
 
-        assert any("Buy-vs-build analysis:" in r.message for r in caplog.records)
+        assert any("BUY_VS_BUILD: analysis complete" in r.message for r in caplog.records)
 
+    async def test_run_logs_warning_when_zero_decisions_returned(
+        self, tool: BuyVsBuildAnalyzerTool, mock_llm: AsyncMock, caplog,
+    ):
+        ctx = _context_with_design()
+        mock_llm.complete.return_value = json.dumps({
+            "decisions": [],
+            "buy_vs_build_summary": "none",
+        })
+
+        with caplog.at_level(logging.WARNING):
+            result = await tool.run(ctx)
+
+        assert result.buy_vs_build_analysis == []
+        assert any("BUY_VS_BUILD: returned zero decisions" in r.message for r in caplog.records)
+
+    async def test_canonical_decisions_returns_empty_when_no_buy_or_adopt_exist(self):
+        ctx = ArchitectureContext()
+        build = dict(VALID_DECISION)
+        build["recommendation"] = "build"
+        build["recommended_solution"] = ""
+        ctx.buy_vs_build_analysis = [build]
+
+        assert ctx.canonical_decisions == []
+
+    async def test_canonical_decisions_returns_entries_for_buy(self):
+        ctx = ArchitectureContext()
+        buy = dict(VALID_DECISION)
+        buy["recommendation"] = "buy"
+        buy["recommended_solution"] = "Auth0"
+        ctx.buy_vs_build_analysis = [buy]
+
+        result = ctx.canonical_decisions
+
+        assert len(result) == 1
+        assert result[0]["component"] == "Identity"
+        assert result[0]["decision"] == "buy"
+        assert "EXTERNAL" in result[0]["constraint"]
+
+    async def test_canonical_decisions_logs_each_component_evaluated(self, caplog):
+        ctx = ArchitectureContext()
+        ctx.buy_vs_build_analysis = [dict(VALID_DECISION)]
+
+        with caplog.at_level(logging.DEBUG):
+            _ = ctx.canonical_decisions
+
+        assert any("CANONICAL_DECISIONS: evaluating component=Identity" in r.message for r in caplog.records)

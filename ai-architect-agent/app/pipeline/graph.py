@@ -48,8 +48,8 @@ ORDERED_STAGES: list[str] = [
     "characteristic_inference",
     "tactics_recommendation",   # stage 4b — after characteristics, before conflicts
     "conflict_analysis",
-    "architecture_generation",
     "buy_vs_build_analysis",
+    "architecture_generation",
     "diagram_generation",
     "trade_off_analysis",
     "adl_generation",

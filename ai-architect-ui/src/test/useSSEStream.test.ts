@@ -53,6 +53,7 @@ describe('useSSEStream', () => {
       'jwt',
       'build me a system',
       'c1',
+      expect.any(String),
       expect.any(Function),
       expect.any(AbortSignal),
     );

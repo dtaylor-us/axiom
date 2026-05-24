@@ -414,6 +414,69 @@ class TestADLGeneratorV2Tool:
         with pytest.raises(ToolExecutionException, match="JSON array"):
             await tool.run(rich_context)
 
+    async def test_logs_warning_when_fewer_than_three_blocks_returned(
+        self, tool, rich_context, mock_llm, caplog,
+    ):
+        """run() warns when generated ADL block count is below quality floor."""
+        mock_llm.complete.return_value = _valid_llm_response(count=2)
+
+        with caplog.at_level(logging.WARNING):
+            await tool.run(rich_context)
+
+        assert "ADL_GENERATION: only 2 blocks generated" in caplog.text
+
+    async def test_passes_canonical_decisions_to_prompt(
+        self, tool, rich_context, mock_llm,
+    ):
+        """run() includes canonical buy/adopt decisions in the prompt."""
+        rich_context.buy_vs_build_analysis = [{
+            "component_name": "Identity",
+            "recommendation": "buy",
+            "recommended_solution": "Auth0",
+            "rationale": "Use a managed provider for identity protocols.",
+        }]
+        mock_llm.complete.return_value = _valid_llm_response(count=5)
+
+        await tool.run(rich_context)
+
+        prompt_arg = mock_llm.complete.call_args.args[0]
+        assert "CANONICAL DECISIONS TO ENFORCE WITH ADL" in prompt_arg
+        assert "Identity capability must be provided by" in prompt_arg
+        assert "Auth0" in prompt_arg
+
+    async def test_passes_external_components_separately_from_internal(
+        self, tool, rich_context, mock_llm,
+    ):
+        """run() separates internal and external architecture components."""
+        rich_context.architecture_design["components"].append({
+            "name": "Auth0",
+            "type": "external",
+            "responsibility": "Identity provider",
+        })
+        mock_llm.complete.return_value = _valid_llm_response(count=5)
+
+        await tool.run(rich_context)
+
+        prompt_arg = mock_llm.complete.call_args.args[0]
+        internal_section = prompt_arg.split("INTERNAL COMPONENTS TO GOVERN:")[1]
+        internal_section = internal_section.split("EXTERNAL COMPONENTS")[0]
+        external_section = prompt_arg.split("EXTERNAL COMPONENTS TO PROTECT")[1]
+        assert "PaymentGateway" in internal_section
+        assert "Auth0" not in internal_section
+        assert "Auth0" in external_section
+
+    async def test_prompt_receives_minimum_five_block_instruction(
+        self, tool, rich_context, mock_llm,
+    ):
+        """run() sends explicit minimum five ADL block instruction."""
+        mock_llm.complete.return_value = _valid_llm_response(count=5)
+
+        await tool.run(rich_context)
+
+        prompt_arg = mock_llm.complete.call_args.args[0]
+        assert "minimum of 5 ADL blocks" in prompt_arg
+        assert "Do not return fewer than 5" in prompt_arg
+
 
 # ── _render_adl_document() tests ─────────────────────────────
 

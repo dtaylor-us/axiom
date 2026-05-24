@@ -109,6 +109,7 @@ interface ConversationSlice {
   setWorkshopSeed: (msg: string | null) => void;
   setConversationId: (id: string) => void;
   loadConversation: (id: string, messages: ChatMessage[]) => void;
+  startStream: (id: string | null) => void;
   setStreaming: (v: boolean) => void;
   setError: (msg: string | null) => void;
   setRunState: (state: {
@@ -172,6 +173,23 @@ export const useStore = create<AppStore>((set, get) => ({
   setConversationId: (id) => {
     persistConversationId(id);
     set({ conversationId: id });
+  },
+  startStream: (id) => {
+    persistConversationId(id);
+    set({
+      conversationId: id,
+      isStreaming: true,
+      streamingText: '',
+      error: null,
+      stages: initialStages(),
+      overrideWarning: null,
+      runId: null,
+      runStatus: null,
+      canReattach: false,
+      lastStageCompleted: null,
+      pipelineHasGaps: false,
+      pipelineGaps: [],
+    });
   },
   loadConversation: (id, messages) =>
     (persistConversationId(id),
