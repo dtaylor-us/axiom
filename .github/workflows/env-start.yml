@@ -269,30 +269,30 @@ jobs:
 
       - name: "Restart API deployment"
         run: |
-          kubectl rollout restart deployment/ai-architect-api \
+          kubectl rollout restart deployment/archon-api \
             --namespace ai-architect
 
       - name: "Restart agent deployment"
         run: |
-          kubectl rollout restart deployment/ai-architect-agent \
+          kubectl rollout restart deployment/archon-agent \
             --namespace ai-architect
 
       - name: "Restart UI deployment"
         run: |
-          kubectl rollout restart deployment/ai-architect-ui \
+          kubectl rollout restart deployment/axiom-ui \
             --namespace ai-architect
 
       - name: "Wait for all deployment rollouts to complete"
         timeout-minutes: 5
         run: |
           echo "Waiting for all deployments to be ready..."
-          kubectl rollout status deployment/ai-architect-api \
+          kubectl rollout status deployment/archon-api \
             --namespace ai-architect \
             --timeout=300s
-          kubectl rollout status deployment/ai-architect-agent \
+          kubectl rollout status deployment/archon-agent \
             --namespace ai-architect \
             --timeout=300s
-          kubectl rollout status deployment/ai-architect-ui \
+          kubectl rollout status deployment/axiom-ui \
             --namespace ai-architect \
             --timeout=300s
           echo "All deployments are ready"

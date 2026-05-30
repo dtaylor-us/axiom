@@ -25,7 +25,8 @@ terraform/*.tfstate.backup
 # ========================
 # Java / Maven
 # ========================
-ai-architect-api/target/
+target/
+archon-api/target/
 *.class
 *.jar
 *.war

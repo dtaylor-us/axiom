@@ -82,10 +82,10 @@ jobs:
       - name: "Restart API"
         if: inputs.service == 'all' || inputs.service == 'api'
         run: |
-          echo "Restarting ai-architect-api..."
-          kubectl rollout restart deployment/ai-architect-api \
+          echo "Restarting archon-api..."
+          kubectl rollout restart deployment/archon-api \
             --namespace ai-architect
-          kubectl rollout status deployment/ai-architect-api \
+          kubectl rollout status deployment/archon-api \
             --namespace ai-architect \
             --timeout=300s
           echo "API restart complete"
@@ -93,10 +93,10 @@ jobs:
       - name: "Restart agent"
         if: inputs.service == 'all' || inputs.service == 'agent'
         run: |
-          echo "Restarting ai-architect-agent..."
-          kubectl rollout restart deployment/ai-architect-agent \
+          echo "Restarting archon-agent..."
+          kubectl rollout restart deployment/archon-agent \
             --namespace ai-architect
-          kubectl rollout status deployment/ai-architect-agent \
+          kubectl rollout status deployment/archon-agent \
             --namespace ai-architect \
             --timeout=300s
           echo "Agent restart complete"
@@ -104,10 +104,10 @@ jobs:
       - name: "Restart UI"
         if: inputs.service == 'all' || inputs.service == 'ui'
         run: |
-          echo "Restarting ai-architect-ui..."
-          kubectl rollout restart deployment/ai-architect-ui \
+          echo "Restarting axiom-ui..."
+          kubectl rollout restart deployment/axiom-ui \
             --namespace ai-architect
-          kubectl rollout status deployment/ai-architect-ui \
+          kubectl rollout status deployment/axiom-ui \
             --namespace ai-architect \
             --timeout=300s
           echo "UI restart complete"

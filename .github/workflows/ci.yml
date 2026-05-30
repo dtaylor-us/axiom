@@ -37,7 +37,7 @@ jobs:
           cache: maven
 
       - name: Run tests
-        working-directory: ai-architect-api
+        working-directory: archon-api
         env:
           DB_URL: jdbc:postgresql://localhost:5432/aiarchitect_test
           DB_USER: aiarchitect
@@ -52,7 +52,7 @@ jobs:
         if: always()
         with:
           name: jacoco-report
-          path: ai-architect-api/target/site/jacoco/
+          path: archon-api/target/site/jacoco/
 
   test-agent:
     name: Test — Python Agent
@@ -69,11 +69,11 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        working-directory: ai-architect-agent
+        working-directory: archon-agent
         run: pip install uv && uv pip install --system -e ".[dev]"
 
       - name: Unit tests
-        working-directory: ai-architect-agent
+        working-directory: archon-agent
         env:
           INTERNAL_SECRET: test-secret
           LLM_PROVIDER: openai
@@ -81,7 +81,7 @@ jobs:
         run: pytest tests/unit/ -v
 
       - name: Integration tests
-        working-directory: ai-architect-agent
+        working-directory: archon-agent
         env:
           INTERNAL_SECRET: test-secret
           LLM_PROVIDER: openai
@@ -89,14 +89,14 @@ jobs:
         run: pytest tests/integration/ -v
 
       - name: Coverage gate
-        working-directory: ai-architect-agent
+        working-directory: archon-agent
         run: pytest --cov=app --cov-report=xml --cov-fail-under=80
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: python-coverage
-          path: ai-architect-agent/coverage.xml
+          path: archon-agent/coverage.xml
 
   test-ui:
     name: Test — React UI
@@ -111,14 +111,14 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: ai-architect-ui/package-lock.json
+          cache-dependency-path: axiom-ui/package-lock.json
 
       - name: Install dependencies
-        working-directory: ai-architect-ui
+        working-directory: axiom-ui
         run: npm ci
 
       - name: Run tests with coverage
-        working-directory: ai-architect-ui
+        working-directory: axiom-ui
         run: npx vitest run --coverage
 
   lint-terraform:
@@ -155,10 +155,10 @@ jobs:
           token: ${{ github.token }}
 
       - name: Build API image
-        run: docker build ai-architect-api -f ai-architect-api/Dockerfile -t test/api:ci
+        run: docker build archon-api -f archon-api/Dockerfile -t test/api:ci
 
       - name: Build agent image
-        run: docker build ai-architect-agent -f ai-architect-agent/Dockerfile -t test/agent:ci
+        run: docker build archon-agent -f archon-agent/Dockerfile -t test/agent:ci
 
       - name: Build UI image
-        run: docker build ai-architect-ui -f ai-architect-ui/Dockerfile -t test/ui:ci
+        run: docker build axiom-ui -f axiom-ui/Dockerfile -t test/ui:ci

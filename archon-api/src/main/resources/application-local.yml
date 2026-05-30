@@ -1,0 +1,7 @@
+spring:
+  jpa:
+    show-sql: true
+logging:
+  level:
+    com.archon: DEBUG
+    org.springframework.web.reactive: DEBUG

@@ -60,8 +60,8 @@ jobs:
       - name: Build and push API
         uses: docker/build-push-action@v5
         with:
-          context: ./ai-architect-api
-          file: ./ai-architect-api/Dockerfile
+          context: ./archon-api
+          file: ./archon-api/Dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER }}/api:${{ github.sha }}
@@ -72,8 +72,8 @@ jobs:
       - name: Build and push agent
         uses: docker/build-push-action@v5
         with:
-          context: ./ai-architect-agent
-          file: ./ai-architect-agent/Dockerfile
+          context: ./archon-agent
+          file: ./archon-agent/Dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER }}/agent:${{ github.sha }}
@@ -84,8 +84,8 @@ jobs:
       - name: Build and push UI
         uses: docker/build-push-action@v5
         with:
-          context: ./ai-architect-ui
-          file: ./ai-architect-ui/Dockerfile
+          context: ./axiom-ui
+          file: ./axiom-ui/Dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER }}/ui:${{ github.sha }}
@@ -327,11 +327,11 @@ jobs:
 
       - name: Verify rollout
         run: |
-          kubectl rollout status deployment/ai-architect-api \
+          kubectl rollout status deployment/archon-api \
             --namespace ai-architect --timeout=5m
-          kubectl rollout status deployment/ai-architect-agent \
+          kubectl rollout status deployment/archon-agent \
             --namespace ai-architect --timeout=5m
-          kubectl rollout status deployment/ai-architect-ui \
+          kubectl rollout status deployment/axiom-ui \
             --namespace ai-architect --timeout=5m
 
       - name: Verify certificate issuance
