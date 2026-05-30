@@ -18,7 +18,7 @@ The system is composed of two services, two databases, and a Docker Compose orch
 
 ```
 ┌────────────┐   SSE (text/event-stream)   ┌──────────────────┐   NDJSON   ┌─────────────────────┐
-│   Client   │ ◄──────────────────────────► │  ai-architect-api │ ─────────►│  ai-architect-agent  │
+│   Client   │ ◄──────────────────────────► │  archon-api │ ─────────►│  archon-agent  │
 │            │   POST /api/v1/chat/stream   │  (Spring Boot)    │           │  (FastAPI/LangGraph) │
 └────────────┘                              └────────┬─────────┘           └──────────┬──────────┘
                                                      │                                │
@@ -30,8 +30,8 @@ The system is composed of two services, two databases, and a Docker Compose orch
 
 | Service | Language | Framework | Port | Responsibility |
 |---|---|---|---|---|
-| **ai-architect-api** | Java 21 | Spring Boot 3.3.4 | 8080 | API gateway — auth, session management, SSE streaming, agent bridge |
-| **ai-architect-agent** | Python 3.11 | FastAPI + LangGraph | 8001 | LLM orchestration — pipeline execution, tool dispatch, streaming |
+| **archon-api** | Java 21 | Spring Boot 3.3.4 | 8080 | API gateway — auth, session management, SSE streaming, agent bridge |
+| **archon-agent** | Python 3.11 | FastAPI + LangGraph | 8001 | LLM orchestration — pipeline execution, tool dispatch, streaming |
 
 ### Pipeline Stages
 
@@ -60,7 +60,7 @@ The agent runs an 11-stage architecture pipeline on every request:
 
 ```bash
 git clone <repository-url>
-cd ai-architect
+cd axiom
 cp .env.example .env
 ```
 
@@ -91,8 +91,8 @@ This starts four containers:
 |---|---|---|
 | `archon-postgres` | `postgres:16-alpine` | Conversation & message persistence |
 | `archon-qdrant` | `qdrant/qdrant:v1.13.2` | Vector memory for architecture patterns |
-| `archon-agent` | Built from `ai-architect-agent/` | LLM pipeline service |
-| `archon-api` | Built from `ai-architect-api/` | REST/SSE API gateway |
+| `archon-agent` | Built from `archon-agent/` | LLM pipeline service |
+| `archon-api` | Built from `archon-api/` | REST/SSE API gateway |
 
 ### 3. Send a request
 
@@ -145,7 +145,7 @@ The response streams back as Server-Sent Events with stage progress and architec
 ### Agent (Python)
 
 ```bash
-cd ai-architect-agent
+cd archon-agent
 python -m venv .venv && source .venv/bin/activate
 pip install uv && uv pip install -e ".[dev]"
 
@@ -159,7 +159,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ### API (Java)
 
 ```bash
-cd ai-architect-api
+cd archon-api
 
 # Run tests (requires Docker for Testcontainers)
 ./mvnw test
@@ -174,7 +174,7 @@ The `docker-compose.override.yml` mounts the agent source directory and enables 
 
 ```bash
 docker compose up --build
-# Edit files in ai-architect-agent/ — changes reflect immediately
+# Edit files in archon-agent/ — changes reflect immediately
 ```
 
 ## Testing
@@ -182,7 +182,7 @@ docker compose up --build
 ### Agent
 
 ```bash
-cd ai-architect-agent
+cd archon-agent
 pytest                     # all tests
 pytest tests/unit/         # unit tests only
 pytest --cov=app           # with coverage (80% minimum enforced)
@@ -191,7 +191,7 @@ pytest --cov=app           # with coverage (80% minimum enforced)
 ### API
 
 ```bash
-cd ai-architect-api
+cd archon-api
 ./mvnw test                # unit + integration tests (Testcontainers)
 ./mvnw verify              # includes JaCoCo coverage check (80% line coverage)
 ```
@@ -199,13 +199,13 @@ cd ai-architect-api
 ## Project Structure
 
 ```
-ai-architect/
+axiom/
 ├── docker-compose.yml              # Full stack orchestration
 ├── docker-compose.override.yml     # Dev overrides (hot reload)
 ├── .env.example                    # Environment template
 ├── ARCHITECTURE.md                 # Architecture governance rules
 │
-├── ai-architect-api/               # Java/Spring Boot API gateway
+├── archon-api/               # Java/Spring Boot API gateway
 │   ├── Dockerfile
 │   ├── pom.xml
 │   └── src/
@@ -221,7 +221,7 @@ ai-architect/
 │           ├── application.yml
 │           └── db/migration/       # Flyway SQL migrations
 │
-└── ai-architect-agent/             # Python/FastAPI LLM pipeline
+└── archon-agent/             # Python/FastAPI LLM pipeline
     ├── Dockerfile
     ├── pyproject.toml
     └── app/

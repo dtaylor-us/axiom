@@ -56,7 +56,7 @@ services:
 
   agent:
     build:
-      context: ./ai-architect-agent
+      context: ./archon-agent
       dockerfile: Dockerfile
     container_name: archon-agent
     environment:
@@ -79,7 +79,7 @@ services:
       LOG_LEVEL: INFO
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
-      OTEL_SERVICE_NAME: ai-architect-agent
+      OTEL_SERVICE_NAME: archon-agent
       OTEL_TRACES_SAMPLER: always_on
     ports: ["8001:8001"]
     depends_on:
@@ -93,7 +93,7 @@ services:
 
   api:
     build:
-      context: ./ai-architect-api
+      context: ./archon-api
       dockerfile: Dockerfile
     container_name: archon-api
     environment:
@@ -118,7 +118,7 @@ services:
       SPRING_PROFILES_ACTIVE: local
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
-      OTEL_SERVICE_NAME: ai-architect-api
+      OTEL_SERVICE_NAME: archon-api
       MANAGEMENT_TRACING_ENABLED: "true"
     ports: ["8080:8080"]
     depends_on:
@@ -131,7 +131,7 @@ services:
 
   ui:
     build:
-      context: ./ai-architect-ui
+      context: ./axiom-ui
       dockerfile: Dockerfile
     container_name: archon-ui
     ports: ["3000:80"]

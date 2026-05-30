@@ -19,7 +19,7 @@ bootstrapSecrets:
 agent:
   replicaCount: 2
   image:
-    repository: archon/ai-architect-agent
+    repository: archon/archon-agent
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -68,7 +68,7 @@ agent:
 api:
   replicaCount: 2
   image:
-    repository: archon/ai-architect-api
+    repository: archon/archon-api
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -108,7 +108,7 @@ api:
 ui:
   replicaCount: 2
   image:
-    repository: archon/ai-architect-ui
+    repository: archon/axiom-ui
     tag: latest
     pullPolicy: IfNotPresent
   service:

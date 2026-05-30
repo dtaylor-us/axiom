@@ -232,7 +232,7 @@ docker logs archon-agent --tail 50
 **Fix:**
 ```bash
 docker compose restart agent
-docker logs archon-agent -f   # watch for "Archon Agent starting up" then "Pipeline graph compiled"
+docker logs archon-agent -f   # watch for "Archon starting up" then "Pipeline graph compiled"
 ```
 
 ---

@@ -1,6 +1,6 @@
 # Architecture Definition Language — Archon
 
-This file defines the complete Architecture Definition Language (ADL) specification for the AI Architect Assistant system. Each ADL block encodes a structural constraint derived from the architecture governance rules in `ARCHITECTURE.md`. Blocks are machine-readable pseudo-code designed to be converted into executable fitness functions by an LLM, enabling continuous architectural conformance checking across the API Gateway, Agent Orchestration, and UI services.
+This file defines the complete Architecture Definition Language (ADL) specification for the Axiom system. Each ADL block encodes a structural constraint derived from the architecture governance rules in `ARCHITECTURE.md`. Blocks are machine-readable pseudo-code designed to be converted into executable fitness functions by an LLM, enabling continuous architectural conformance checking across the API Gateway, Agent Orchestration, and UI services.
 
 ## Specification reference
 
@@ -54,15 +54,15 @@ Each ADL block is self-contained and can be independently converted into an exec
 | ADL-028  | Agent Orchestration | Tactic catalog enforcement     | Custom fitness function via Semgrep | Hard        |
 | ADL-033  | Infra               | HTTPS enforcement on ingress   | Custom fitness function via grep    | Hard        |
 | ADL-034  | Agent Orchestration | Structured output schema enforcement | Custom fitness function via pytest | Hard        |
-| ADL-057  | ai-architect-api    | Workshop session boundary      | Custom fitness function (bash)    | Hard        |
-| ADL-058  | ai-architect-agent  | Workshop module isolation      | pytest + bash (adl-037/038.sh)   | Hard        |
-| ADL-059  | ai-architect-api    | Password reset token storage security | Custom fitness function via grep | Hard        |
-| ADL-062  | ai-architect-agent  | Implication mechanism prohibition | Custom fitness function via grep | Hard        |
-| ADL-063  | ai-architect-api    | Send-to-pipeline includes all attributes | ArchUnit Java library | Hard        |
-| ADL-064  | ai-architect-api/ui | Idempotency key on pipeline submission | Custom fitness function via grep | Hard        |
-| ADL-065  | ai-architect-agent  | Scenario deduplication before pipeline | PyTestArch Python library | Hard        |
-| ADL-069  | ai-architect-agent  | LLM provider abstraction       | PyTestArch Python library         | Hard        |
-| ADL-070  | ai-architect-agent  | stage_name required on LLM calls | Custom fitness function via grep | Hard        |
+| ADL-057  | archon-api    | Workshop session boundary      | Custom fitness function (bash)    | Hard        |
+| ADL-058  | archon-agent  | Workshop module isolation      | pytest + bash (adl-037/038.sh)   | Hard        |
+| ADL-059  | archon-api    | Password reset token storage security | Custom fitness function via grep | Hard        |
+| ADL-062  | archon-agent  | Implication mechanism prohibition | Custom fitness function via grep | Hard        |
+| ADL-063  | archon-api    | Send-to-pipeline includes all attributes | ArchUnit Java library | Hard        |
+| ADL-064  | archon-api/ui | Idempotency key on pipeline submission | Custom fitness function via grep | Hard        |
+| ADL-065  | archon-agent  | Scenario deduplication before pipeline | PyTestArch Python library | Hard        |
+| ADL-069  | archon-agent  | LLM provider abstraction       | PyTestArch Python library         | Hard        |
+| ADL-070  | archon-agent  | stage_name required on LLM calls | Custom fitness function via grep | Hard        |
 
 ## ADL blocks
 
@@ -74,7 +74,7 @@ REQUIRES Custom fitness function via grep
 DESCRIPTION Ensures the three deployed services have no compile-time dependencies on each other.
 PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that verifies no source file in any of the three services imports from another service's root namespace or module path. Exit with code 1 if a cross-service import is found.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
   DEFINE SERVICE Agent Orchestration Service AS app
   DEFINE SERVICE UI Service AS ui/src
@@ -95,7 +95,7 @@ REQUIRES ArchUnit Java library
 DESCRIPTION Enforces that all classes in the API Gateway Service belong to one of the five defined domains.
 PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies every class under com.aiarchitect.api resides in one of the five domain packages (controller, domain, security, client, config). Use JUnit 5 and ArchUnit 1.x. The test class should be named ApiGatewayDomainStructureArchitectureTest.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
     DEFINE DOMAIN Chat AS com.aiarchitect.api.controller
     DEFINE DOMAIN Conversation AS com.aiarchitect.api.domain
@@ -116,7 +116,7 @@ REQUIRES ArchUnit Java library
 DESCRIPTION Enforces that the seven conversation domain components are contained within the conversation domain and that all classes reside within a component.
 PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies the seven component packages exist within com.aiarchitect.api.domain and com.aiarchitect.api.service, and that every class within the conversation domain belongs to one of those component packages. Use JUnit 5 and ArchUnit 1.x. The test class should be named ConversationDomainComponentsArchitectureTest.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
     DEFINE DOMAIN Conversation AS com.aiarchitect.api.domain
       DEFINE COMPONENT Conversation Model AS com.aiarchitect.api.domain.model
@@ -144,7 +144,7 @@ REQUIRES ArchUnit Java library
 DESCRIPTION Ensures the API Gateway Service has no dependency on any LLM client library.
 PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies no class under com.aiarchitect.api depends on com.theokanning.openai, com.azure.ai.openai, or dev.langchain4j packages. Use JUnit 5 and ArchUnit 1.x. The test class should be named LlmCallProhibitionArchitectureTest.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
   DEFINE LIBRARY OpenAI Library AS com.theokanning.openai
   DEFINE LIBRARY Azure OpenAI Library AS com.azure.ai.openai
@@ -163,7 +163,7 @@ REQUIRES ArchUnit Java library
 DESCRIPTION Ensures no class in the API Gateway Service depends on RestTemplate.
 PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies no class under com.aiarchitect.api imports or depends on org.springframework.web.client.RestTemplate. Use JUnit 5 and ArchUnit 1.x. The test class should be named RestTemplateProhibitionArchitectureTest.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
   DEFINE LIBRARY Rest Template AS org.springframework.web.client.RestTemplate
 
@@ -180,7 +180,7 @@ REQUIRES ArchUnit Java library
 DESCRIPTION Ensures the bridge domain has no dependency on the conversation domain or chat domain.
 PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies classes in com.aiarchitect.api.client do not depend on com.aiarchitect.api.domain or com.aiarchitect.api.controller. Use JUnit 5 and ArchUnit 1.x. The test class should be named BridgeDomainIsolationArchitectureTest.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
     DEFINE DOMAIN Chat AS com.aiarchitect.api.controller
     DEFINE DOMAIN Conversation AS com.aiarchitect.api.domain
@@ -198,7 +198,7 @@ REQUIRES ArchUnit Java library
 DESCRIPTION Ensures chat controller and agent bridge client have no dependency on JPA or JDBC libraries.
 PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies classes in com.aiarchitect.api.controller and com.aiarchitect.api.client do not depend on jakarta.persistence or org.springframework.jdbc. Use JUnit 5 and ArchUnit 1.x. The test class should be named DatabaseAccessBoundaryArchitectureTest.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
     DEFINE DOMAIN Chat AS com.aiarchitect.api.controller
     DEFINE DOMAIN Bridge AS com.aiarchitect.api.client
@@ -219,7 +219,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Enforces that all modules in the Agent Orchestration Service belong to one of the seven defined domains.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies every module under app resides in one of the seven domain packages (pipeline, tools, llm, memory, models, prompts, api). Use pytest and pyTestArch. The test function should be named test_agent_domain_structure.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
     DEFINE DOMAIN Tools AS app.tools
@@ -242,7 +242,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Enforces that graph and nodes components are contained within the pipeline domain.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies app.pipeline.graph and app.pipeline.nodes modules reside within the app.pipeline package. Use pytest and pyTestArch. The test function should be named test_pipeline_domain_components.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
       DEFINE COMPONENT Graph AS app.pipeline.graph
@@ -260,7 +260,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Enforces that all twelve tool components are contained within the tools domain.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies all twelve tool modules reside within the app.tools package. Use pytest and pyTestArch. The test function should be named test_tools_domain_components.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Tools AS app.tools
       DEFINE COMPONENT Base Tool AS app.tools.base
@@ -289,7 +289,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures the tools domain has no dependency on the pipeline or api domains.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app.tools imports from app.pipeline or app.api. Use pytest and pyTestArch. The test function should be named test_tool_dependency_rule.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
     DEFINE DOMAIN Tools AS app.tools
@@ -307,7 +307,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures the nodes component depends on tool registry only and not on the broader tools domain directly.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies app.pipeline.nodes imports only from app.tools.registry and does not import from any other module under app.tools. Use pytest and pyTestArch. The test function should be named test_pipeline_nodes_dependency_rule.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
       DEFINE COMPONENT Nodes AS app.pipeline.nodes
@@ -336,7 +336,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures tools, pipeline, and memory domains have no dependency on OpenAI or LangChain libraries.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app.tools, app.pipeline, or app.memory imports from the openai or langchain_openai packages. Use pytest and pyTestArch. The test function should be named test_llm_domain_isolation.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Tools AS app.tools
     DEFINE DOMAIN Pipeline AS app.pipeline
@@ -360,7 +360,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures tools and pipeline domains have no dependency on the Qdrant client library.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app.tools or app.pipeline imports from the qdrant_client package. Use pytest and pyTestArch. The test function should be named test_memory_domain_isolation.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Tools AS app.tools
     DEFINE DOMAIN Pipeline AS app.pipeline
@@ -378,7 +378,7 @@ REQUIRES Custom fitness function via grep
 DESCRIPTION Ensures no tool class contains an inline prompt string exceeding 200 characters.
 PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that scans all Python files under app/tools/ for string literals longer than 200 characters and flags them as inline prompt templates that should be moved to Jinja2 files in app/prompts/. Exit with code 1 if any match is found.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Tools AS app.tools
       DEFINE COMPONENT Base Tool AS app.tools.base
@@ -408,7 +408,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures ArchitectureContext is only contained within the models domain and that tools, pipeline, and api domains depend on models.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies app.models.context is only within app.models, and that app.tools, app.pipeline, and app.api each import from app.models. Use pytest and pyTestArch. The test function should be named test_architecture_context_ownership.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Models AS app.models
       DEFINE COMPONENT Context AS app.models.context
@@ -430,7 +430,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures pipeline, tools, memory, and llm domains have no dependency on the api domain.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app.pipeline, app.tools, app.memory, or app.llm imports from app.api. Use pytest and pyTestArch. The test function should be named test_api_domain_boundary.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
     DEFINE DOMAIN Tools AS app.tools
@@ -452,7 +452,7 @@ REQUIRES Custom fitness function via grep
 DESCRIPTION Ensures every pipeline node emits STAGE_START and STAGE_COMPLETE events.
 PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that parses app/pipeline/nodes.py and verifies every async stage function emits both a STAGE_START and STAGE_COMPLETE event. Exit with code 1 if any stage function is missing either event.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
       DEFINE COMPONENT Nodes AS app.pipeline.nodes
@@ -473,7 +473,7 @@ REQUIRES Custom fitness function via Semgrep
 DESCRIPTION Ensures no domain in the agent service contains hardcoded credential strings.
 PROMPT Based on this pseudo-code, write a Semgrep rule in YAML that detects hardcoded API keys (strings starting with sk-), hardcoded password assignments, and hardcoded secret assignments in Python files under app/. The rule id should be aiarchitect-secret-prohibition.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
     DEFINE DOMAIN Tools AS app.tools
@@ -501,7 +501,7 @@ REQUIRES ESLint with import plugin
 DESCRIPTION Enforces that all modules in the UI Service belong to one of the six defined domains.
 PROMPT Based on this pseudo-code, write an ESLint configuration rule using the eslint-plugin-import that enforces all source files under ui/src reside within one of the six defined domain directories (views, components, hooks, api, store, types). Output as a valid .eslintrc.json fragment.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE UI Service AS ui/src
     DEFINE DOMAIN Views AS ui/src/views
     DEFINE DOMAIN Components AS ui/src/components
@@ -523,7 +523,7 @@ REQUIRES ESLint with import plugin
 DESCRIPTION Ensures views and components domains do not directly depend on the fetch API.
 PROMPT Based on this pseudo-code, write an ESLint configuration rule using the eslint-plugin-import that prohibits direct use of the fetch function in files under ui/src/views and ui/src/components, requiring all HTTP calls to go through ui/src/api modules instead. Output as a valid .eslintrc.json fragment.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE UI Service AS ui/src
     DEFINE DOMAIN Views AS ui/src/views
     DEFINE DOMAIN Components AS ui/src/components
@@ -541,7 +541,7 @@ REQUIRES ESLint with import plugin
 DESCRIPTION Ensures views depend on hooks (not store directly) and hooks depend on store.
 PROMPT Based on this pseudo-code, write an ESLint configuration rule using the eslint-plugin-import that prohibits files under ui/src/views from importing directly from ui/src/store, while allowing ui/src/hooks to import from ui/src/store. Views must access state exclusively through hooks. Output as a valid .eslintrc.json fragment.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE UI Service AS ui/src
     DEFINE DOMAIN Views AS ui/src/views
     DEFINE DOMAIN Hooks AS ui/src/hooks
@@ -560,7 +560,7 @@ REQUIRES Custom fitness function via grep
 DESCRIPTION Ensures no domain in the UI service stores tokens in localStorage or sessionStorage.
 PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that scans all TypeScript and TSX files under ui/src/ for calls to localStorage.setItem or sessionStorage.setItem. Exit with code 1 if any match is found.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE UI Service AS ui/src
     DEFINE DOMAIN Views AS ui/src/views
     DEFINE DOMAIN Components AS ui/src/components
@@ -585,7 +585,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures the Agent Orchestration Service has no dependency on PostgreSQL client libraries.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app imports from psycopg2, asyncpg, or sqlalchemy. Use pytest and pyTestArch. The test function should be named test_agent_database_access_prohibition.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE Agent Orchestration Service AS app
   DEFINE LIBRARY Psycopg2 AS psycopg2
   DEFINE LIBRARY Asyncpg AS asyncpg
@@ -604,7 +604,7 @@ REQUIRES ArchUnit Java library
 DESCRIPTION Ensures the API Gateway Service has no dependency on the Qdrant Java client.
 PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies no class under com.aiarchitect.api depends on the io.qdrant package. Use JUnit 5 and ArchUnit 1.x. The test class should be named QdrantAccessProhibitionArchitectureTest.
 
-DEFINE SYSTEM AI Architect Assistant AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.aiarchitect
   DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
   DEFINE LIBRARY Qdrant Java Client AS io.qdrant
 
@@ -616,16 +616,16 @@ ASSERT(API Gateway Service has NO DEPENDENCY ON Qdrant Java Client)
 ADL-026: CROSS-SERVICE — TACTIC ENTITY DOMAIN ISOLATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES Custom fitness function via grep
-DESCRIPTION Ensures the ArchitectureTactic entity lives exclusively in ai-architect-api.
+DESCRIPTION Ensures the ArchitectureTactic entity lives exclusively in archon-api.
 The Python agent must never import or reference the Java entity directly.
 PROMPT Based on this pseudo-code, write a bash fitness function that:
-1. Verifies no Python file under ai-architect-agent/ contains the string "ArchitectureTactic" as a type reference.
-2. Verifies no Python file under ai-architect-agent/ imports from any Java package.
+1. Verifies no Python file under archon-agent/ contains the string "ArchitectureTactic" as a type reference.
+2. Verifies no Python file under archon-agent/ imports from any Java package.
 Emit a PASS or FAIL result with file and line details on failure.
 
-DEFINE SYSTEM AI Architect Assistant
-  DEFINE SERVICE API Gateway Service AS ai-architect-api
-  DEFINE SERVICE Agent Orchestration Service AS ai-architect-agent
+DEFINE SYSTEM Axiom
+  DEFINE SERVICE API Gateway Service AS archon-api
+  DEFINE SERVICE Agent Orchestration Service AS archon-agent
   DEFINE COMPONENT Tactic Entity AS com.aiarchitect.api.domain.model.ArchitectureTactic
 
 ASSERT(Tactic Entity CONTAINED WITHIN API Gateway Service)
@@ -641,12 +641,12 @@ DESCRIPTION Ensures tactics are written to the database only from ChatService.do
 via TacticsService.saveTactics(). No other write path is permitted; controllers
 and other services must never call TacticRepository directly.
 PROMPT Based on this pseudo-code, write a bash fitness function that:
-1. Scans all Java files under ai-architect-api/src/ for calls to TacticRepository.save or TacticRepository.saveAll.
+1. Scans all Java files under archon-api/src/ for calls to TacticRepository.save or TacticRepository.saveAll.
 2. Flags any caller that is NOT TacticsService.
 3. Scans all Java files for calls to tacticsService.saveTactics and flags any caller that is NOT ChatService.
 Emit PASS if no violations are found, FAIL with file and line details otherwise.
 
-DEFINE SYSTEM AI Architect Assistant
+DEFINE SYSTEM Axiom
   DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
   DEFINE COMPONENT ChatService AS com.aiarchitect.api.service.ChatService
   DEFINE COMPONENT TacticsService AS com.aiarchitect.api.service.TacticsService
@@ -671,8 +671,8 @@ PROMPT Based on this pseudo-code, write a Semgrep YAML rule that:
 2. Flags it as a violation: tactic names must live in tactics_advisor.j2, not in Python source.
 Emit the rule in standard Semgrep YAML format with message, severity: WARNING, and languages: [python].
 
-DEFINE SYSTEM AI Architect Assistant
-  DEFINE SERVICE Agent Orchestration Service AS ai-architect-agent
+DEFINE SYSTEM Axiom
+  DEFINE SERVICE Agent Orchestration Service AS archon-agent
   DEFINE COMPONENT TacticsAdvisorTool AS app.tools.tactics_advisor.TacticsAdvisorTool
   DEFINE COMPONENT TacticsCatalog AS app.prompts.tactics_advisor
 
@@ -690,20 +690,20 @@ DESCRIPTION Assert that the ingress template enforces TLS and that the ssl-redir
              the template file and the values file to confirm a real CA issuer is
              configured and not a self-signed certificate.
 PROMPT Based on this pseudo-code, write a bash script for GitHub Actions that checks:
-       (1) helm/ai-architect/templates/ingress.yaml contains the string 'ssl-redirect'
+       (1) helm/axiom/templates/ingress.yaml contains the string 'ssl-redirect'
            as evidence the HTTP to HTTPS redirect annotation is configured.
-       (2) helm/ai-architect/values.yaml contains 'letsencrypt' as evidence a real CA
+       (2) helm/axiom/values.yaml contains 'letsencrypt' as evidence a real CA
            issuer is configured rather than a self-signed certificate.
-       (3) helm/ai-architect/templates/ingress.yaml contains a tls: block.
+       (3) helm/axiom/templates/ingress.yaml contains a tls: block.
        Exit with code 1 if any check fails.
        Rule id: aiarchitect-https-enforcement.
 
-DEFINE SYSTEM AIArchitect AS helm/ai-architect
+DEFINE SYSTEM AIArchitect AS helm/axiom
 DEFINE CONST TLS_ANNOTATION    AS "ssl-redirect"
 DEFINE CONST ISSUER_REFERENCE  AS "letsencrypt"
 DEFINE CONST TLS_BLOCK         AS "tls:"
-DEFINE COMPONENT IngressTemplate AS helm/ai-architect/templates/ingress.yaml
-DEFINE COMPONENT IngressValues   AS helm/ai-architect/values.yaml
+DEFINE COMPONENT IngressTemplate AS helm/axiom/templates/ingress.yaml
+DEFINE COMPONENT IngressValues   AS helm/axiom/values.yaml
 
 ASSERT(IngressTemplate CONTAINS TLS_ANNOTATION)
 ASSERT(IngressValues   CONTAINS ISSUER_REFERENCE)
@@ -726,7 +726,7 @@ PROMPT Based on this pseudo-code, write a pytest test that imports every module 
            app/llm/schemas.py (i.e. no inline JSON schema definitions).
        Test function name: test_all_tools_pass_output_schema.
 
-DEFINE SYSTEM AI Architect Assistant
+DEFINE SYSTEM Axiom
   DEFINE SERVICE Agent Orchestration Service AS app
   DEFINE COMPONENT SchemaRegistry AS app.llm.schemas.SCHEMAS
   DEFINE \$TOOLS AS {app.tools.requirement_parser, app.tools.challenge_engine,
@@ -759,7 +759,7 @@ PROMPT Based on this pseudo-code, write a pytest test that for each tool in app.
            is raised without a second call to attempt_repair().
        Test function name: test_single_repair_attempt_per_stage.
 
-DEFINE SYSTEM AI Architect Assistant
+DEFINE SYSTEM Axiom
   DEFINE SERVICE Agent Orchestration Service AS app
   DEFINE COMPONENT BaseTool AS app.tools.base.BaseTool
   DEFINE CONST MAX_REPAIR_ATTEMPTS AS 1
@@ -787,7 +787,7 @@ PROMPT Based on this pseudo-code, write a pytest test that:
        (7) Asserts ERROR is emitted and no further STAGE_COMPLETE events follow.
        Test function name: test_supporting_stage_resilience.
 
-DEFINE SYSTEM AI Architect Assistant
+DEFINE SYSTEM Axiom
   DEFINE SERVICE Agent Orchestration Service AS app
   DEFINE COMPONENT Graph AS app.pipeline.graph
   DEFINE CONST CORE_STAGES AS {requirement_parsing, requirement_challenge,
@@ -812,7 +812,7 @@ DESCRIPTION Ensures that app.workshop does not import from app.pipeline or app.t
 ENFORCEMENT Automated: pytest parametrised AST import scanner (tests/unit/workshop/test_workshop_isolation.py)
              Automated: bash grep scanner (fitness/adl-037-workshop-isolation.sh)
 
-DEFINE SYSTEM AI Architect Assistant
+DEFINE SYSTEM Axiom
   DEFINE MODULE Workshop AS app.workshop
   DEFINE MODULE Pipeline AS app.pipeline
   DEFINE MODULE Tools AS app.tools
@@ -835,7 +835,7 @@ DESCRIPTION Ensures that in the LangGraph graph built by QualityAttributeWorksho
              elicited as primary artifacts.
 ENFORCEMENT Automated: bash line-number check (fitness/adl-038-gap-before-elicit.sh)
 
-DEFINE SYSTEM AI Architect Assistant
+DEFINE SYSTEM Axiom
   DEFINE COMPONENT WorkshopAgent AS app.workshop.agent.QualityAttributeWorkshopAgent
   DEFINE GRAPH WorkshopGraph AS WorkshopAgent._build_graph()
   DEFINE NODE IdentifyGaps AS identify_gaps_node
@@ -853,7 +853,7 @@ DESCRIPTION elicit_scenarios_node MUST appear before infer_attributes_from_scena
              in app/workshop/agent.py graph edge definitions (QAW scenario-primary flow).
 ENFORCEMENT Automated: pytest inspects agent.py source order
 
-DEFINE SYSTEM AI Architect Assistant AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE COMPONENT WorkshopAgent AS app.workshop.agent
 DEFINE CONST SCENARIO_NODE AS "elicit_scenarios"
 DEFINE CONST ATTRIBUTE_NODE AS "infer_attributes_from_scenarios"
@@ -870,7 +870,7 @@ DESCRIPTION QAScenario.compute_completeness MUST override LLM-provided completen
              so empty scenarios cannot be marked complete after model initialisation.
 ENFORCEMENT Automated: pytest on WorkshopContext model
 
-DEFINE SYSTEM AI Architect Assistant AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE COMPONENT QAScenario AS app.workshop.context.QAScenario
 
 ASSERT(QAScenario CONTAINS compute_completeness)
@@ -978,7 +978,7 @@ ENFORCEMENT Unit test: TestHasSufficientForUtilityTree.test_true_at_threshold
             Unit test: TestUtilityTreeGenerator.test_generate_returns_none_when_threshold_not_met
             Unit test: TestUtilityTreeGenerator.test_generate_returns_existing_tree_on_llm_failure
 
-DEFINE SYSTEM AIArchitect AS ai-architect-agent
+DEFINE SYSTEM AIArchitect AS archon-agent
 DEFINE COMPONENT UtilityTreeGenerator AS app.workshop.utility_tree_generator.UtilityTreeGenerator
 DEFINE CONST SCENARIO_THRESHOLD AS 5
 DEFINE CONST ATTRIBUTE_THRESHOLD AS 3
@@ -1005,7 +1005,7 @@ ENFORCEMENT Unit test: TestSynthesiseReturnsEmptyWhenNoTree.test_synthesise_retu
             Unit test: TestImplicationMaxGuard.test_max_implications_guard
             Unit test: TestSynthesiseExtractsDriverScenarios.test_synthesise_returns_existing_on_llm_failure
 
-DEFINE SYSTEM AIArchitect AS ai-architect-agent
+DEFINE SYSTEM AIArchitect AS archon-agent
 DEFINE COMPONENT ImplicationSynthesiser AS app.workshop.implication_synthesiser.ImplicationSynthesiser
 DEFINE CONST MAX_IMPLICATIONS AS 20
 

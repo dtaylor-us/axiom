@@ -1,4 +1,4 @@
-# Deployment Guide : AI Architect Assistant
+# Deployment Guide : Axiom
 
 ## What this guide covers
 
@@ -653,7 +653,7 @@ The current development deployment is live at:
 **<https://axiom-dev.eastus2.cloudapp.azure.com/>**
 
 For any other deployment, navigate to your HTTPS URL (use `terraform output https_url` to see it). You should
-see the AI Architect Assistant interface. HTTP requests are automatically redirected
+see the Axiom interface. HTTP requests are automatically redirected
 to HTTPS by the nginx `ssl-redirect` annotation.
 
 ---
