@@ -371,10 +371,14 @@ Azure Resource Group: rg-aiarchitect-dev
 |     +-- Agent node pool   (Python agent pods, D4s_v3, tainted)
 |
 +-- PostgreSQL Flexible Server
-|     Database: aiarchitect
+|     Databases: aiarchitect, axiom_platform, specweaver
+|
++-- Azure Storage Account
+|     Blob container: specweaver-documents (private)
 |
 +-- Key Vault
-      Stores: db password, JWT secret, OpenAI key, internal secret
+  Stores: db password, JWT secret, OpenAI key, internal secret,
+      axiom-platform-jwt-secret, specweaver-jwt-secret
 ```
 
 ### Approximate monthly cost
@@ -428,6 +432,9 @@ them for GitHub Secrets in Step 6.
 | `key_vault_tenant_id` | `KEY_VAULT_TENANT_ID` secret |
 | `aks_kubelet_client_id` | `AKS_KUBELET_CLIENT_ID` secret; Key Vault CSI auth |
 | `db_fqdn` | Reference only — stored in Key Vault via connection string |
+| `axiom_platform_db_name` | Platform gateway database name (`axiom_platform`) |
+| `specweaver_db_name` | SpecWeaver database name (`specweaver`) |
+| `specweaver_documents_container_name` | Blob container name for SpecWeaver source documents |
 | `get_credentials_command` | Configure kubectl: copy and run this command |
 | `github_secrets_summary` | Pre-formatted block of all remaining secret values |
 | `ingress_ip` | Static public IP — point a DNS A record here for a custom domain |
@@ -440,6 +447,37 @@ terraform output
 
 # Print the pre-formatted GitHub Secrets block:
 terraform output github_secrets_summary
+```
+
+### Phase 1 post-provisioning actions
+
+Terraform creates placeholder slots for these Key Vault secrets:
+
+- `axiom-platform-jwt-secret`
+- `specweaver-jwt-secret`
+
+Set real values after `terraform apply` using Azure CLI:
+
+```bash
+KV_NAME="$(terraform output -raw key_vault_name)"
+
+az keyvault secret set \
+  --vault-name "$KV_NAME" \
+  --name axiom-platform-jwt-secret \
+  --value "replace-with-real-jwt-secret"
+
+az keyvault secret set \
+  --vault-name "$KV_NAME" \
+  --name specweaver-jwt-secret \
+  --value "replace-with-real-jwt-secret"
+```
+
+Verify the new databases and storage container names from Terraform outputs:
+
+```bash
+terraform output -raw axiom_platform_db_name
+terraform output -raw specweaver_db_name
+terraform output -raw specweaver_documents_container_name
 ```
 
 ---
@@ -582,11 +620,14 @@ cannot issue a certificate until the host resolves publicly.
 
 Go to **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
 
+Canonical inventory (workflow-derived): [docs/GITHUB_CICD_SECRETS_INVENTORY.md](docs/GITHUB_CICD_SECRETS_INVENTORY.md)
+
 Create every secret in this table:
 
 | Secret name | Value | Where to find it |
 |---|---|---|
 | `AZURE_CREDENTIALS` | Full JSON blob | Contents of `.github-actions-credentials.json` — run `cat .github-actions-credentials.json` |
+| `AZURE_CLIENT_ID` | UUID | clientId from `.github-actions-credentials.json` (OIDC workflows) |
 | `AZURE_SUBSCRIPTION_ID` | UUID | `az account show --query id -o tsv` |
 | `AZURE_TENANT_ID` | UUID | `az account show --query tenantId -o tsv` |
 | `AZURE_RESOURCE_GROUP` | `rg-aiarchitect-dev` | `terraform output resource_group_name` |
@@ -596,12 +637,14 @@ Create every secret in this table:
 | `KEY_VAULT_NAME` | `kv-...` | `terraform output key_vault_name` |
 | `KEY_VAULT_TENANT_ID` | UUID | `terraform output key_vault_tenant_id` |
 | `AKS_KUBELET_CLIENT_ID` | UUID | `terraform output aks_kubelet_client_id` |
+| `AZURE_DB_SERVER_NAME` | `psql-...` | `terraform output db_server_name` |
 | `TF_BACKEND_RESOURCE_GROUP` | `rg-aiarchitect-tfstate` | Bootstrap script output |
 | `TF_BACKEND_STORAGE_ACCOUNT` | `staiarchitecttfstate` | Bootstrap script output |
 | `TF_VAR_SUBSCRIPTION_ID` | UUID | `az account show --query id -o tsv` |
 | `TF_VAR_DEPLOYER_OBJECT_ID` | UUID | `az ad signed-in-user show --query id -o tsv` |
 | `TF_VAR_OPENAI_API_KEY` | `sk-...` | Your [OpenAI dashboard](https://platform.openai.com/api-keys) |
 | `LETSENCRYPT_EMAIL` | `you@example.com` | Email for Let’s Encrypt. Receives expiry warnings. Required for cert issuance. |
+| `CERT_MANAGER_EMAIL` | `you@example.com` | Optional but recommended; used by deploy workflow for ClusterIssuer email |
 | `TLS_ISSUER` | `letsencrypt-staging` | `letsencrypt-staging` or `letsencrypt-prod`. Default: staging. Change to prod after running `switch-to-prod-tls.sh`. |
 | `INGRESS_HOSTNAME` | `archon.yourdomain.com` | Optional custom domain. Leave empty to use the Azure-assigned FQDN automatically. |
 | `PROJECT_NAME` | `aiarchitect` | Project name matching the `project` Terraform variable. Used to construct the public IP resource name. |

@@ -79,6 +79,15 @@ body {
   background: var(--color-sidebar-hover);
 }
 
+.pillar-nav--mobile {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.pillar-nav-item--mobile {
+  padding: 0.875rem 0.875rem;
+}
+
 .pillar-nav-item--disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -89,10 +98,10 @@ body {
   border: 1px solid var(--color-sidebar-border);
   border-radius: 9999px;
   color: var(--color-sidebar-border);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1;
-  padding: 2px 7px;
+  padding: 3px 8px;
   white-space: nowrap;
 }
 

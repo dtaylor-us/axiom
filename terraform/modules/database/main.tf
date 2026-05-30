@@ -37,6 +37,20 @@ resource "azurerm_postgresql_flexible_server_database" "main" {
   charset   = "UTF8"
 }
 
+resource "azurerm_postgresql_flexible_server_database" "axiom_platform" {
+  name      = "axiom_platform"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  collation = "en_US.utf8"
+  charset   = "UTF8"
+}
+
+resource "azurerm_postgresql_flexible_server_database" "specweaver" {
+  name      = "specweaver"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  collation = "en_US.utf8"
+  charset   = "UTF8"
+}
+
 # In Azure's API, the range 0.0.0.0 to 0.0.0.0 means "allow connections
 # from other Azure services", not "allow all internet traffic".
 # This is required so AKS pods (which have Azure-internal IPs) can connect.

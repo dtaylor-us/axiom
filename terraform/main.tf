@@ -15,6 +15,26 @@ resource "azurerm_resource_group" "main" {
   }
 }
 
+resource "azurerm_storage_account" "axiom_data" {
+  name                     = "st${var.project}${var.environment}${random_string.suffix.result}"
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = azurerm_resource_group.main.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+
+  tags = {
+    project     = var.project
+    environment = var.environment
+    managed_by  = "terraform"
+  }
+}
+
+resource "azurerm_storage_container" "specweaver_documents" {
+  name                  = "specweaver-documents"
+  storage_account_name  = azurerm_storage_account.axiom_data.name
+  container_access_type = "private"
+}
+
 # ─── Random Secrets ───────────────────────────────────────────────────────────
 
 # Short suffix appended to globally-unique resource names (ACR, PostgreSQL, Key Vault)

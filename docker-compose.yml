@@ -39,6 +39,28 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+    container_name: axiom-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - default
+    restart: unless-stopped
+
   jaeger:
     image: jaegertracing/all-in-one:1.57
     container_name: aiarchitect-jaeger
@@ -120,7 +142,7 @@ services:
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       OTEL_SERVICE_NAME: archon-api
       MANAGEMENT_TRACING_ENABLED: "true"
-    ports: ["8080:8080"]
+    ports: ["8081:8081"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -128,6 +150,116 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_healthy
+
+  specweaver-api:
+    build:
+      context: ./specweaver-api
+      dockerfile: Dockerfile
+    container_name: specweaver-api
+    profiles:
+      - specweaver
+    ports:
+      - "8082:8082"
+    environment:
+      - SPECWEAVER_API_PORT=8082
+      - SPRING_PROFILES_ACTIVE=local
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/specweaver
+      - JWT_SECRET=${SPECWEAVER_JWT_SECRET:-local-specweaver-jwt-secret}
+      - STORAGE_TYPE=minio
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET=specweaver-documents
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - default
+    restart: unless-stopped
+
+  specweaver-agent:
+    build:
+      context: ./specweaver-agent
+      dockerfile: Dockerfile
+    container_name: specweaver-agent
+    profiles:
+      - specweaver
+    ports:
+      - "8085:8085"
+    environment:
+      - SPECWEAVER_AGENT_PORT=8085
+      - QDRANT_URL=http://qdrant:6333
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET=specweaver-documents
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_PRIMARY_MODEL=${OLLAMA_PRIMARY_MODEL:-qwen3:14b}
+      - OLLAMA_FAST_MODEL=${OLLAMA_FAST_MODEL:-qwen3:8b}
+      - OLLAMA_NUM_CTX_PRIMARY=${OLLAMA_NUM_CTX_PRIMARY:-16384}
+      - OLLAMA_NUM_CTX_FAST=${OLLAMA_NUM_CTX_FAST:-8192}
+      - OLLAMA_TEMPERATURE=${OLLAMA_TEMPERATURE:-0.1}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      specweaver-api:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8085/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    networks:
+      - default
+    restart: unless-stopped
+
+  axiom-api:
+    build:
+      context: ./axiom-api
+      dockerfile: Dockerfile
+    container_name: axiom-api
+    profiles:
+      - platform
+    ports:
+      - "8080:8080"
+    environment:
+      - AXIOM_API_PORT=8080
+      - ARCHON_API_BASE_URL=http://archon-api:8081
+      - SPECWEAVER_API_BASE_URL=http://specweaver-api:8082
+      - AXIOM_GATEWAY_BYPASS=false
+      - SPRING_PROFILES_ACTIVE=local
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/axiom_platform
+      - JWT_SECRET=${AXIOM_PLATFORM_JWT_SECRET:-local-axiom-jwt-secret}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - default
+    restart: unless-stopped
 
   ui:
     build:
@@ -177,5 +309,7 @@ services:
 volumes:
   postgres_data:
   qdrant_data:
+  minio-data:
+    name: axiom-minio-data
   prometheus_data:
   grafana_data:

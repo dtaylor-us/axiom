@@ -93,6 +93,105 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.ACR_LOGIN_SERVER }}/ui:cache
           cache-to: type=registry,ref=${{ secrets.ACR_LOGIN_SERVER }}/ui:cache,mode=max
 
+  build-axiom-api:
+    name: Build axiom-api
+    runs-on: ubuntu-latest
+    if: hashFiles('axiom-api/Dockerfile') != ''
+    # Skipped safely until axiom-api/Dockerfile exists
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push axiom-api
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image axiom-api:${{ github.sha }} \
+            --image axiom-api:latest \
+            --file axiom-api/Dockerfile \
+            axiom-api/
+
+  build-specweaver-api:
+    name: Build specweaver-api
+    runs-on: ubuntu-latest
+    if: hashFiles('specweaver-api/Dockerfile') != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push specweaver-api
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image specweaver-api:${{ github.sha }} \
+            --image specweaver-api:latest \
+            --file specweaver-api/Dockerfile \
+            specweaver-api/
+
+  build-specweaver-agent:
+    name: Build specweaver-agent
+    runs-on: ubuntu-latest
+    if: hashFiles('specweaver-agent/Dockerfile') != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push specweaver-agent
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image specweaver-agent:${{ github.sha }} \
+            --image specweaver-agent:latest \
+            --file specweaver-agent/Dockerfile \
+            specweaver-agent/
+
+  check-pillar-structure:
+    name: Check pillar service count
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify max two services per pillar
+        run: |
+          FAILED=0
+          for pillar in archon specweaver scout forge; do
+            if [ -d "$pillar" ]; then
+              COUNT=$(find "$pillar" -maxdepth 1 -type d \
+                \( -name "*-api" -o -name "*-agent" \) | wc -l)
+              if [ "$COUNT" -gt 2 ]; then
+                echo "VIOLATION: $pillar has $COUNT services (max 2)"
+                FAILED=1
+              else
+                echo "OK: $pillar has $COUNT service(s)"
+              fi
+            fi
+          done
+          exit $FAILED
+
   deploy:
     name: Deploy to AKS
     runs-on: ubuntu-latest

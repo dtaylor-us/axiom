@@ -13,13 +13,13 @@ RUN mvn package -DskipTests -q
 # --- dev stage: mounts source at runtime, no image rebuild needed ---
 FROM deps AS dev
 EXPOSE 8080
-ENTRYPOINT ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-Dspring.devtools.restart.enabled=false"]
+ENTRYPOINT ["mvn", "spring-boot:run", "-Dspring-boot.run.mainClass=com.archon.api.ArchonApiApplication", "-Dspring-boot.run.jvmArguments=-Dspring.devtools.restart.enabled=false"]
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
-COPY --from=build --chown=appuser:appgroup /build/target/ai-architect-api.jar app.jar
+COPY --from=build --chown=appuser:appgroup /build/target/archon-api.jar app.jar
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
   "-XX:MaxRAMPercentage=75.0", \

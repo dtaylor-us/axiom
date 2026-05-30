@@ -58,7 +58,7 @@ function PillarIcon({ enabled }: { enabled: boolean }) {
   );
 }
 
-function PillarItem({ pillar }: { pillar: Pillar }) {
+function PillarItem({ pillar, mobile }: { pillar: Pillar; mobile: boolean }) {
   const isActive = pillar.id === 'archon';
 
   return (
@@ -71,7 +71,7 @@ function PillarItem({ pillar }: { pillar: Pillar }) {
         isActive
           ? 'pillar-nav-item--active text-white'
           : 'text-gray-300 hover:bg-sidebar-hover hover:text-gray-100'
-      } ${pillar.enabled ? '' : 'pillar-nav-item--disabled'}`}
+      } ${pillar.enabled ? '' : 'pillar-nav-item--disabled'} ${mobile ? 'pillar-nav-item--mobile' : ''}`}
       data-testid={`pillar-${pillar.id}`}
       data-path={pillar.path}
     >
@@ -80,8 +80,8 @@ function PillarItem({ pillar }: { pillar: Pillar }) {
           <PillarIcon enabled={pillar.enabled} />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[13px] font-medium">{pillar.name}</span>
-          <span className="block truncate text-[11px] text-gray-500">{pillar.description}</span>
+          <span className={`block truncate font-medium ${mobile ? 'text-[16px]' : 'text-[13px]'}`}>{pillar.name}</span>
+          <span className={`block ${mobile ? 'text-[13px] text-gray-400' : 'truncate text-[11px] text-gray-500'}`}>{pillar.description}</span>
         </span>
       </span>
       {!pillar.enabled && (
@@ -94,9 +94,13 @@ function PillarItem({ pillar }: { pillar: Pillar }) {
 /**
  * Platform pillar switcher for the Axiom shell.
  */
-export function PillarNav() {
+export function PillarNav({ mobile = false }: { mobile?: boolean }) {
   return (
-    <nav className="pillar-nav" aria-label="Platform pillars" data-testid="pillar-nav">
+    <nav
+      className={`pillar-nav ${mobile ? 'pillar-nav--mobile' : ''}`}
+      aria-label="Platform pillars"
+      data-testid="pillar-nav"
+    >
       <div className="px-3 pb-2 pt-1">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">
           Platform pillars
@@ -104,7 +108,7 @@ export function PillarNav() {
       </div>
       <div className="flex flex-col gap-1 px-2 pb-2">
         {PILLARS.map((pillar) => (
-          <PillarItem key={pillar.id} pillar={pillar} />
+          <PillarItem key={pillar.id} pillar={pillar} mobile={mobile} />
         ))}
       </div>
     </nav>
