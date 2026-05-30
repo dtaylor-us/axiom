@@ -167,6 +167,91 @@ EOF
   fi
 }
 
+import_existing_aks_resources_if_needed() {
+  if ! command -v az >/dev/null 2>&1; then
+    warn "az CLI not found; skipping AKS resource auto-import checks."
+    return
+  fi
+
+  if [[ -z "${AZURE_SUBSCRIPTION_ID:-}" ]]; then
+    warn "AZURE_SUBSCRIPTION_ID is not set; skipping AKS resource auto-import checks."
+    return
+  fi
+
+  local rg_name project_name environment_name law_name pip_name aks_name agent_pool_name
+  local law_id pip_id aks_id agent_pool_id
+
+  rg_name="$(terraform console -var-file="${VAR_FILE}" <<'EOF' | tail -n 1 | tr -d '"'
+"rg-${var.project}-${var.environment}"
+EOF
+)"
+
+  project_name="$(terraform console -var-file="${VAR_FILE}" <<'EOF' | tail -n 1 | tr -d '"'
+var.project
+EOF
+)"
+
+  environment_name="$(terraform console -var-file="${VAR_FILE}" <<'EOF' | tail -n 1 | tr -d '"'
+var.environment
+EOF
+)"
+
+  if [[ -z "${rg_name}" || -z "${project_name}" || -z "${environment_name}" ]]; then
+    warn "Could not resolve AKS naming values for auto-import checks."
+    return
+  fi
+
+  law_name="law-${project_name}-${environment_name}"
+  pip_name="pip-${project_name}-${environment_name}-ingress"
+  aks_name="aks-${project_name}-${environment_name}"
+  agent_pool_name="agentpool"
+
+  law_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${rg_name}/providers/Microsoft.OperationalInsights/workspaces/${law_name}"
+  pip_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${rg_name}/providers/Microsoft.Network/publicIPAddresses/${pip_name}"
+  aks_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${rg_name}/providers/Microsoft.ContainerService/managedClusters/${aks_name}"
+  agent_pool_id="${aks_id}/agentPools/${agent_pool_name}"
+
+  if terraform state list | grep -q '^module\.aks\.azurerm_kubernetes_cluster\.main$'; then
+    info "AKS cluster already in Terraform state."
+  elif az resource show --ids "${aks_id}" >/dev/null 2>&1; then
+    info "Existing AKS cluster detected without state entry. Importing ${aks_id}"
+    terraform import -var-file="${VAR_FILE}" module.aks.azurerm_kubernetes_cluster.main "${aks_id}" >/dev/null
+    success "Imported existing AKS cluster into Terraform state."
+  else
+    info "AKS cluster ${aks_name} not found; Terraform will create it."
+  fi
+
+  if terraform state list | grep -q '^module\.aks\.azurerm_kubernetes_cluster_node_pool\.agent$'; then
+    info "AKS agent node pool already in Terraform state."
+  elif az resource show --ids "${agent_pool_id}" >/dev/null 2>&1; then
+    info "Existing AKS agent node pool detected without state entry. Importing ${agent_pool_id}"
+    terraform import -var-file="${VAR_FILE}" module.aks.azurerm_kubernetes_cluster_node_pool.agent "${agent_pool_id}" >/dev/null
+    success "Imported existing AKS agent node pool into Terraform state."
+  else
+    info "AKS agent node pool ${agent_pool_name} not found; Terraform will create it."
+  fi
+
+  if terraform state list | grep -q '^module\.aks\.azurerm_log_analytics_workspace\.main$'; then
+    info "AKS Log Analytics workspace already in Terraform state."
+  elif az resource show --ids "${law_id}" >/dev/null 2>&1; then
+    info "Existing Log Analytics workspace detected without state entry. Importing ${law_id}"
+    terraform import -var-file="${VAR_FILE}" module.aks.azurerm_log_analytics_workspace.main "${law_id}" >/dev/null
+    success "Imported existing AKS Log Analytics workspace into Terraform state."
+  else
+    info "AKS Log Analytics workspace ${law_name} not found; Terraform will create it."
+  fi
+
+  if terraform state list | grep -q '^module\.aks\.azurerm_public_ip\.ingress$'; then
+    info "AKS ingress Public IP already in Terraform state."
+  elif az resource show --ids "${pip_id}" >/dev/null 2>&1; then
+    info "Existing ingress Public IP detected without state entry. Importing ${pip_id}"
+    terraform import -var-file="${VAR_FILE}" module.aks.azurerm_public_ip.ingress "${pip_id}" >/dev/null
+    success "Imported existing AKS ingress Public IP into Terraform state."
+  else
+    info "AKS ingress Public IP ${pip_name} not found; Terraform will create it."
+  fi
+}
+
 header "Terraform Init"
 pushd "${TERRAFORM_DIR}" >/dev/null
 terraform init \
@@ -178,6 +263,7 @@ success "terraform init complete"
 
 header "Terraform State Guard"
 import_existing_resource_group_if_needed
+import_existing_aks_resources_if_needed
 
 header "Terraform Validate"
 terraform validate

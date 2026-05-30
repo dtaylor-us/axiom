@@ -289,9 +289,9 @@ function AppContent() {
 
   return (
     <ToastProvider>
-    <div className="flex h-full" data-testid="app-shell">
+    <div className="flex h-dvh overflow-hidden" data-testid="app-shell">
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden md:flex w-[280px] shrink-0 bg-sidebar flex-col" data-testid="sidebar">
+      <aside className="hidden md:flex w-[280px] shrink-0 bg-sidebar flex-col min-h-0 overflow-hidden" data-testid="sidebar">
         <div className="border-b border-sidebar-border px-4 py-4">
           <div className="axiom-brand flex items-center gap-3">
             <div className="w-10 h-10 shrink-0 rounded-2xl bg-accent/90 flex items-center justify-center shadow-sm ring-1 ring-white/10">
@@ -307,170 +307,168 @@ function AppContent() {
             </div>
           </div>
         </div>
-
-        <PillarNav />
-
-        <div className="p-2 flex flex-col gap-1.5">
-          <button
-            onClick={() => {
-              resetConversation();
-              setActiveView('chat');
-            }}
-            disabled={isStreaming}
-            className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors disabled:opacity-40"
-            data-testid="new-chat"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M8 3v10M3 8h10" />
-            </svg>
-            New chat
-          </button>
-          {activeView === 'workshop' && (
+        <div className="flex-1 min-h-0 overflow-y-auto sidebar-scroll">
+          <div className="p-2 flex flex-col gap-1.5">
             <button
-              onClick={() => { setSelectedWorkshopSessionId(null); setNewWorkshopKey((k) => k + 1); }}
-              className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors"
-              data-testid="new-workshop"
+              onClick={() => {
+                resetConversation();
+                setActiveView('chat');
+              }}
+              disabled={isStreaming}
+              className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors disabled:opacity-40"
+              data-testid="new-chat"
             >
               <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M8 3v10M3 8h10" />
               </svg>
-              New workshop
+              New chat
             </button>
-          )}
-        </div>
-
-        <nav className="flex flex-col gap-0.5 px-2 mt-1">
-          {NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
-            <button
-              key={key}
-              onClick={() => setActiveView(key)}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
-                activeView === key
-                  ? 'bg-sidebar-hover text-white'
-                  : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
-              }`}
-              data-testid={`nav-${key}`}
-            >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d={icon} />
-              </svg>
-              {label}
-            </button>
-          ))}
-        </nav>
-
-        {hasConversation && (
-          <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
-            <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
-                Active session
-              </span>
-            </div>
-            <nav className="flex flex-col gap-0.5 px-1 pb-1.5">
-              {NAV_ITEMS.filter(({ key }) => key !== 'home' && key !== 'chat').map(({ key, label, icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveView(key)}
-                  className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
-                    activeView === key
-                      ? 'bg-sidebar-hover text-white'
-                      : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
-                  }`}
-                  data-testid={`nav-${key}`}
-                >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d={icon} />
-                  </svg>
-                  {label}
-                </button>
-              ))}
-            </nav>
+            {activeView === 'workshop' && (
+              <button
+                onClick={() => { setSelectedWorkshopSessionId(null); setNewWorkshopKey((k) => k + 1); }}
+                className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors"
+                data-testid="new-workshop"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M8 3v10M3 8h10" />
+                </svg>
+                New workshop
+              </button>
+            )}
           </div>
-        )}
 
-        <div className="mt-3 px-2 overflow-y-auto sidebar-scroll">
-          <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
-            {activeView === 'workshop' ? 'Workshops' : 'History'}
-          </h3>
-          {activeView === 'workshop' ? (
-            workshopSessionsLoading ? (
+          <nav className="flex flex-col gap-0.5 px-2 mt-1">
+            {NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveView(key)}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+                  activeView === key
+                    ? 'bg-sidebar-hover text-white'
+                    : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                }`}
+                data-testid={`nav-${key}`}
+              >
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={icon} />
+                </svg>
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          {hasConversation && (
+            <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
+              <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
+                  Active session
+                </span>
+              </div>
+              <nav className="flex flex-col gap-0.5 px-1 pb-1.5">
+                {NAV_ITEMS.filter(({ key }) => key !== 'home' && key !== 'chat').map(({ key, label, icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveView(key)}
+                    className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
+                      activeView === key
+                        ? 'bg-sidebar-hover text-white'
+                        : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                    }`}
+                    data-testid={`nav-${key}`}
+                  >
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={icon} />
+                    </svg>
+                    {label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          )}
+
+          <div className="mt-3 px-2">
+            <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
+              {activeView === 'workshop' ? 'Workshops' : 'History'}
+            </h3>
+            {activeView === 'workshop' ? (
+              workshopSessionsLoading ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
+              ) : workshopSessionsError ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">{workshopSessionsError}</div>
+              ) : workshopSessions.length === 0 ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">No workshops yet</div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {workshopSessions.map((ws) => {
+                    const active = ws.sessionId === selectedWorkshopSessionId;
+                    return (
+                      <button
+                        key={ws.sessionId}
+                        onClick={() => handleLoadWorkshopSession(ws.sessionId)}
+                        className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
+                          active
+                            ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                            : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                        }`}
+                        title={ws.systemName}
+                        data-testid={`workshop-history-${ws.sessionId}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                          <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                          {ws.workshopPhase.replace(/_/g, ' ')}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )
+            ) : sessionsLoading ? (
               <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
-            ) : workshopSessionsError ? (
-              <div className="px-3 py-2 text-[12px] text-gray-500">{workshopSessionsError}</div>
-            ) : workshopSessions.length === 0 ? (
-              <div className="px-3 py-2 text-[12px] text-gray-500">No workshops yet</div>
+            ) : sessionsError ? (
+              <div className="px-3 py-2 text-[12px] text-gray-500">{sessionsError}</div>
+            ) : sessions.length === 0 ? (
+              <div className="px-3 py-2 text-[12px] text-gray-500">No chats yet</div>
             ) : (
               <div className="flex flex-col gap-1">
-                {workshopSessions.map((ws) => {
-                  const active = ws.sessionId === selectedWorkshopSessionId;
+                {sessions.map((s) => {
+                  const active = s.id === conversationId;
+                  const loading = loadingSessionId === s.id;
                   return (
                     <button
-                      key={ws.sessionId}
-                      onClick={() => handleLoadWorkshopSession(ws.sessionId)}
-                      className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
+                      key={s.id}
+                      onClick={() => handleLoadSession(s.id)}
+                      disabled={isStreaming || loading}
+                      className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors relative ${
                         active
                           ? 'bg-accent/15 text-white ring-1 ring-accent/40'
                           : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
-                      }`}
-                      title={ws.systemName}
-                      data-testid={`workshop-history-${ws.sessionId}`}
+                      } ${isStreaming || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={s.title}
+                      data-testid={`history-${s.id}`}
                     >
                       <div className="flex items-center gap-2">
                         {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
-                        <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
-                      </div>
-                      <div className="text-[10px] text-gray-500 mt-0.5 truncate">
-                        {ws.workshopPhase.replace(/_/g, ' ')}
+                        <span className={`truncate ${active ? 'font-medium' : ''}`}>{s.title}</span>
                       </div>
                     </button>
                   );
                 })}
               </div>
-            )
-          ) : sessionsLoading ? (
-            <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
-          ) : sessionsError ? (
-            <div className="px-3 py-2 text-[12px] text-gray-500">{sessionsError}</div>
-          ) : sessions.length === 0 ? (
-            <div className="px-3 py-2 text-[12px] text-gray-500">No chats yet</div>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {sessions.map((s) => {
-                const active = s.id === conversationId;
-                const loading = loadingSessionId === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => handleLoadSession(s.id)}
-                    disabled={isStreaming || loading}
-                    className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors relative ${
-                      active
-                        ? 'bg-accent/15 text-white ring-1 ring-accent/40'
-                        : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
-                    } ${isStreaming || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={s.title}
-                    data-testid={`history-${s.id}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
-                      <span className={`truncate ${active ? 'font-medium' : ''}`}>{s.title}</span>
-                    </div>
-                  </button>
-                );
-              })}
+            )}
+          </div>
+
+          {hasActiveStages && (
+            <div className="mt-3 px-2 pb-2">
+              <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">Pipeline</h3>
+              <StageProgress stages={stages} />
             </div>
           )}
         </div>
-
-        {hasActiveStages && (
-          <div className="mt-3 px-2 overflow-y-auto sidebar-scroll">
-            <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">Pipeline</h3>
-            <StageProgress stages={stages} />
-          </div>
-        )}
-
-        <div className="flex-1" />
 
         <div className="border-t border-sidebar-border p-2">
           <div className="flex items-center gap-2.5 px-3 py-1.5 mb-1">
@@ -506,27 +504,27 @@ function AppContent() {
             onClick={() => setMobileDrawerOpen(false)}
             aria-label="Close menu"
           />
-          <div className="absolute left-0 top-0 bottom-0 w-[86%] max-w-[360px] bg-sidebar flex flex-col">
-              <div className="border-b border-sidebar-border px-4 py-4">
-                <div className="axiom-brand flex items-center gap-3">
-                  <div className="w-9 h-9 shrink-0 rounded-2xl bg-accent/90 flex items-center justify-center shadow-sm ring-1 ring-white/10">
-                    <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M3 21h18M3 10h18M12 3l9 7H3l9-7zM5 10v11m4-11v11m4-11v11m4-11v11" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="axiom-brand-name text-[17px] font-semibold leading-tight text-white">Axiom</div>
-                    <div className="axiom-brand-tagline text-[10px] uppercase tracking-[0.28em] text-gray-400">
-                      Architecture Intelligence
-                    </div>
+          <div className="absolute left-0 top-0 bottom-0 w-[92%] max-w-[380px] bg-sidebar flex flex-col pt-[env(safe-area-inset-top)]">
+            <div className="border-b border-sidebar-border px-4 py-4">
+              <div className="axiom-brand flex items-center gap-3">
+                <div className="w-9 h-9 shrink-0 rounded-2xl bg-accent/90 flex items-center justify-center shadow-sm ring-1 ring-white/10">
+                  <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 21h18M3 10h18M12 3l9 7H3l9-7zM5 10v11m4-11v11m4-11v11m4-11v11" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <div className="axiom-brand-name text-[17px] font-semibold leading-tight text-white">Axiom</div>
+                  <div className="axiom-brand-tagline text-[10px] uppercase tracking-[0.28em] text-gray-400">
+                    Architecture Intelligence
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="p-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 px-2 py-1">
+            <div className="p-2 flex items-center justify-between border-b border-sidebar-border">
+              <div className="flex min-w-0 items-center gap-2 px-2 py-1">
                 <span className="text-xs font-semibold text-gray-300">Menu</span>
-                {hasConversation && <span className="text-[10px] text-gray-500 truncate">Active session</span>}
+                <span className="text-[11px] text-gray-500 truncate">{activeViewLabel}</span>
               </div>
               <button
                 type="button"
@@ -540,124 +538,185 @@ function AppContent() {
               </button>
             </div>
 
-            <div className="px-2 pb-2">
-              <PillarNav />
-            </div>
+            <div className="flex-1 overflow-y-auto sidebar-scroll px-2 py-3 space-y-3">
+              <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/20">
+                <PillarNav mobile />
+              </section>
 
-            <div className="px-2 pb-2 flex flex-col gap-1.5">
-              <button
-                onClick={() => {
-                  resetConversation();
-                  setActiveView('chat');
-                  setMobileDrawerOpen(false);
-                }}
-                disabled={isStreaming}
-                className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors disabled:opacity-40"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M8 3v10M3 8h10" />
-                </svg>
-                New chat
-              </button>
-              {activeView === 'workshop' && (
+              <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/20 p-2 flex flex-col gap-1.5">
                 <button
                   onClick={() => {
+                    resetConversation();
+                    setActiveView('chat');
+                    setMobileDrawerOpen(false);
+                  }}
+                  disabled={isStreaming}
+                  className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-3 text-[14px] text-gray-100 hover:bg-sidebar-hover transition-colors disabled:opacity-40"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M8 3v10M3 8h10" />
+                  </svg>
+                  New chat
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveView('workshop');
                     setSelectedWorkshopSessionId(null);
                     setNewWorkshopKey((k) => k + 1);
                     setMobileDrawerOpen(false);
                   }}
-                  className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors"
+                  className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-3 text-[14px] text-gray-100 hover:bg-sidebar-hover transition-colors"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M8 3v10M3 8h10" />
                   </svg>
                   New workshop
                 </button>
-              )}
-            </div>
+              </section>
 
-            {hasActiveStages && (
-              <div className="px-2 pb-2">
-                <div className="rounded-lg border border-sidebar-border bg-sidebar-hover/30 p-2">
-                  <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-1 mb-1.5">Pipeline</h3>
-                  <StageProgress stages={stages} />
-                </div>
-              </div>
-            )}
+              <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/20 p-2">
+                <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-2 pb-1">Navigate</h3>
+                <nav className="flex flex-col gap-1">
+                  {NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        setActiveView(key);
+                        setMobileDrawerOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${
+                        activeView === key
+                          ? 'bg-sidebar-hover text-white'
+                          : 'text-gray-300 hover:bg-sidebar-hover hover:text-gray-100'
+                      }`}
+                      data-testid={`mobile-drawer-nav-${key}`}
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d={icon} />
+                      </svg>
+                      {label}
+                    </button>
+                  ))}
+                </nav>
+              </section>
 
-            <div className="mt-1 px-2 overflow-y-auto sidebar-scroll">
-              <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
-                {activeView === 'workshop' ? 'Workshops' : 'History'}
-              </h3>
-              {activeView === 'workshop' ? (
-                workshopSessionsLoading ? (
-                  <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
-                ) : workshopSessionsError ? (
-                  <div className="px-3 py-2 text-[12px] text-gray-500">{workshopSessionsError}</div>
-                ) : workshopSessions.length === 0 ? (
-                  <div className="px-3 py-2 text-[12px] text-gray-500">No workshops yet</div>
-                ) : (
-                  <div className="flex flex-col gap-1">
-                    {workshopSessions.map((ws) => {
-                      const active = ws.sessionId === selectedWorkshopSessionId;
-                      return (
-                        <button
-                          key={ws.sessionId}
-                          onClick={() => handleLoadWorkshopSession(ws.sessionId)}
-                          className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
-                            active
-                              ? 'bg-accent/15 text-white ring-1 ring-accent/40'
-                              : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
-                          }`}
-                          title={ws.systemName}
-                        >
-                          <div className="flex items-center gap-2">
-                            {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
-                            <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
-                          </div>
-                          <div className="text-[10px] text-gray-500 mt-0.5 truncate">
-                            {ws.workshopPhase.replace(/_/g, ' ')}
-                          </div>
-                        </button>
-                      );
-                    })}
+              {hasConversation && (
+                <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
+                  <div className="px-2 pt-1 pb-1 flex items-center gap-1.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
+                      Active session
+                    </span>
                   </div>
-                )
-              ) : sessionsLoading ? (
-                <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
-              ) : sessionsError ? (
-                <div className="px-3 py-2 text-[12px] text-gray-500">{sessionsError}</div>
-              ) : sessions.length === 0 ? (
-                <div className="px-3 py-2 text-[12px] text-gray-500">No chats yet</div>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  {sessions.map((s) => {
-                    const active = s.id === conversationId;
-                    const loading = loadingSessionId === s.id;
-                    return (
+                  <nav className="flex flex-col gap-1 px-1 pb-1">
+                    {NAV_ITEMS.filter(({ key }) => key === 'architecture' || key === 'governance').map(({ key, label, icon }) => (
                       <button
-                        key={s.id}
-                        onClick={() => handleLoadSession(s.id)}
-                        disabled={isStreaming || loading}
-                        className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors relative ${
-                          active
-                            ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                        key={key}
+                        onClick={() => {
+                          setActiveView(key);
+                          setMobileDrawerOpen(false);
+                        }}
+                        className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
+                          activeView === key
+                            ? 'bg-sidebar-hover text-white'
                             : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
-                        } ${isStreaming || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        title={s.title}
+                        }`}
+                        data-testid={`mobile-drawer-nav-${key}`}
                       >
-                        <div className="flex items-center gap-2">
-                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
-                          <span className={`truncate ${active ? 'font-medium' : ''}`}>{s.title}</span>
-                        </div>
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d={icon} />
+                        </svg>
+                        {label}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </nav>
+                </section>
+              )}
+
+              <details className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/20" open>
+                <summary className="list-none cursor-pointer px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest flex items-center justify-between">
+                  <span>{activeView === 'workshop' ? 'Workshops' : 'History'}</span>
+                  <span className="text-gray-400 text-[11px] normal-case">Toggle</span>
+                </summary>
+                <div className="px-2 pb-3">
+                  {activeView === 'workshop' ? (
+                    workshopSessionsLoading ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
+                    ) : workshopSessionsError ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">{workshopSessionsError}</div>
+                    ) : workshopSessions.length === 0 ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">No workshops yet</div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {workshopSessions.map((ws) => {
+                          const active = ws.sessionId === selectedWorkshopSessionId;
+                          return (
+                            <button
+                              key={ws.sessionId}
+                              onClick={() => handleLoadWorkshopSession(ws.sessionId)}
+                              className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors ${
+                                active
+                                  ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                  : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                              }`}
+                              title={ws.systemName}
+                            >
+                              <div className="flex items-center gap-2">
+                                {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                                <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
+                              </div>
+                              <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                                {ws.workshopPhase.replace(/_/g, ' ')}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )
+                  ) : sessionsLoading ? (
+                    <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
+                  ) : sessionsError ? (
+                    <div className="px-3 py-2 text-[12px] text-gray-500">{sessionsError}</div>
+                  ) : sessions.length === 0 ? (
+                    <div className="px-3 py-2 text-[12px] text-gray-500">No chats yet</div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      {sessions.map((s) => {
+                        const active = s.id === conversationId;
+                        const loading = loadingSessionId === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => handleLoadSession(s.id)}
+                            disabled={isStreaming || loading}
+                            className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors relative ${
+                              active
+                                ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                            } ${isStreaming || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title={s.title}
+                          >
+                            <div className="flex items-center gap-2">
+                              {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                              <span className={`truncate ${active ? 'font-medium' : ''}`}>{s.title}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
+              </details>
+
+              {hasActiveStages && (
+                <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
+                  <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-2 mb-1.5">Pipeline</h3>
+                  <StageProgress stages={stages} />
+                </section>
               )}
             </div>
 
-            <div className="border-t border-sidebar-border p-2">
+            <div className="border-t border-sidebar-border p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
               <div className="flex items-center gap-2.5 px-3 py-1.5 mb-1">
                 <div className="w-6 h-6 shrink-0 rounded-full bg-accent/80 flex items-center justify-center">
                   <span className="text-[10px] font-bold text-white">{(username ?? 'U')[0].toUpperCase()}</span>
