@@ -76,6 +76,7 @@ describe('App', () => {
     expect(screen.getByTestId('app-shell')).toBeInTheDocument();
     expect(screen.getByTestId('home-view')).toBeInTheDocument();
     expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('pillar-nav')).toBeInTheDocument();
     expect(screen.queryByTestId('login-view')).not.toBeInTheDocument();
   });
 

@@ -1,6 +1,8 @@
 import type { AuthTokenResponse } from '../types/api';
 
-const BASE = '/api/v1/auth';
+import { AUTH_BASE } from './config';
+
+const BASE = AUTH_BASE;
 const DEFAULT_NETWORK_ERROR = 'Network request failed. Please try again.';
 
 type PasswordResetErrorField = 'newPassword' | 'confirmPassword' | 'form';

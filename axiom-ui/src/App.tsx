@@ -16,6 +16,7 @@ import { HomeView } from './views/HomeView';
 import { ResetPasswordView } from './views/ResetPasswordView';
 import { WorkshopView } from './views/workshop/WorkshopView';
 import { StageProgress } from './components/StageProgress';
+import { PillarNav } from './components/PillarNav';
 import { ToastProvider, emitToast } from './components/Toast';
 import { getSessionMessages, listSessions } from './api/sessions';
 import { listWorkshopSessions } from './api/workshop';
@@ -291,6 +292,24 @@ function AppContent() {
     <div className="flex h-full" data-testid="app-shell">
       {/* ── Desktop sidebar ── */}
       <aside className="hidden md:flex w-[280px] shrink-0 bg-sidebar flex-col" data-testid="sidebar">
+        <div className="border-b border-sidebar-border px-4 py-4">
+          <div className="axiom-brand flex items-center gap-3">
+            <div className="w-10 h-10 shrink-0 rounded-2xl bg-accent/90 flex items-center justify-center shadow-sm ring-1 ring-white/10">
+              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 21h18M3 10h18M12 3l9 7H3l9-7zM5 10v11m4-11v11m4-11v11m4-11v11" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <div className="axiom-brand-name text-[18px] font-semibold leading-tight text-white">Axiom</div>
+              <div className="axiom-brand-tagline text-[11px] uppercase tracking-[0.28em] text-gray-400">
+                Architecture Intelligence
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <PillarNav />
+
         <div className="p-2 flex flex-col gap-1.5">
           <button
             onClick={() => {
@@ -488,7 +507,23 @@ function AppContent() {
             aria-label="Close menu"
           />
           <div className="absolute left-0 top-0 bottom-0 w-[86%] max-w-[360px] bg-sidebar flex flex-col">
-            <div className="p-2 flex items-center justify-between">
+              <div className="border-b border-sidebar-border px-4 py-4">
+                <div className="axiom-brand flex items-center gap-3">
+                  <div className="w-9 h-9 shrink-0 rounded-2xl bg-accent/90 flex items-center justify-center shadow-sm ring-1 ring-white/10">
+                    <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M3 21h18M3 10h18M12 3l9 7H3l9-7zM5 10v11m4-11v11m4-11v11m4-11v11" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="axiom-brand-name text-[17px] font-semibold leading-tight text-white">Axiom</div>
+                    <div className="axiom-brand-tagline text-[10px] uppercase tracking-[0.28em] text-gray-400">
+                      Architecture Intelligence
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-2 flex items-center justify-between">
               <div className="flex items-center gap-2 px-2 py-1">
                 <span className="text-xs font-semibold text-gray-300">Menu</span>
                 {hasConversation && <span className="text-[10px] text-gray-500 truncate">Active session</span>}
@@ -503,6 +538,10 @@ function AppContent() {
                   <path d="M4 4l8 8M12 4l-8 8" />
                 </svg>
               </button>
+            </div>
+
+            <div className="px-2 pb-2">
+              <PillarNav />
             </div>
 
             <div className="px-2 pb-2 flex flex-col gap-1.5">

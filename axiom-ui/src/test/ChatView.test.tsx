@@ -32,7 +32,7 @@ describe('ChatView', () => {
     render(<ChatView />);
     expect(screen.getByTestId('chat-view')).toBeInTheDocument();
     expect(screen.getByTestId('chat-empty')).toBeInTheDocument();
-    expect(screen.getByText('Archon')).toBeInTheDocument();
+    expect(screen.getByText('Axiom')).toBeInTheDocument();
   });
 
   it('rendersExamplePromptButtons', () => {

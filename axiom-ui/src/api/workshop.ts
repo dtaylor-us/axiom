@@ -1,4 +1,5 @@
 import { authFetchJson, ApiError } from './http';
+import { WORKSHOP_BASE } from './config';
 import type {
   WorkshopSessionSummary,
   WorkshopTurnResponse,
@@ -12,7 +13,7 @@ import type {
   ArchitectureImplicationDto,
 } from '../types/workshop';
 
-const BASE = '/api/v1/workshop/sessions';
+const BASE = `${WORKSHOP_BASE}/sessions`;
 
 async function authPost<T>(
   url: string,

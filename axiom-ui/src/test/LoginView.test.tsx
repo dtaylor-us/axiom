@@ -35,6 +35,7 @@ describe('LoginView', () => {
         <LoginView />
       </MemoryRouter>,
     );
+    expect(screen.getByRole('heading', { name: 'Axiom' })).toBeInTheDocument();
     expect(screen.getByTestId('login-view')).toBeInTheDocument();
     expect(screen.queryByTestId('auth-name')).not.toBeInTheDocument();
     expect(screen.getByTestId('auth-email')).toBeInTheDocument();

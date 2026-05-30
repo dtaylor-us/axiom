@@ -1,8 +1,10 @@
 package com.archon.api.config;
 
+import com.archon.api.security.GatewayHeaderAuthFilter;
 import com.archon.api.security.JwtAuthFilter;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -17,8 +19,19 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Security configuration for the application.
- * Configures authentication, authorization, and JWT-based security.
+ * Authentication configuration for archon-api.
+ *
+ * Two modes controlled by AXIOM_GATEWAY_BYPASS:
+ *
+ * BYPASS=false (production default):
+ *   Expects X-Axiom-User-Id header forwarded by axiom-api.
+ *   Rejects protected requests without this header with 401.
+ *   JWT is NOT validated here — axiom-api already did it.
+ *
+ * BYPASS=true (local development):
+ *   Falls back to direct JWT validation.
+ *   Allows testing archon-api without axiom-api running.
+ *   Never enable in production.
  */
 @Configuration
 @EnableWebSecurity
@@ -26,6 +39,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
+
+    @Value("${axiom.gateway.bypass:false}")
+    private boolean gatewayBypass;
 
     /**
      * Configures the security filter chain for HTTP requests.
@@ -57,8 +74,10 @@ public class SecurityConfig {
             .exceptionHandling(e -> e
                 .authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-            // Add JWT filter before username/password authentication filter
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            // In production mode, trust gateway identity headers; in local bypass mode, validate JWTs directly.
+            .addFilterBefore(
+                    gatewayBypass ? jwtAuthFilter : gatewayHeaderAuthFilter,
+                    UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

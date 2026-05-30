@@ -51,6 +51,51 @@ body {
   background: transparent;
 }
 
+.axiom-brand {
+  min-width: 0;
+}
+
+.axiom-brand-name {
+  letter-spacing: -0.02em;
+}
+
+.axiom-brand-tagline {
+  line-height: 1.2;
+}
+
+.pillar-nav {
+  border-bottom: 1px solid var(--color-sidebar-border);
+  padding-bottom: 0.5rem;
+}
+
+.pillar-nav-item {
+  width: 100%;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+
+.pillar-nav-item--active {
+  background: var(--color-sidebar-hover);
+}
+
+.pillar-nav-item--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.pillar-nav-item__coming-soon {
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: 9999px;
+  color: var(--color-sidebar-border);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
 .ownership-badge {
   display: inline-block;
   font-size: 10px;

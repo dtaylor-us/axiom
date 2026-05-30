@@ -1,7 +1,8 @@
 {
   "name": "axiom-ui",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Axiom Architecture Intelligence Platform",
   "type": "module",
   "scripts": {
     "dev": "vite",

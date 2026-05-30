@@ -10,7 +10,7 @@ const MIN_PASSWORD_LENGTH = 12;
 type AuthMode = 'login' | 'register';
 
 /**
- * Public login and registration screen for the Archon SPA.
+ * Public login and registration screen for the Axiom SPA.
  */
 export function LoginView() {
   const { setAuth } = useAuth();
@@ -63,7 +63,7 @@ export function LoginView() {
               <path d="M3 21h18M3 10h18M12 3l9 7H3l9-7zM5 10v11m4-11v11m4-11v11m4-11v11" />
             </svg>
           </div>
-          <h1 className="text-2xl font-semibold text-gray-800">Archon</h1>
+          <h1 className="text-2xl font-semibold text-gray-800">Axiom</h1>
           <p className="text-sm text-gray-500 mt-1">
             {mode === 'login' ? 'Sign in to your account' : 'Create a new account'}
           </p>

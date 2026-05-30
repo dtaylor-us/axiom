@@ -75,8 +75,17 @@ logging:
     console: "%d{ISO8601} [%thread] %-5level %logger{36} [traceId=%X{traceId:-} spanId=%X{spanId:-} conversationId=%X{conversationId:-}] - %msg%n"
 
 server:
-  port: 8080
+  port: ${ARCHON_API_PORT:8081}
   shutdown: graceful
+
+axiom:
+  gateway:
+    bypass: ${AXIOM_GATEWAY_BYPASS:false}
+    internal-secret: ${AXIOM_INTERNAL_SECRET:}
+    # When set, archon-api verifies the X-Axiom-Internal-Secret header
+    # matches this value before trusting X-Axiom-User-Id.
+    # Leave empty in local development (bypass=true covers it).
+    # In production, set to a shared secret also configured in axiom-api.
 
 security:
   jwt:

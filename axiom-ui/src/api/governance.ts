@@ -10,8 +10,9 @@ import type {
   BuyVsBuildDecision,
 } from '../types/api';
 import { authFetchJson } from './http';
+import { SESSIONS_BASE } from './config';
 
-const BASE = '/api/v1/sessions';
+const BASE = SESSIONS_BASE;
 
 export async function getTradeOffs(
   sessionId: string,

@@ -30,7 +30,7 @@ public class JwtService {
      * @param expirationMs the token expiration time (default: 86400000ms = 24 hours)
      */
     public JwtService(
-            @Value("${security.jwt.secret}") String secret,
+            @Value("${security.jwt.secret:super-secret-dev-key-change-in-prod-must-be-at-least-32-bytes}") String secret,
             @Value("${security.jwt.expiration-ms:86400000}") long expirationMs) {
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationMs;

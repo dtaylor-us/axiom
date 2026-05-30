@@ -148,9 +148,9 @@ export function ChatView() {
 
                 <div className="space-y-3">
                   <div>
-                    <h1 className="text-3xl font-semibold text-gray-900 tracking-tight">Archon</h1>
+                    <h1 className="text-3xl font-semibold text-gray-900 tracking-tight">Axiom</h1>
                     <p className="text-[15px] text-gray-600 mt-2 leading-relaxed max-w-2xl mx-auto">
-                      Describe your requirements once. Archon runs a structured architecture reasoning pipeline and returns
+                      Describe your requirements once. Axiom runs a structured architecture reasoning pipeline and returns
                       diagrams, decisions, and executable governance artifacts.
                     </p>
                   </div>
@@ -287,7 +287,7 @@ export function ChatView() {
                     </svg>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-gray-800 mb-1">Archon</p>
+                    <p className="text-xs font-semibold text-gray-800 mb-1">Axiom</p>
                     <MarkdownRenderer content={m.content} />
                     <div className="mt-1 -ml-0.5">
                       <CopyButton
@@ -354,7 +354,7 @@ export function ChatView() {
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-gray-800 mb-1">Archon</p>
+                  <p className="text-xs font-semibold text-gray-800 mb-1">Axiom</p>
                   {streamingText ? (
                     <>
                       <MarkdownRenderer content={streamingText} />
@@ -433,7 +433,7 @@ export function ChatView() {
 
           <div className="flex items-center justify-between mt-2 px-1">
             <p className="text-[11px] text-gray-400">
-              Archon may produce inaccurate designs. Verify critical decisions.
+              Axiom may produce inaccurate designs. Verify critical decisions.
             </p>
             <button
               type="button"

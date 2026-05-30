@@ -1,0 +1,5 @@
+axiom:
+  gateway:
+    bypass: false
+    # JWT validation is performed by axiom-api.
+    # archon-api trusts X-Axiom-User-Id header only.

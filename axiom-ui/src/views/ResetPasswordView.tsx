@@ -276,7 +276,7 @@ export function ResetPasswordView() {
           </div>
           <h1 className="text-2xl font-semibold text-gray-800">Set a new password</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Choose a new password for your Archon account.
+            Choose a new password for your Axiom account.
           </p>
         </div>
 

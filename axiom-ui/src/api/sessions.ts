@@ -1,7 +1,8 @@
 import type { ChatMessage, SessionSummary } from '../types/api';
 import { authFetchJson } from './http';
+import { SESSIONS_BASE } from './config';
 
-const BASE = '/api/v1/sessions';
+const BASE = SESSIONS_BASE;
 
 export async function listSessions(token: string): Promise<SessionSummary[]> {
   return authFetchJson<SessionSummary[]>(BASE, token);

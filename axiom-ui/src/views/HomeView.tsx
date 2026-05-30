@@ -1,7 +1,7 @@
 /**
- * Home / orientation landing view for Archon.
+ * Home / orientation landing view for Axiom.
  *
- * This view is static by design: it explains what Archon is, outlines the staged
+ * This view is static by design: it explains what Axiom is, outlines the staged
  * pipeline, and provides a clear entry point into a new architecture session.
  */
 export function HomeView({
@@ -61,13 +61,13 @@ export function HomeView({
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">
-                Archon
+                Axiom
               </h1>
               <p className="text-base font-medium text-gray-500 mt-1 tracking-wide">
                 An AI assistant for software architects
               </p>
               <p className="text-[15px] text-gray-600 mt-2 leading-relaxed max-w-3xl">
-                Archon is not a chatbot. It is a staged architecture reasoning pipeline that decomposes
+                Axiom is not a chatbot. It is a staged architecture reasoning pipeline that decomposes
                 design thinking into a governed, inspectable process.
               </p>
               <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-2.5">
@@ -531,7 +531,7 @@ export function HomeView({
               <div className="mt-3 rounded-xl border border-gray-200 bg-white p-4">
                 <p className="text-sm text-gray-700 leading-relaxed">
                   Most AI architecture tools produce one answer from one prompt with no intermediate reasoning and no
-                  traceability. Archon runs a structured review process that produces inspectable intermediate artifacts
+                  traceability. Axiom runs a structured review process that produces inspectable intermediate artifacts
                   at every stage.
                 </p>
                 <ul className="mt-3 space-y-2 text-sm text-gray-700">
@@ -626,7 +626,7 @@ export function HomeView({
               </div>
               <div className="mt-3 rounded-xl border border-gray-200 bg-white p-4">
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  Governance isn’t a PDF appendix. Archon produces ADL blocks intended to be enforceable via runnable
+                  Governance isn’t a PDF appendix. Axiom produces ADL blocks intended to be enforceable via runnable
                   rules (ArchUnit, PyTestArch, Semgrep).
                 </p>
                 <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
@@ -669,7 +669,7 @@ export function HomeView({
               </div>
               <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  Provide a requirements description. Archon executes the full pipeline and streams stage progress as it
+                  Provide a requirements description. Axiom executes the full pipeline and streams stage progress as it
                   completes.
                 </p>
                 <button

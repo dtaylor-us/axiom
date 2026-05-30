@@ -1,0 +1,16 @@
+/**
+ * Shared API base URL configuration for local and gateway-backed routing.
+ *
+ * VITE_USE_GATEWAY stays false for local development so the UI can run without
+ * axiom-api, and flips to true in gateway-backed environments.
+ */
+const USE_GATEWAY = import.meta.env.VITE_USE_GATEWAY === 'true';
+
+export const ARCHON_API_BASE = USE_GATEWAY ? '/api/v1/archon' : '/api/v1';
+
+export const AUTH_BASE = '/api/v1/auth';
+export const CHAT_BASE = `${ARCHON_API_BASE}/chat`;
+export const CONVERSATIONS_BASE = `${ARCHON_API_BASE}/conversations`;
+export const SESSIONS_BASE = `${ARCHON_API_BASE}/sessions`;
+export const WORKSHOP_BASE = `${ARCHON_API_BASE}/workshop`;
+export const PIPELINE_BASE = `${ARCHON_API_BASE}/pipeline`;

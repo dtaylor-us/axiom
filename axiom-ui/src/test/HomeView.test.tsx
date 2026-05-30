@@ -10,10 +10,10 @@ describe('HomeView', () => {
     expect(screen.getByTestId('home-view')).toBeInTheDocument();
   });
 
-  it('rendersArchonHeading', () => {
+  it('rendersAxiomHeading', () => {
     render(<HomeView onStartSession={vi.fn()} />);
 
-    expect(screen.getByRole('heading', { name: 'Archon' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Axiom' })).toBeInTheDocument();
   });
 
   it('rendersStartSessionButton', () => {

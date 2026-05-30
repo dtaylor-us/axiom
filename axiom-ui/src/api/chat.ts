@@ -1,11 +1,12 @@
 import type { AgentEvent } from '../types/api';
 import type { PipelineRunStatusDto } from '../types/api';
+import { CHAT_BASE, SESSIONS_BASE } from './config';
 
-const STREAM_URL = '/api/v1/chat/stream';
+const STREAM_URL = `${CHAT_BASE}/stream`;
 const RUN_STATUS_URL = (conversationId: string) =>
-  `/api/v1/sessions/${conversationId}/run/status`;
+  `${SESSIONS_BASE}/${conversationId}/run/status`;
 const REATTACH_URL = (conversationId: string, runId?: string) =>
-  `/api/v1/sessions/${conversationId}/run/stream${runId ? `?runId=${encodeURIComponent(runId)}` : ''}`;
+  `${SESSIONS_BASE}/${conversationId}/run/stream${runId ? `?runId=${encodeURIComponent(runId)}` : ''}`;
 
 async function readSseStream(
   res: Response,

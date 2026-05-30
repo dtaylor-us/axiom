@@ -63,6 +63,9 @@ Each ADL block is self-contained and can be independently converted into an exec
 | ADL-065  | archon-agent  | Scenario deduplication before pipeline | PyTestArch Python library | Hard        |
 | ADL-069  | archon-agent  | LLM provider abstraction       | PyTestArch Python library         | Hard        |
 | ADL-070  | archon-agent  | stage_name required on LLM calls | Custom fitness function via grep | Hard        |
+| ADL-071  | axiom-api/archon-api | Gateway is sole JWT validation point | ArchUnit Java library | Hard        |
+| ADL-072  | Cross-pillar   | Pillars must not import from each other | PyTestArch Python library | Hard        |
+| ADL-073  | Platform       | Maximum two services per pillar | Custom bash fitness function | Hard        |
 
 ## ADL blocks
 
@@ -74,10 +77,10 @@ REQUIRES Custom fitness function via grep
 DESCRIPTION Ensures the three deployed services have no compile-time dependencies on each other.
 PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that verifies no source file in any of the three services imports from another service's root namespace or module path. Exit with code 1 if a cross-service import is found.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE API Gateway Service AS com.archon.api
   DEFINE SERVICE Agent Orchestration Service AS app
-  DEFINE SERVICE UI Service AS ui/src
+  DEFINE SERVICE UI Service AS axiom-ui/src
 
 ASSERT(API Gateway Service has NO DEPENDENCY ON Agent Orchestration Service)
 ASSERT(API Gateway Service has NO DEPENDENCY ON UI Service)
@@ -93,15 +96,15 @@ ADL-002: API GATEWAY SERVICE — DOMAIN STRUCTURE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ArchUnit Java library
 DESCRIPTION Enforces that all classes in the API Gateway Service belong to one of the five defined domains.
-PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies every class under com.aiarchitect.api resides in one of the five domain packages (controller, domain, security, client, config). Use JUnit 5 and ArchUnit 1.x. The test class should be named ApiGatewayDomainStructureArchitectureTest.
+PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies every class under com.archon.api resides in one of the five domain packages (controller, domain, security, client, config). Use JUnit 5 and ArchUnit 1.x. The test class should be named ApiGatewayDomainStructureArchitectureTest.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
-    DEFINE DOMAIN Chat AS com.aiarchitect.api.controller
-    DEFINE DOMAIN Conversation AS com.aiarchitect.api.domain
-    DEFINE DOMAIN Security AS com.aiarchitect.api.security
-    DEFINE DOMAIN Bridge AS com.aiarchitect.api.client
-    DEFINE DOMAIN Configuration AS com.aiarchitect.api.config
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE API Gateway Service AS com.archon.api
+    DEFINE DOMAIN Chat AS com.archon.api.controller
+    DEFINE DOMAIN Conversation AS com.archon.api.domain
+    DEFINE DOMAIN Security AS com.archon.api.security
+    DEFINE DOMAIN Bridge AS com.archon.api.client
+    DEFINE DOMAIN Configuration AS com.archon.api.config
 
 FOREACH $X IN CLASSES DO
   ASSERT($X CONTAINED WITHIN {Chat, Conversation, Security, Bridge, Configuration})
@@ -114,18 +117,18 @@ ADL-003: API GATEWAY SERVICE — CONVERSATION DOMAIN COMPONENTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ArchUnit Java library
 DESCRIPTION Enforces that the seven conversation domain components are contained within the conversation domain and that all classes reside within a component.
-PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies the seven component packages exist within com.aiarchitect.api.domain and com.aiarchitect.api.service, and that every class within the conversation domain belongs to one of those component packages. Use JUnit 5 and ArchUnit 1.x. The test class should be named ConversationDomainComponentsArchitectureTest.
+PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies the seven component packages exist within com.archon.api.domain and com.archon.api.service, and that every class within the conversation domain belongs to one of those component packages. Use JUnit 5 and ArchUnit 1.x. The test class should be named ConversationDomainComponentsArchitectureTest.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
-    DEFINE DOMAIN Conversation AS com.aiarchitect.api.domain
-      DEFINE COMPONENT Conversation Model AS com.aiarchitect.api.domain.model
-      DEFINE COMPONENT Conversation Repository AS com.aiarchitect.api.domain.repository
-      DEFINE COMPONENT Chat Service AS com.aiarchitect.api.service
-      DEFINE COMPONENT Conversation Service AS com.aiarchitect.api.service
-      DEFINE COMPONENT Architecture Output Service AS com.aiarchitect.api.service
-      DEFINE COMPONENT ADL Service AS com.aiarchitect.api.service
-      DEFINE COMPONENT Trade Off Service AS com.aiarchitect.api.service
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE API Gateway Service AS com.archon.api
+    DEFINE DOMAIN Conversation AS com.archon.api.domain
+      DEFINE COMPONENT Conversation Model AS com.archon.api.domain.model
+      DEFINE COMPONENT Conversation Repository AS com.archon.api.domain.repository
+      DEFINE COMPONENT Chat Service AS com.archon.api.service
+      DEFINE COMPONENT Conversation Service AS com.archon.api.service
+      DEFINE COMPONENT Architecture Output Service AS com.archon.api.service
+      DEFINE COMPONENT ADL Service AS com.archon.api.service
+      DEFINE COMPONENT Trade Off Service AS com.archon.api.service
 
 FOREACH $X IN COMPONENTS DO
   ASSERT($X CONTAINED WITHIN Conversation)
@@ -142,10 +145,10 @@ ADL-004: API GATEWAY SERVICE — LLM CALL PROHIBITION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ArchUnit Java library
 DESCRIPTION Ensures the API Gateway Service has no dependency on any LLM client library.
-PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies no class under com.aiarchitect.api depends on com.theokanning.openai, com.azure.ai.openai, or dev.langchain4j packages. Use JUnit 5 and ArchUnit 1.x. The test class should be named LlmCallProhibitionArchitectureTest.
+PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies no class under com.archon.api depends on com.theokanning.openai, com.azure.ai.openai, or dev.langchain4j packages. Use JUnit 5 and ArchUnit 1.x. The test class should be named LlmCallProhibitionArchitectureTest.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE API Gateway Service AS com.archon.api
   DEFINE LIBRARY OpenAI Library AS com.theokanning.openai
   DEFINE LIBRARY Azure OpenAI Library AS com.azure.ai.openai
   DEFINE LIBRARY LangChain Library AS dev.langchain4j
@@ -161,10 +164,10 @@ ADL-005: API GATEWAY SERVICE — RESTTEMPLATE PROHIBITION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ArchUnit Java library
 DESCRIPTION Ensures no class in the API Gateway Service depends on RestTemplate.
-PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies no class under com.aiarchitect.api imports or depends on org.springframework.web.client.RestTemplate. Use JUnit 5 and ArchUnit 1.x. The test class should be named RestTemplateProhibitionArchitectureTest.
+PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies no class under com.archon.api imports or depends on org.springframework.web.client.RestTemplate. Use JUnit 5 and ArchUnit 1.x. The test class should be named RestTemplateProhibitionArchitectureTest.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE API Gateway Service AS com.archon.api
   DEFINE LIBRARY Rest Template AS org.springframework.web.client.RestTemplate
 
 FOREACH $X IN CLASSES DO
@@ -178,13 +181,13 @@ ADL-006: API GATEWAY SERVICE — BRIDGE DOMAIN ISOLATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ArchUnit Java library
 DESCRIPTION Ensures the bridge domain has no dependency on the conversation domain or chat domain.
-PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies classes in com.aiarchitect.api.client do not depend on com.aiarchitect.api.domain or com.aiarchitect.api.controller. Use JUnit 5 and ArchUnit 1.x. The test class should be named BridgeDomainIsolationArchitectureTest.
+PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies classes in com.archon.api.client do not depend on com.archon.api.domain or com.archon.api.controller. Use JUnit 5 and ArchUnit 1.x. The test class should be named BridgeDomainIsolationArchitectureTest.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
-    DEFINE DOMAIN Chat AS com.aiarchitect.api.controller
-    DEFINE DOMAIN Conversation AS com.aiarchitect.api.domain
-    DEFINE DOMAIN Bridge AS com.aiarchitect.api.client
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE API Gateway Service AS com.archon.api
+    DEFINE DOMAIN Chat AS com.archon.api.controller
+    DEFINE DOMAIN Conversation AS com.archon.api.domain
+    DEFINE DOMAIN Bridge AS com.archon.api.client
 
 ASSERT(Bridge has NO DEPENDENCY ON Conversation)
 ASSERT(Bridge has NO DEPENDENCY ON Chat)
@@ -196,12 +199,12 @@ ADL-007: API GATEWAY SERVICE — DATABASE ACCESS BOUNDARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ArchUnit Java library
 DESCRIPTION Ensures chat controller and agent bridge client have no dependency on JPA or JDBC libraries.
-PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies classes in com.aiarchitect.api.controller and com.aiarchitect.api.client do not depend on jakarta.persistence or org.springframework.jdbc. Use JUnit 5 and ArchUnit 1.x. The test class should be named DatabaseAccessBoundaryArchitectureTest.
+PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies classes in com.archon.api.controller and com.archon.api.client do not depend on jakarta.persistence or org.springframework.jdbc. Use JUnit 5 and ArchUnit 1.x. The test class should be named DatabaseAccessBoundaryArchitectureTest.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
-    DEFINE DOMAIN Chat AS com.aiarchitect.api.controller
-    DEFINE DOMAIN Bridge AS com.aiarchitect.api.client
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE API Gateway Service AS com.archon.api
+    DEFINE DOMAIN Chat AS com.archon.api.controller
+    DEFINE DOMAIN Bridge AS com.archon.api.client
   DEFINE LIBRARY JPA Library AS jakarta.persistence
   DEFINE LIBRARY JDBC Library AS org.springframework.jdbc
 
@@ -219,7 +222,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Enforces that all modules in the Agent Orchestration Service belong to one of the seven defined domains.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies every module under app resides in one of the seven domain packages (pipeline, tools, llm, memory, models, prompts, api). Use pytest and pyTestArch. The test function should be named test_agent_domain_structure.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
     DEFINE DOMAIN Tools AS app.tools
@@ -242,7 +245,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Enforces that graph and nodes components are contained within the pipeline domain.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies app.pipeline.graph and app.pipeline.nodes modules reside within the app.pipeline package. Use pytest and pyTestArch. The test function should be named test_pipeline_domain_components.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
       DEFINE COMPONENT Graph AS app.pipeline.graph
@@ -260,7 +263,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Enforces that all twelve tool components are contained within the tools domain.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies all twelve tool modules reside within the app.tools package. Use pytest and pyTestArch. The test function should be named test_tools_domain_components.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Tools AS app.tools
       DEFINE COMPONENT Base Tool AS app.tools.base
@@ -289,7 +292,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures the tools domain has no dependency on the pipeline or api domains.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app.tools imports from app.pipeline or app.api. Use pytest and pyTestArch. The test function should be named test_tool_dependency_rule.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
     DEFINE DOMAIN Tools AS app.tools
@@ -307,7 +310,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures the nodes component depends on tool registry only and not on the broader tools domain directly.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies app.pipeline.nodes imports only from app.tools.registry and does not import from any other module under app.tools. Use pytest and pyTestArch. The test function should be named test_pipeline_nodes_dependency_rule.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
       DEFINE COMPONENT Nodes AS app.pipeline.nodes
@@ -336,7 +339,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures tools, pipeline, and memory domains have no dependency on OpenAI or LangChain libraries.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app.tools, app.pipeline, or app.memory imports from the openai or langchain_openai packages. Use pytest and pyTestArch. The test function should be named test_llm_domain_isolation.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Tools AS app.tools
     DEFINE DOMAIN Pipeline AS app.pipeline
@@ -360,7 +363,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures tools and pipeline domains have no dependency on the Qdrant client library.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app.tools or app.pipeline imports from the qdrant_client package. Use pytest and pyTestArch. The test function should be named test_memory_domain_isolation.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Tools AS app.tools
     DEFINE DOMAIN Pipeline AS app.pipeline
@@ -378,7 +381,7 @@ REQUIRES Custom fitness function via grep
 DESCRIPTION Ensures no tool class contains an inline prompt string exceeding 200 characters.
 PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that scans all Python files under app/tools/ for string literals longer than 200 characters and flags them as inline prompt templates that should be moved to Jinja2 files in app/prompts/. Exit with code 1 if any match is found.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Tools AS app.tools
       DEFINE COMPONENT Base Tool AS app.tools.base
@@ -408,7 +411,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures ArchitectureContext is only contained within the models domain and that tools, pipeline, and api domains depend on models.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies app.models.context is only within app.models, and that app.tools, app.pipeline, and app.api each import from app.models. Use pytest and pyTestArch. The test function should be named test_architecture_context_ownership.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Models AS app.models
       DEFINE COMPONENT Context AS app.models.context
@@ -430,7 +433,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures pipeline, tools, memory, and llm domains have no dependency on the api domain.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app.pipeline, app.tools, app.memory, or app.llm imports from app.api. Use pytest and pyTestArch. The test function should be named test_api_domain_boundary.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
     DEFINE DOMAIN Tools AS app.tools
@@ -452,7 +455,7 @@ REQUIRES Custom fitness function via grep
 DESCRIPTION Ensures every pipeline node emits STAGE_START and STAGE_COMPLETE events.
 PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that parses app/pipeline/nodes.py and verifies every async stage function emits both a STAGE_START and STAGE_COMPLETE event. Exit with code 1 if any stage function is missing either event.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
       DEFINE COMPONENT Nodes AS app.pipeline.nodes
@@ -471,9 +474,9 @@ ADL-019: AGENT ORCHESTRATION SERVICE — SECRET PROHIBITION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES Custom fitness function via Semgrep
 DESCRIPTION Ensures no domain in the agent service contains hardcoded credential strings.
-PROMPT Based on this pseudo-code, write a Semgrep rule in YAML that detects hardcoded API keys (strings starting with sk-), hardcoded password assignments, and hardcoded secret assignments in Python files under app/. The rule id should be aiarchitect-secret-prohibition.
+PROMPT Based on this pseudo-code, write a Semgrep rule in YAML that detects hardcoded API keys (strings starting with sk-), hardcoded password assignments, and hardcoded secret assignments in Python files under app/. The rule id should be axiom-secret-prohibition.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
     DEFINE DOMAIN Pipeline AS app.pipeline
     DEFINE DOMAIN Tools AS app.tools
@@ -499,16 +502,16 @@ ADL-020: UI SERVICE — DOMAIN STRUCTURE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ESLint with import plugin
 DESCRIPTION Enforces that all modules in the UI Service belong to one of the six defined domains.
-PROMPT Based on this pseudo-code, write an ESLint configuration rule using the eslint-plugin-import that enforces all source files under ui/src reside within one of the six defined domain directories (views, components, hooks, api, store, types). Output as a valid .eslintrc.json fragment.
+PROMPT Based on this pseudo-code, write an ESLint configuration rule using the eslint-plugin-import that enforces all source files under axiom-ui/src reside within one of the six defined domain directories (views, components, hooks, api, store, types). Output as a valid .eslintrc.json fragment.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE UI Service AS ui/src
-    DEFINE DOMAIN Views AS ui/src/views
-    DEFINE DOMAIN Components AS ui/src/components
-    DEFINE DOMAIN Hooks AS ui/src/hooks
-    DEFINE DOMAIN API Client AS ui/src/api
-    DEFINE DOMAIN Store AS ui/src/store
-    DEFINE DOMAIN Types AS ui/src/types
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE UI Service AS axiom-ui/src
+    DEFINE DOMAIN Views AS axiom-ui/src/views
+    DEFINE DOMAIN Components AS axiom-ui/src/components
+    DEFINE DOMAIN Hooks AS axiom-ui/src/hooks
+    DEFINE DOMAIN API Client AS axiom-ui/src/api
+    DEFINE DOMAIN Store AS axiom-ui/src/store
+    DEFINE DOMAIN Types AS axiom-ui/src/types
 
 FOREACH $X IN CLASSES DO
   ASSERT($X CONTAINED WITHIN {Views, Components, Hooks, API Client, Store, Types})
@@ -521,12 +524,12 @@ ADL-021: UI SERVICE — API CALL BOUNDARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ESLint with import plugin
 DESCRIPTION Ensures views and components domains do not directly depend on the fetch API.
-PROMPT Based on this pseudo-code, write an ESLint configuration rule using the eslint-plugin-import that prohibits direct use of the fetch function in files under ui/src/views and ui/src/components, requiring all HTTP calls to go through ui/src/api modules instead. Output as a valid .eslintrc.json fragment.
+PROMPT Based on this pseudo-code, write an ESLint configuration rule using the eslint-plugin-import that prohibits direct use of the fetch function in files under axiom-ui/src/views and axiom-ui/src/components, requiring all HTTP calls to go through axiom-ui/src/api modules instead. Output as a valid .eslintrc.json fragment.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE UI Service AS ui/src
-    DEFINE DOMAIN Views AS ui/src/views
-    DEFINE DOMAIN Components AS ui/src/components
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE UI Service AS axiom-ui/src
+    DEFINE DOMAIN Views AS axiom-ui/src/views
+    DEFINE DOMAIN Components AS axiom-ui/src/components
   DEFINE LIBRARY Fetch API AS fetch
 
 ASSERT(Views has NO DEPENDENCY ON Fetch API)
@@ -539,13 +542,13 @@ ADL-022: UI SERVICE — STATE MANAGEMENT BOUNDARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ESLint with import plugin
 DESCRIPTION Ensures views depend on hooks (not store directly) and hooks depend on store.
-PROMPT Based on this pseudo-code, write an ESLint configuration rule using the eslint-plugin-import that prohibits files under ui/src/views from importing directly from ui/src/store, while allowing ui/src/hooks to import from ui/src/store. Views must access state exclusively through hooks. Output as a valid .eslintrc.json fragment.
+PROMPT Based on this pseudo-code, write an ESLint configuration rule using the eslint-plugin-import that prohibits files under axiom-ui/src/views from importing directly from axiom-ui/src/store, while allowing axiom-ui/src/hooks to import from axiom-ui/src/store. Views must access state exclusively through hooks. Output as a valid .eslintrc.json fragment.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE UI Service AS ui/src
-    DEFINE DOMAIN Views AS ui/src/views
-    DEFINE DOMAIN Hooks AS ui/src/hooks
-    DEFINE DOMAIN Store AS ui/src/store
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE UI Service AS axiom-ui/src
+    DEFINE DOMAIN Views AS axiom-ui/src/views
+    DEFINE DOMAIN Hooks AS axiom-ui/src/hooks
+    DEFINE DOMAIN Store AS axiom-ui/src/store
 
 ASSERT(Views DEPENDS ON Hooks)
 ASSERT(Views has NO DEPENDENCY ON Store)
@@ -558,16 +561,16 @@ ADL-023: UI SERVICE — TOKEN STORAGE PROHIBITION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES Custom fitness function via grep
 DESCRIPTION Ensures no domain in the UI service stores tokens in localStorage or sessionStorage.
-PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that scans all TypeScript and TSX files under ui/src/ for calls to localStorage.setItem or sessionStorage.setItem. Exit with code 1 if any match is found.
+PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that scans all TypeScript and TSX files under axiom-ui/src/ for calls to localStorage.setItem or sessionStorage.setItem. Exit with code 1 if any match is found.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE UI Service AS ui/src
-    DEFINE DOMAIN Views AS ui/src/views
-    DEFINE DOMAIN Components AS ui/src/components
-    DEFINE DOMAIN Hooks AS ui/src/hooks
-    DEFINE DOMAIN API Client AS ui/src/api
-    DEFINE DOMAIN Store AS ui/src/store
-    DEFINE DOMAIN Types AS ui/src/types
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE UI Service AS axiom-ui/src
+    DEFINE DOMAIN Views AS axiom-ui/src/views
+    DEFINE DOMAIN Components AS axiom-ui/src/components
+    DEFINE DOMAIN Hooks AS axiom-ui/src/hooks
+    DEFINE DOMAIN API Client AS axiom-ui/src/api
+    DEFINE DOMAIN Store AS axiom-ui/src/store
+    DEFINE DOMAIN Types AS axiom-ui/src/types
   DEFINE CONST FORBIDDEN_LOCAL_STORAGE AS "localStorage.setItem"
   DEFINE CONST FORBIDDEN_SESSION_STORAGE AS "sessionStorage.setItem"
 
@@ -585,7 +588,7 @@ REQUIRES PyTestArch Python library
 DESCRIPTION Ensures the Agent Orchestration Service has no dependency on PostgreSQL client libraries.
 PROMPT Based on this pseudo-code, write a PyTestArch test in Python that verifies no module under app imports from psycopg2, asyncpg, or sqlalchemy. Use pytest and pyTestArch. The test function should be named test_agent_database_access_prohibition.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
+DEFINE SYSTEM Axiom AS com.archon
   DEFINE SERVICE Agent Orchestration Service AS app
   DEFINE LIBRARY Psycopg2 AS psycopg2
   DEFINE LIBRARY Asyncpg AS asyncpg
@@ -602,10 +605,10 @@ ADL-025: CROSS-SERVICE — QDRANT ACCESS PROHIBITION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES ArchUnit Java library
 DESCRIPTION Ensures the API Gateway Service has no dependency on the Qdrant Java client.
-PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies no class under com.aiarchitect.api depends on the io.qdrant package. Use JUnit 5 and ArchUnit 1.x. The test class should be named QdrantAccessProhibitionArchitectureTest.
+PROMPT Based on this pseudo-code, write an ArchUnit test in Java that verifies no class under com.archon.api depends on the io.qdrant package. Use JUnit 5 and ArchUnit 1.x. The test class should be named QdrantAccessProhibitionArchitectureTest.
 
-DEFINE SYSTEM Axiom AS com.aiarchitect
-  DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
+DEFINE SYSTEM Axiom AS com.archon
+  DEFINE SERVICE API Gateway Service AS com.archon.api
   DEFINE LIBRARY Qdrant Java Client AS io.qdrant
 
 ASSERT(API Gateway Service has NO DEPENDENCY ON Qdrant Java Client)
@@ -626,7 +629,7 @@ Emit a PASS or FAIL result with file and line details on failure.
 DEFINE SYSTEM Axiom
   DEFINE SERVICE API Gateway Service AS archon-api
   DEFINE SERVICE Agent Orchestration Service AS archon-agent
-  DEFINE COMPONENT Tactic Entity AS com.aiarchitect.api.domain.model.ArchitectureTactic
+  DEFINE COMPONENT Tactic Entity AS com.archon.api.domain.model.ArchitectureTactic
 
 ASSERT(Tactic Entity CONTAINED WITHIN API Gateway Service)
 ASSERT(Agent Orchestration Service has NO DEPENDENCY ON Tactic Entity)
@@ -647,10 +650,10 @@ PROMPT Based on this pseudo-code, write a bash fitness function that:
 Emit PASS if no violations are found, FAIL with file and line details otherwise.
 
 DEFINE SYSTEM Axiom
-  DEFINE SERVICE API Gateway Service AS com.aiarchitect.api
-  DEFINE COMPONENT ChatService AS com.aiarchitect.api.service.ChatService
-  DEFINE COMPONENT TacticsService AS com.aiarchitect.api.service.TacticsService
-  DEFINE COMPONENT TacticRepository AS com.aiarchitect.api.domain.repository.TacticRepository
+  DEFINE SERVICE API Gateway Service AS com.archon.api
+  DEFINE COMPONENT ChatService AS com.archon.api.service.ChatService
+  DEFINE COMPONENT TacticsService AS com.archon.api.service.TacticsService
+  DEFINE COMPONENT TacticRepository AS com.archon.api.domain.repository.TacticRepository
 
 ASSERT(TacticRepository EXCLUSIVELY ACCESSED BY TacticsService)
 ASSERT(TacticsService.saveTactics EXCLUSIVELY CALLED BY ChatService)
@@ -696,9 +699,9 @@ PROMPT Based on this pseudo-code, write a bash script for GitHub Actions that ch
            issuer is configured rather than a self-signed certificate.
        (3) helm/axiom/templates/ingress.yaml contains a tls: block.
        Exit with code 1 if any check fails.
-       Rule id: aiarchitect-https-enforcement.
+       Rule id: axiom-https-enforcement.
 
-DEFINE SYSTEM AIArchitect AS helm/axiom
+DEFINE SYSTEM Axiom AS helm/axiom
 DEFINE CONST TLS_ANNOTATION    AS "ssl-redirect"
 DEFINE CONST ISSUER_REFERENCE  AS "letsencrypt"
 DEFINE CONST TLS_BLOCK         AS "tls:"
@@ -885,7 +888,7 @@ DESCRIPTION Assert resolve_questions node appears in the workshop graph and is w
              reconcile_gaps and elicit_scenarios (answer-to-artifact binding).
 ENFORCEMENT Automated: pytest inspects agent.py source; bash checks edge strings.
 
-DEFINE SYSTEM AIArchitect AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE COMPONENT WorkshopAgent AS app.workshop.agent
 DEFINE CONST RESOLVE_NODE AS "resolve_questions"
 
@@ -900,7 +903,7 @@ DESCRIPTION Assert that elicit_scenarios prompt template receives all_evidence s
              extraction searches the full conversation history, not only the latest turn.
 ENFORCEMENT Automated: bash script greps app/prompts/workshop/elicit_scenarios.j2 for all_evidence.
 
-DEFINE SYSTEM AIArchitect AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE COMPONENT ScenarioPrompt AS app/prompts/workshop/elicit_scenarios.j2
 DEFINE CONST FULL_EVIDENCE_VAR AS "all_evidence"
 
@@ -956,8 +959,8 @@ DESCRIPTION Assert that PasswordResetService never persists the raw password res
             PasswordResetToken.tokenHash. The raw token may exist only in the reset email link.
 ENFORCEMENT Automated: bash script greps PasswordResetService.java for raw-token persistence.
 
-DEFINE SYSTEM AIArchitect AS com.aiarchitect.api
-DEFINE COMPONENT PasswordResetService AS com.aiarchitect.api.service.PasswordResetService
+DEFINE SYSTEM Axiom AS com.archon.api
+DEFINE COMPONENT PasswordResetService AS com.archon.api.service.PasswordResetService
 DEFINE CONST TOKEN_STORAGE AS "bcrypt hash only"
 
 ASSERT(PasswordResetService CONTAINS passwordEncoder.encode)
@@ -978,7 +981,7 @@ ENFORCEMENT Unit test: TestHasSufficientForUtilityTree.test_true_at_threshold
             Unit test: TestUtilityTreeGenerator.test_generate_returns_none_when_threshold_not_met
             Unit test: TestUtilityTreeGenerator.test_generate_returns_existing_tree_on_llm_failure
 
-DEFINE SYSTEM AIArchitect AS archon-agent
+DEFINE SYSTEM Axiom AS archon-agent
 DEFINE COMPONENT UtilityTreeGenerator AS app.workshop.utility_tree_generator.UtilityTreeGenerator
 DEFINE CONST SCENARIO_THRESHOLD AS 5
 DEFINE CONST ATTRIBUTE_THRESHOLD AS 3
@@ -1005,7 +1008,7 @@ ENFORCEMENT Unit test: TestSynthesiseReturnsEmptyWhenNoTree.test_synthesise_retu
             Unit test: TestImplicationMaxGuard.test_max_implications_guard
             Unit test: TestSynthesiseExtractsDriverScenarios.test_synthesise_returns_existing_on_llm_failure
 
-DEFINE SYSTEM AIArchitect AS archon-agent
+DEFINE SYSTEM Axiom AS archon-agent
 DEFINE COMPONENT ImplicationSynthesiser AS app.workshop.implication_synthesiser.ImplicationSynthesiser
 DEFINE CONST MAX_IMPLICATIONS AS 20
 
@@ -1031,9 +1034,9 @@ PROMPT "Write a bash script that checks:
         (2) app/workshop/implication_synthesiser.py contains
         PROHIBITED_MECHANISM_TERMS as a module constant.
         Exit 1 if either check fails.
-        Rule: aiarchitect-no-mechanism-implications."
+        Rule: axiom-no-mechanism-implications."
 
-DEFINE SYSTEM AIArchitect AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE COMPONENT ImplicationPrompt
   AS app/prompts/workshop/synthesise_implications.j2
 DEFINE COMPONENT ImplicationSynthesiser
@@ -1058,9 +1061,9 @@ PROMPT "Write an ArchUnit test in Java that verifies
         This ensures all attributes reach the pipeline.
         Test: test_all_attributes_forwarded_to_pipeline."
 
-DEFINE SYSTEM AIArchitect AS com.aiarchitect.api
+DEFINE SYSTEM Axiom AS com.archon.api
 DEFINE COMPONENT WorkshopController
-  AS com.aiarchitect.api.workshop.controller.WorkshopController
+  AS com.archon.api.workshop.controller.WorkshopController
 
 ASSERT(WorkshopController CONTAINS formatWorkshopOutputAsRequirements)
 
@@ -1077,11 +1080,11 @@ PROMPT "Write a bash script that checks:
         (2) WorkshopController.java contains
         'Idempotency-Key' as a request header read.
         Exit 1 if either check fails.
-        Rule: aiarchitect-workshop-idempotency-key."
+        Rule: axiom-workshop-idempotency-key."
 
-DEFINE SYSTEM AIArchitect AS com.aiarchitect.api
+DEFINE SYSTEM Axiom AS com.archon.api
 DEFINE COMPONENT WorkshopController
-  AS com.aiarchitect.api.workshop.controller.WorkshopController
+  AS com.archon.api.workshop.controller.WorkshopController
 DEFINE CONST IDEMPOTENCY_HEADER AS "Idempotency-Key"
 
 ASSERT(WorkshopController CONTAINS IDEMPOTENCY_HEADER)
@@ -1100,7 +1103,7 @@ PROMPT "Write a pytest test that creates a WorkshopContext
         returns only one of them. Test:
         test_deduplicated_scenarios_removes_duplicates."
 
-DEFINE SYSTEM AIArchitect AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE COMPONENT WorkshopContext AS app.workshop.context
 DEFINE CONST DEDUP_PROPERTY AS "deduplicated_scenarios"
 
@@ -1120,7 +1123,7 @@ PROMPT "Write a pytest test that creates an ArchitectureContext
         and verifies each entry has a 'constraint' field.
         Test: test_canonical_decisions_from_buy_decisions."
 
-DEFINE SYSTEM AIArchitect AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE COMPONENT ArchitectureContext AS app.models.context
 DEFINE CONST CANONICAL_DECISIONS AS "canonical_decisions"
 
@@ -1138,9 +1141,9 @@ PROMPT "Write a bash script that checks
         '_validate_interactions' as a method and that it
         contains the string 'undefined' in a check context
         (not as a value being set). Exit 1 if the method
-        is absent. Rule: aiarchitect-interaction-contracts."
+        is absent. Rule: axiom-interaction-contracts."
 
-DEFINE SYSTEM AIArchitect AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE COMPONENT ArchitectureGenerator
   AS app.tools.architecture_generator
 DEFINE CONST VALIDATE_INTERACTIONS AS "_validate_interactions"
@@ -1160,9 +1163,9 @@ PROMPT "Write a bash script that checks
         the string 'score_evidence' in the return format
         and the string 'Count' or 'count' in the scoring
         instructions. Exit 1 if either is missing.
-        Rule: aiarchitect-governance-score-grounded."
+        Rule: axiom-governance-score-grounded."
 
-DEFINE SYSTEM AIArchitect AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE COMPONENT GovernanceScorePrompt
   AS app/prompts/review_governance_score.j2
 
@@ -1180,7 +1183,7 @@ PROMPT "Write a PyTestArch test verifying that no module in app.tools or
         must go through app.llm.client. Tests: test_tools_no_openai_import and
         test_workshop_no_direct_llm_calls."
 
-DEFINE SYSTEM AIArchitect AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE DOMAIN Tools AS app.tools
 DEFINE DOMAIN Workshop AS app.workshop
 DEFINE COMPONENT LLMClient AS app.llm.client
@@ -1199,12 +1202,88 @@ PROMPT "Write a bash script that searches app/tools/ and app/workshop/ for
         calls to llm_client.complete( and verifies each call includes
         'stage_name=' as a keyword argument. Exit 1 with the file and line if
         any call is missing stage_name. Rule:
-        aiarchitect-llm-stage-name-required."
+        axiom-llm-stage-name-required."
 
-DEFINE SYSTEM AIArchitect AS app
+DEFINE SYSTEM Axiom AS app
 DEFINE CONST STAGE_NAME_PARAM AS "stage_name="
 
 ASSERT(LLMClient CONTAINS STAGE_NAME_PARAM)
+
+---
+
+ADL-071: AXIOM-API IS THE SOLE JWT VALIDATION POINT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES ArchUnit Java library
+DESCRIPTION Assert that archon-api does not contain JWT validation
+            logic when AXIOM_GATEWAY_BYPASS is false. JWT validation
+            belongs exclusively in axiom-api. archon-api trusts the
+            X-Axiom-User-Id header forwarded by the gateway.
+PROMPT "Write an ArchUnit test verifying that when
+        axiom.gateway.bypass property is false, no class in
+        com.archon.api reads the Authorization header or imports
+        io.jsonwebtoken except within classes annotated with
+        @ConditionalOnProperty(name='axiom.gateway.bypass',
+        havingValue='true'). Test class: GatewayAuthBoundaryTest."
+
+DEFINE SYSTEM Axiom AS com.axiom
+DEFINE COMPONENT ArchonApi AS com.archon.api
+DEFINE LIBRARY JJWT AS io.jsonwebtoken
+DEFINE CONST BypassOnly AS classes annotated with bypass condition
+
+ASSERT(ArchonApi JWT_VALIDATION only IN BypassOnly)
+
+---
+
+ADL-072: PILLARS MUST NOT IMPORT FROM EACH OTHER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES PyTestArch Python library
+DESCRIPTION Assert that no pillar agent imports from another pillar's
+            module. Cross-pillar communication is HTTP only.
+            Shared utilities may live in a common module but
+            business logic must not cross pillar boundaries.
+PROMPT "Write a PyTestArch test verifying that app.archon has
+        no imports from app.specweaver, app.scout, or app.forge.
+        Repeat for each pillar. Test file:
+        tests/architecture/test_pillar_isolation.py"
+
+DEFINE SYSTEM Axiom AS app
+DEFINE PILLAR Archon AS app.archon
+DEFINE PILLAR SpecWeaver AS app.specweaver
+DEFINE PILLAR Scout AS app.scout
+DEFINE PILLAR Forge AS app.forge
+
+ASSERT(Archon has NO DEPENDENCY ON SpecWeaver)
+ASSERT(Archon has NO DEPENDENCY ON Scout)
+ASSERT(Archon has NO DEPENDENCY ON Forge)
+ASSERT(SpecWeaver has NO DEPENDENCY ON Archon)
+ASSERT(SpecWeaver has NO DEPENDENCY ON Scout)
+ASSERT(SpecWeaver has NO DEPENDENCY ON Forge)
+
+---
+
+ADL-073: MAXIMUM TWO SERVICES PER PILLAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES Custom bash fitness function
+DESCRIPTION Each pillar directory must contain at most two service
+            subdirectories: one *-api and one *-agent.
+            This enforces the two-service-per-pillar platform rule
+            and prevents scope creep through service proliferation.
+PROMPT "Write a bash script that checks each pillar directory
+        (archon, specweaver, scout, forge) contains at most two
+        subdirectories matching the patterns *-api and *-agent.
+        Exit 1 if any pillar has more than two service directories.
+        Add this script to .github/workflows/ci.yml as a step
+        named 'Check pillar service count'. Rule name:
+        axiom-two-service-limit."
+
+DEFINE SYSTEM Axiom AS platform root directory
+DEFINE CONST MaxServicesPerPillar AS 2
+DEFINE PILLAR Archon AS ./archon/
+DEFINE PILLAR SpecWeaver AS ./specweaver/
+DEFINE PILLAR Scout AS ./scout/
+DEFINE PILLAR Forge AS ./forge/
+
+ASSERT(EACH PILLAR CONTAINS AT MOST MaxServicesPerPillar services)
 
 ## Enforcement levels
 
@@ -1258,3 +1337,6 @@ ASSERT(LLMClient CONTAINS STAGE_NAME_PARAM)
 | ADL-068  | Hard        | Governance scoring must be grounded in artifact counts and expose evidence strings. Static scores across different systems are a scoring engine failure. |
 | ADL-069  | Hard        | Direct provider imports outside app.llm would bypass the provider switch and scatter LLM credentials across modules. |
 | ADL-070  | Hard        | Stage names drive Ollama model-tier selection and latency budgeting; missing names silently route calls to the wrong model. |
+| ADL-071  | Hard        | JWT validation must live exclusively in axiom-api when gateway bypass is disabled. Duplicating JWT parsing in archon-api would split authentication policy and make header trust ambiguous. |
+| ADL-072  | Hard        | Pillars are independently bounded architecture domains. Direct imports would bypass the HTTP-only platform contract and create hidden coupling between roadmap phases. |
+| ADL-073  | Hard        | The platform rule allows one API service and one agent service per pillar. Extra services expand operational scope and violate the intended deployment model. |
