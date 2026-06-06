@@ -4,9 +4,23 @@ import userEvent from '@testing-library/user-event';
 import { GovernanceView, ScoreDimension } from '../views/GovernanceView';
 
 let governanceState: Record<string, unknown>;
+let sourcingState: Record<string, unknown>;
+let architectureState: Record<string, unknown>;
 
 vi.mock('../hooks/useGovernance', () => ({
   useGovernance: () => governanceState,
+}));
+
+vi.mock('../hooks/useBuyVsBuild', () => ({
+  useBuyVsBuild: () => sourcingState,
+}));
+
+vi.mock('../hooks/useArchitecture', () => ({
+  useArchitecture: () => architectureState,
+}));
+
+vi.mock('../hooks/useTactics', () => ({
+  useTactics: () => ({ tactics: [], summary: null, loading: false }),
 }));
 
 // Mock child components
@@ -28,8 +42,21 @@ describe('GovernanceView', () => {
       adl: null,
       weaknesses: null,
       fmea: [],
+      governanceReport: null,
       loading: false,
       error: null,
+    };
+    sourcingState = {
+      summary: null,
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+    };
+    architectureState = {
+      architecture: null,
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
     };
   });
 
@@ -123,6 +150,42 @@ describe('GovernanceView', () => {
     await user.click(screen.getByTestId('tab-fmea'));
     expect(screen.getByTestId('panel-fmea')).toBeInTheDocument();
     expect(screen.getByTestId('mock-severity-grid')).toHaveTextContent('1 entries');
+  });
+
+  it('fillsMissingSourcingDecisionsFromComponentOwnership', async () => {
+    architectureState.architecture = {
+      conversationId: 'conv-1',
+      style: 'Layered',
+      componentDiagram: 'graph TD; A-->B',
+      sequenceDiagram: 'sequenceDiagram\nA->>B: ping',
+      interactions: [],
+      components: [
+        {
+          name: 'Authentication Service',
+          ownership: 'bought-saas',
+          responsibility: 'User authentication',
+          technology: 'Auth0',
+        },
+      ],
+    };
+    sourcingState.summary = {
+      summaryText: '',
+      totalDecisions: 0,
+      buildCount: 0,
+      buyCount: 0,
+      adoptCount: 0,
+      conflictCount: 0,
+      decisions: [],
+    };
+
+    const user = userEvent.setup();
+    render(<GovernanceView />);
+
+    await user.click(screen.getByTestId('tab-sourcing'));
+
+    expect(screen.getByText('Buy 1')).toBeInTheDocument();
+    expect(screen.getByText('Authentication Service')).toBeInTheDocument();
+    expect(screen.getByText('Decision inferred from component ownership metadata.')).toBeInTheDocument();
   });
 
   it('scoreDimension_rendersEvidenceTextBelowBar', () => {

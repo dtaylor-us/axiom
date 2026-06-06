@@ -1,10 +1,13 @@
 import type { AgentEvent } from '../types/api';
 import type { PipelineRunStatusDto } from '../types/api';
-import { CHAT_BASE, SESSIONS_BASE } from './config';
+import type { PipelineStatusDto } from '../types/api';
+import { CHAT_BASE, CONVERSATIONS_BASE, SESSIONS_BASE } from './config';
 
 const STREAM_URL = `${CHAT_BASE}/stream`;
 const RUN_STATUS_URL = (conversationId: string) =>
   `${SESSIONS_BASE}/${conversationId}/run/status`;
+const PIPELINE_STATUS_URL = (conversationId: string) =>
+  `${CONVERSATIONS_BASE}/${conversationId}/pipeline-status`;
 const REATTACH_URL = (conversationId: string, runId?: string) =>
   `${SESSIONS_BASE}/${conversationId}/run/stream${runId ? `?runId=${encodeURIComponent(runId)}` : ''}`;
 
@@ -167,4 +170,21 @@ export async function reattachStream(
     if ((e as Error).name === 'AbortError') return;
     // Reattach stream closes after replay; do not treat as unexpected.
   });
+}
+
+export async function getPipelineStatus(
+  conversationId: string,
+  token: string,
+): Promise<PipelineStatusDto | null> {
+  const res = await fetch(PIPELINE_STATUS_URL(conversationId), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Pipeline status failed: ${res.status} ${text}`);
+  }
+
+  return (await res.json()) as PipelineStatusDto;
 }

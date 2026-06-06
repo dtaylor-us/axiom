@@ -10,6 +10,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,7 +27,7 @@ public class ConversationService {
                                             String userId,
                                             String firstMessage) {
         if (conversationId != null) {
-            return conversationRepo.findByIdAndUserId(conversationId, userId)
+                        return conversationRepo.findByIdAndUserIdIn(conversationId, ownershipAliasesFor(userId))
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "Conversation not found"));
         }
@@ -70,7 +73,7 @@ public class ConversationService {
                                              String userId,
                                              int limit) {
         // Ensure the authenticated user owns this conversation.
-        conversationRepo.findByIdAndUserId(conversationId, userId)
+        conversationRepo.findByIdAndUserIdIn(conversationId, ownershipAliasesFor(userId))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Conversation not found"));
         return getRecentMessages(conversationId, limit);
@@ -78,7 +81,7 @@ public class ConversationService {
 
     @Transactional(readOnly = true)
     public List<SessionDto> listSessions(String userId) {
-        return conversationRepo.findByUserIdOrderByCreatedAtDesc(userId)
+        return conversationRepo.findByUserIdInOrderByCreatedAtDesc(ownershipAliasesFor(userId))
                 .stream()
                 .map(c -> SessionDto.builder()
                         .id(c.getId())
@@ -99,8 +102,44 @@ public class ConversationService {
      */
     @Transactional(readOnly = true)
     public Conversation getConversation(UUID conversationId, String userId) {
-        return conversationRepo.findByIdAndUserId(conversationId, userId)
+                return conversationRepo.findByIdAndUserIdIn(conversationId, ownershipAliasesFor(userId))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Conversation not found"));
     }
+
+        /**
+         * Retrieves a conversation while distinguishing unknown vs forbidden access.
+         *
+         * <p>Used by endpoints that must return 403 for foreign-owned conversations
+         * and 404 only when the conversation does not exist.</p>
+         */
+        @Transactional(readOnly = true)
+        public Conversation getConversationOrForbidden(UUID conversationId, String userId) {
+                Conversation conversation = conversationRepo.findById(conversationId)
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Conversation not found"));
+
+                boolean isOwner = conversationRepo.findByIdAndUserIdIn(conversationId, ownershipAliasesFor(userId))
+                                .isPresent();
+                if (!isOwner) {
+                        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+                }
+
+                return conversation;
+        }
+
+        private List<String> ownershipAliasesFor(String userId) {
+                List<String> aliases = new ArrayList<>();
+                aliases.add(userId);
+
+                // Older conversations created through SpecWeaver handoff were stored
+                // under a stable UUID derived from the raw principal. Keep them visible
+                // until the data is fully normalized to the raw JWT subject.
+                String derivedUuid = UUID.nameUUIDFromBytes(userId.getBytes(StandardCharsets.UTF_8)).toString();
+                if (!derivedUuid.equals(userId)) {
+                        aliases.add(derivedUuid);
+                }
+
+                return aliases;
+        }
 }

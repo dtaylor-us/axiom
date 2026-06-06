@@ -97,9 +97,11 @@ DEFINE service archon-api {
   DOES_NOT_OWN: [ArchitectureContext, pipeline logic, LLM calls, tool execution]
   EXPOSES: [
     POST /api/v1/chat/stream,
+    POST /api/v1/conversations,
     POST /api/v1/auth/forgot-password,
     POST /api/v1/auth/reset-password,
     GET /api/v1/auth/reset-password/validate,
+    GET /api/v1/conversations/{id}/pipeline-status,
     GET /api/v1/sessions/{id}/messages,
     GET /api/v1/sessions/{id}/architecture,
     GET /api/v1/sessions/{id}/diagram,

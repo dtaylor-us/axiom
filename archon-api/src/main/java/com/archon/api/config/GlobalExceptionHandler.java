@@ -1,6 +1,7 @@
 package com.archon.api.config;
 
 import com.archon.api.exception.AgentCommunicationException;
+import com.archon.api.exception.DuplicatePipelineRunException;
 import com.archon.api.exception.InvalidResetTokenException;
 import com.archon.api.exception.PasswordValidationException;
 import com.archon.api.exception.RateLimitExceededException;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -202,6 +204,31 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("urn:archon:agent-unavailable"));
         return pd;
     }
+
+        /**
+         * Handles attempts to start a second pipeline while one is already running.
+         */
+        @ExceptionHandler(DuplicatePipelineRunException.class)
+        public ProblemDetail handleDuplicatePipelineRun(DuplicatePipelineRunException ex) {
+                log.warn("Duplicate pipeline run rejected: {}", ex.getMessage());
+                ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                                HttpStatus.CONFLICT,
+                                ex.getMessage());
+                pd.setTitle("Conflict");
+                pd.setType(URI.create("urn:archon:duplicate-pipeline-run"));
+                return pd;
+        }
+
+        /**
+         * Handles client-aborted async responses (for example SSE tab navigation).
+         *
+         * These are transport-level disconnects, not server processing failures.
+         */
+        @ExceptionHandler(AsyncRequestNotUsableException.class)
+        public ResponseEntity<Void> handleAsyncRequestNotUsable(AsyncRequestNotUsableException ex) {
+                log.debug("Client disconnected during async response: {}", ex.getMessage());
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        }
 
     /**
      * Fallback handler for all unhandled exceptions.

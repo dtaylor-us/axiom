@@ -34,6 +34,7 @@ class GatewayRoutingConfigTest {
     private static final String JWT_SECRET = "abcdefghijklmnopqrstuvwxyz123456";
 
     private static MockWebServer archonServer;
+    private static MockWebServer specweaverServer;
 
     @LocalServerPort
     private int localPort;
@@ -45,17 +46,22 @@ class GatewayRoutingConfigTest {
     static void startServer() throws IOException {
         archonServer = new MockWebServer();
         archonServer.start();
+        specweaverServer = new MockWebServer();
+        specweaverServer.start();
     }
 
     @AfterAll
     static void stopServer() throws IOException {
         archonServer.shutdown();
+        specweaverServer.shutdown();
     }
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
         registry.add("ARCHON_API_BASE_URL", () -> archonServer.url("/").toString());
+        registry.add("SPECWEAVER_API_BASE_URL", () -> specweaverServer.url("/").toString());
         registry.add("JWT_SECRET", () -> JWT_SECRET);
+        registry.add("AXIOM_INTERNAL_SECRET", () -> "test-internal-secret");
     }
 
     /**
@@ -68,15 +74,39 @@ class GatewayRoutingConfigTest {
         archonServer.enqueue(new MockResponse().setResponseCode(200).setBody("ok"));
 
         webTestClient.get()
-                .uri("http://localhost:" + localPort + "/api/v1/archon/actuator/health")
+            .uri("http://localhost:" + localPort + "/api/v1/archon/conversations")
                 .header("Authorization", "Bearer " + createToken("user-1", "user@example.com", 300))
                 .exchange()
                 .expectStatus().isOk();
 
         RecordedRequest request = archonServer.takeRequest();
-        assertEquals("/actuator/health", request.getPath());
+        assertEquals("/api/v1/conversations", request.getPath());
         assertEquals("archon", request.getHeader("X-Axiom-Pillar"));
-        assertEquals("1", request.getHeader("X-Axiom-Gateway-Version"));
+        assertEquals("user-1", request.getHeader("X-Axiom-User-Id"));
+        assertEquals("user@example.com", request.getHeader("X-Axiom-Email"));
+        assertEquals("test-internal-secret", request.getHeader("X-Axiom-Internal-Secret"));
+    }
+
+    /**
+     * Confirms the SpecWeaver route strips /api/v1/specweaver and adds routing headers.
+     *
+     * @throws Exception when mock server request capture fails
+     */
+    @Test
+    void specweaverRoute_stripsPrefixAndAddsHeaders() throws Exception {
+        specweaverServer.enqueue(new MockResponse().setResponseCode(200).setBody("ok"));
+
+        webTestClient.get()
+            .uri("http://localhost:" + localPort + "/api/v1/specweaver/sessions")
+                .header("Authorization", "Bearer " + createToken("user-2", "person@example.com", 300))
+                .exchange()
+                .expectStatus().isOk();
+
+        RecordedRequest request = specweaverServer.takeRequest();
+        assertEquals("/api/v1/sessions", request.getPath());
+        assertEquals("specweaver", request.getHeader("X-Axiom-Pillar"));
+        assertEquals("user-2", request.getHeader("X-Axiom-User-Id"));
+        assertEquals("person@example.com", request.getHeader("X-Axiom-Email"));
     }
 
     /**

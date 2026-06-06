@@ -17,6 +17,7 @@ import reactor.core.publisher.SynchronousSink;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service @RequiredArgsConstructor @Slf4j
@@ -55,6 +56,8 @@ public class ChatService {
         AtomicReference<Map<String, Object>> structuredMap = new AtomicReference<>();
         AtomicReference<Map<String, Object>> completePayload = new AtomicReference<>();
         AtomicReference<UUID> runIdRef = new AtomicReference<>();
+        AtomicReference<String> lastStageRef = new AtomicReference<>();
+        AtomicBoolean sawCompleteEvent = new AtomicBoolean(false);
 
         // Use switchOnFirst to defer pipeline run creation until the agent emits
         // its first successful signal. This preserves the ability for the
@@ -121,12 +124,16 @@ public class ChatService {
                                                 conversation.getId(), e);
                                     }
                                 }
+                                if (chunk.getStage() != null && !chunk.getStage().isBlank()) {
+                                    lastStageRef.set(chunk.getStage());
+                                }
                                 if (chunk.getType() == AgentResponse.EventType.CHUNK
                                         && chunk.getContent() != null) {
                                     buffer.get().append(chunk.getContent());
                                 }
                                 if (chunk.getType() == AgentResponse.EventType.COMPLETE
                                         && chunk.getPayload() != null) {
+                                    sawCompleteEvent.set(true);
                                     try {
                                         structuredOutput.set(
                                                 objectMapper.writeValueAsString(chunk.getPayload()));
@@ -146,6 +153,26 @@ public class ChatService {
                                         log.warn("Failed to serialize structured output", e);
                                     }
                                 }
+                            })
+                            .doOnError(throwable -> {
+                                UUID runId = runIdRef.get();
+                                if (runId == null) {
+                                    return;
+                                }
+                                String errorMessage = "Agent stream terminated before COMPLETE: "
+                                        + throwable.getClass().getSimpleName()
+                                        + " - "
+                                        + (throwable.getMessage() != null
+                                        ? throwable.getMessage()
+                                        : "no message");
+                                pipelineRunService.failRun(runId, lastStageRef.get(), errorMessage);
+                                pipelineRunBroadcaster.complete(runId);
+                                log.warn(
+                                        "Pipeline run failed due to stream error. runId={} stage={} error={}",
+                                        runId,
+                                        lastStageRef.get(),
+                                        errorMessage
+                                );
                             })
                             .doOnComplete(() -> {
                                 // Schedule blocking JPA persistence off the reactive thread
@@ -226,6 +253,20 @@ public class ChatService {
                                             } catch (Exception e) {
                                                 log.warn("Failed to complete pipeline run. runId={}", runId, e);
                                             }
+                                            } else if (runId != null && !sawCompleteEvent.get()) {
+                                                String incompleteMessage = "Agent stream ended without COMPLETE event";
+                                                pipelineRunService.failRun(
+                                                    runId,
+                                                    lastStageRef.get(),
+                                                    incompleteMessage
+                                                );
+                                                pipelineRunBroadcaster.complete(runId);
+                                                log.warn(
+                                                    "Pipeline run marked failed because stream completed without COMPLETE. "
+                                                        + "runId={} stage={}",
+                                                    runId,
+                                                    lastStageRef.get()
+                                                );
                                         }
                                         log.info("Stream complete conversation={}", conversation.getId());
                                     } catch (Exception e) {

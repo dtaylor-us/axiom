@@ -2,6 +2,7 @@ package com.archon.api.domain.repository;
 
 import com.archon.api.domain.model.Conversation;
 import org.springframework.data.jpa.repository.JpaRepository;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +24,11 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
      *         sorted by creation date (most recent first); empty list if no conversations found
      */
     List<Conversation> findByUserIdOrderByCreatedAtDesc(String userId);
+
+    /**
+     * Retrieves all conversations for any of the supplied ownership aliases.
+     */
+    List<Conversation> findByUserIdInOrderByCreatedAtDesc(List<String> userIds);
     
     /**
      * Retrieves a single conversation by its ID and user ID.
@@ -36,4 +42,9 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
      *         or empty if the conversation does not exist or does not belong to the specified user
      */
     Optional<Conversation> findByIdAndUserId(UUID id, String userId);
+
+    /**
+     * Retrieves a single conversation by ID for any accepted ownership alias.
+     */
+    Optional<Conversation> findByIdAndUserIdIn(UUID id, List<String> userIds);
 }

@@ -3,6 +3,8 @@ package com.archon.api;
 import com.archon.api.domain.model.*;
 import com.archon.api.domain.repository.ConversationRepository;
 import com.archon.api.domain.repository.MessageRepository;
+import com.archon.api.domain.repository.PipelineEventRepository;
+import com.archon.api.domain.repository.PipelineRunRepository;
 import com.archon.api.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,14 +23,164 @@ class SessionControllerIntegrationTest {
     @Autowired private JwtService jwtService;
     @Autowired private ConversationRepository conversationRepo;
     @Autowired private MessageRepository messageRepo;
+        @Autowired private PipelineRunRepository pipelineRunRepository;
+        @Autowired private PipelineEventRepository pipelineEventRepository;
 
     private String validToken;
 
     @BeforeEach
     void setUp() {
+        pipelineEventRepository.deleteAll();
+        pipelineRunRepository.deleteAll();
         messageRepo.deleteAll();
         conversationRepo.deleteAll();
         validToken = jwtService.generateToken("test@example.com");
+    }
+
+    @Test
+    void getPipelineStatus_returnsCompletedStagesForCompletedRun() {
+        Conversation conv = conversationRepo.save(Conversation.builder()
+                .userId("test@example.com").title("test conv").build());
+
+        PipelineRun run = pipelineRunRepository.save(PipelineRun.builder()
+                .conversation(conv)
+                .iteration(0)
+                .status(PipelineRunStatus.COMPLETED)
+                .lastStageCompleted("requirement_challenge")
+                .governanceScore(83)
+                .hasGaps(false)
+                .build());
+
+        pipelineEventRepository.save(PipelineEvent.builder()
+                .run(run)
+                .sequenceNum(0)
+                .eventType("STAGE_START")
+                .stageName("requirement_parsing")
+                .payload("{\"type\":\"STAGE_START\",\"stage\":\"requirement_parsing\"}")
+                .build());
+        pipelineEventRepository.save(PipelineEvent.builder()
+                .run(run)
+                .sequenceNum(1)
+                .eventType("STAGE_COMPLETE")
+                .stageName("requirement_parsing")
+                .payload("{\"type\":\"STAGE_COMPLETE\",\"stage\":\"requirement_parsing\"}")
+                .build());
+        pipelineEventRepository.save(PipelineEvent.builder()
+                .run(run)
+                .sequenceNum(2)
+                .eventType("STAGE_START")
+                .stageName("requirement_challenge")
+                .payload("{\"type\":\"STAGE_START\",\"stage\":\"requirement_challenge\"}")
+                .build());
+        pipelineEventRepository.save(PipelineEvent.builder()
+                .run(run)
+                .sequenceNum(3)
+                .eventType("STAGE_COMPLETE")
+                .stageName("requirement_challenge")
+                .payload("{\"type\":\"STAGE_COMPLETE\",\"stage\":\"requirement_challenge\"}")
+                .build());
+
+        webTestClient.get()
+                .uri("/api/v1/conversations/{id}/pipeline-status", conv.getId())
+                .header("Authorization", "Bearer " + validToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.runId").isEqualTo(run.getId().toString())
+                .jsonPath("$.status").isEqualTo("COMPLETED")
+                .jsonPath("$.lastStageCompleted").isEqualTo("requirement_challenge")
+                .jsonPath("$.completedStages.length()").isEqualTo(2)
+                .jsonPath("$.completedStages[0]").isEqualTo("requirement_parsing")
+                .jsonPath("$.completedStages[1]").isEqualTo("requirement_challenge")
+                .jsonPath("$.activeStage").isEmpty()
+                .jsonPath("$.events.length()").isEqualTo(4)
+                .jsonPath("$.governanceScore").isEqualTo(83)
+                .jsonPath("$.hasGaps").isEqualTo(false);
+    }
+
+    @Test
+    void getPipelineStatus_returnsRunningWithPartialEvents() {
+        Conversation conv = conversationRepo.save(Conversation.builder()
+                .userId("test@example.com").title("running conv").build());
+
+        PipelineRun run = pipelineRunRepository.save(PipelineRun.builder()
+                .conversation(conv)
+                .iteration(0)
+                .status(PipelineRunStatus.RUNNING)
+                .lastStageCompleted("requirement_parsing")
+                .hasGaps(false)
+                .build());
+
+        pipelineEventRepository.save(PipelineEvent.builder()
+                .run(run)
+                .sequenceNum(0)
+                .eventType("STAGE_START")
+                .stageName("requirement_parsing")
+                .payload("{\"type\":\"STAGE_START\",\"stage\":\"requirement_parsing\"}")
+                .build());
+        pipelineEventRepository.save(PipelineEvent.builder()
+                .run(run)
+                .sequenceNum(1)
+                .eventType("STAGE_COMPLETE")
+                .stageName("requirement_parsing")
+                .payload("{\"type\":\"STAGE_COMPLETE\",\"stage\":\"requirement_parsing\"}")
+                .build());
+        pipelineEventRepository.save(PipelineEvent.builder()
+                .run(run)
+                .sequenceNum(2)
+                .eventType("STAGE_START")
+                .stageName("requirement_challenge")
+                .payload("{\"type\":\"STAGE_START\",\"stage\":\"requirement_challenge\"}")
+                .build());
+
+        webTestClient.get()
+                .uri("/api/v1/conversations/{id}/pipeline-status", conv.getId())
+                .header("Authorization", "Bearer " + validToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("RUNNING")
+                .jsonPath("$.completedStages.length()").isEqualTo(1)
+                .jsonPath("$.completedStages[0]").isEqualTo("requirement_parsing")
+                .jsonPath("$.activeStage").isEqualTo("requirement_challenge")
+                .jsonPath("$.events.length()").isEqualTo(3);
+    }
+
+    @Test
+    void getPipelineStatus_returns404WhenNoRunExists() {
+        Conversation conv = conversationRepo.save(Conversation.builder()
+                .userId("test@example.com").title("test conv").build());
+
+        webTestClient.get()
+                .uri("/api/v1/conversations/{id}/pipeline-status", conv.getId())
+                .header("Authorization", "Bearer " + validToken)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void getPipelineStatus_returns403ForOtherUsersConversation() {
+        Conversation conv = conversationRepo.save(Conversation.builder()
+                .userId("someone-else@example.com").title("other conv").build());
+
+        PipelineRun run = pipelineRunRepository.save(PipelineRun.builder()
+                .conversation(conv)
+                .iteration(0)
+                .status(PipelineRunStatus.RUNNING)
+                .build());
+        pipelineEventRepository.save(PipelineEvent.builder()
+                .run(run)
+                .sequenceNum(0)
+                .eventType("STAGE_START")
+                .stageName("requirement_parsing")
+                .payload("{\"type\":\"STAGE_START\",\"stage\":\"requirement_parsing\"}")
+                .build());
+
+        webTestClient.get()
+                .uri("/api/v1/conversations/{id}/pipeline-status", conv.getId())
+                .header("Authorization", "Bearer " + validToken)
+                .exchange()
+                .expectStatus().isForbidden();
     }
 
     @Test

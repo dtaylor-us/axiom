@@ -1,0 +1,1533 @@
+{
+  "test1": {
+    "session": "7821ce5b-8248-4559-95fd-f61efe0325cd",
+    "status": "PACKAGE_READY",
+    "elapsed": 10,
+    "inner": {
+      "gaps": [],
+      "conflicts": [],
+      "createdAt": "2026-05-31T20:59:45.305891+00:00",
+      "packageId": "0e82e699-b463-476c-8bb2-80bbac17bec3",
+      "sessionId": "7821ce5b-8248-4559-95fd-f61efe0325cd",
+      "requirements": [
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must handle 50000 transactions per hour at peak load.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-merged-001",
+          "sourceExcerpts": [
+            "The system must handle 50000 transactions per hour at peak load.",
+            "Peak throughput requirement is 50k TPS."
+          ],
+          "sourceDocumentIds": [
+            "1b77132a-6ae0-43ea-93e3-d78d9ddbcbd0",
+            "50b7530a-bd07-4f5e-9c90-27a064e2ff7e"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "All users must authenticate before accessing the system.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-merged-002",
+          "sourceExcerpts": [
+            "All users must authenticate before accessing the system.",
+            "Authentication is required for all system access."
+          ],
+          "sourceDocumentIds": [
+            "1b77132a-6ae0-43ea-93e3-d78d9ddbcbd0",
+            "50b7530a-bd07-4f5e-9c90-27a064e2ff7e"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must store data encrypted at rest using AES-256.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-merged-003",
+          "sourceExcerpts": [
+            "The system must store data encrypted at rest using AES-256.",
+            "Data at rest must use AES-256 encryption."
+          ],
+          "sourceDocumentIds": [
+            "1b77132a-6ae0-43ea-93e3-d78d9ddbcbd0",
+            "50b7530a-bd07-4f5e-9c90-27a064e2ff7e"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Reports must be generated in under 5 seconds.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-merged-004",
+          "sourceExcerpts": [
+            "Reports must be generated in under 5 seconds.",
+            "Report generation must complete within 5 seconds."
+          ],
+          "sourceDocumentIds": [
+            "1b77132a-6ae0-43ea-93e3-d78d9ddbcbd0",
+            "50b7530a-bd07-4f5e-9c90-27a064e2ff7e"
+          ],
+          "inferenceReasoning": null
+        }
+      ],
+      "inferredCount": 0,
+      "readinessScore": 0.0,
+      "sourceDocuments": [
+        {
+          "filename": "document.txt",
+          "document_id": "1b77132a-6ae0-43ea-93e3-d78d9ddbcbd0",
+          "source_label": "Document 1 - Initial requirements",
+          "document_type": "plain_text"
+        },
+        {
+          "filename": "document.txt",
+          "document_id": "50b7530a-bd07-4f5e-9c90-27a064e2ff7e",
+          "source_label": "Document 2 - Confirmed requirements",
+          "document_type": "plain_text"
+        }
+      ],
+      "systemDescription": "The system is designed to handle high transaction volumes, ensuring secure data storage with AES-256 encryption and requiring user authentication for access. It also provides rapid report generation, completing the process in under 5 seconds.",
+      "totalRequirements": 4,
+      "highConfidenceCount": 4
+    }
+  },
+  "test2": {
+    "session": "51c3cfe9-c3b4-4a4c-aa40-62fffde8732d",
+    "status": "PACKAGE_READY",
+    "elapsed": 10,
+    "inner": {
+      "gaps": [],
+      "conflicts": [],
+      "createdAt": "2026-05-31T21:00:42.342920+00:00",
+      "packageId": "d3d36b59-f910-4f3d-bdbb-794292cc7d4e",
+      "sessionId": "51c3cfe9-c3b4-4a4c-aa40-62fffde8732d",
+      "requirements": [
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must encrypt data at rest.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b7d89dba-001",
+          "sourceExcerpts": [
+            "The system must encrypt data at rest."
+          ],
+          "sourceDocumentIds": [
+            "b7d89dba-aa23-4a26-ab5d-3d5b84a3974e"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must encrypt data in transit.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b7d89dba-002",
+          "sourceExcerpts": [
+            "The system must encrypt data in transit."
+          ],
+          "sourceDocumentIds": [
+            "b7d89dba-aa23-4a26-ab5d-3d5b84a3974e"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must encrypt backup files.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b7d89dba-003",
+          "sourceExcerpts": [
+            "The system must encrypt backup files."
+          ],
+          "sourceDocumentIds": [
+            "b7d89dba-aa23-4a26-ab5d-3d5b84a3974e"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Response time must be under 2 seconds.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b7d89dba-004",
+          "sourceExcerpts": [
+            "Response time must be under 2 seconds."
+          ],
+          "sourceDocumentIds": [
+            "b7d89dba-aa23-4a26-ab5d-3d5b84a3974e"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Response time for reports must be under 10 seconds.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b7d89dba-005",
+          "sourceExcerpts": [
+            "Response time for reports must be under 10 seconds."
+          ],
+          "sourceDocumentIds": [
+            "b7d89dba-aa23-4a26-ab5d-3d5b84a3974e"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "Users must log in with username and password.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b7d89dba-006",
+          "sourceExcerpts": [
+            "Users must log in with username and password."
+          ],
+          "sourceDocumentIds": [
+            "b7d89dba-aa23-4a26-ab5d-3d5b84a3974e"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "Admins must log in with username, password, and MFA.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b7d89dba-007",
+          "sourceExcerpts": [
+            "Admins must log in with username, password, and MFA."
+          ],
+          "sourceDocumentIds": [
+            "b7d89dba-aa23-4a26-ab5d-3d5b84a3974e"
+          ],
+          "inferenceReasoning": null
+        }
+      ],
+      "inferredCount": 0,
+      "readinessScore": 0.0,
+      "sourceDocuments": [
+        {
+          "filename": "document.txt",
+          "document_id": "b7d89dba-aa23-4a26-ab5d-3d5b84a3974e",
+          "source_label": "Test 2 - Consolidation non-merging doc 1",
+          "document_type": "plain_text"
+        }
+      ],
+      "systemDescription": "The system is designed to ensure secure data handling by encrypting data at rest, in transit, and in backup files. It provides fast response times for general operations and report generation, while requiring users and admins to authenticate with secure login methods, including multi-factor authentication for admins.",
+      "totalRequirements": 7,
+      "highConfidenceCount": 7
+    }
+  },
+  "test3": {
+    "session": "a2e039f5-e595-4f4d-8561-8f13b707f4b0",
+    "status": "PACKAGE_READY",
+    "elapsed": 10,
+    "inner": {
+      "gaps": [],
+      "conflicts": [],
+      "createdAt": "2026-05-31T21:01:14.086938+00:00",
+      "packageId": "bf35bce8-49d1-4087-a4d0-359bbebda309",
+      "sessionId": "a2e039f5-e595-4f4d-8561-8f13b707f4b0",
+      "requirements": [
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "Users can browse, search, and purchase books.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-d735f1e3-001",
+          "sourceExcerpts": [
+            "Users can browse, search, and purchase books."
+          ],
+          "sourceDocumentIds": [
+            "d735f1e3-5b3b-4906-bc8b-4fe02f47a11b"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The shopping cart must persist for 30 days.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-d735f1e3-002",
+          "sourceExcerpts": [
+            "The shopping cart must persist for 30 days."
+          ],
+          "sourceDocumentIds": [
+            "d735f1e3-5b3b-4906-bc8b-4fe02f47a11b"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "INTEGRATION",
+          "category": "integrations",
+          "statement": "The system must integrate with Stripe for payments.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-d735f1e3-003",
+          "sourceExcerpts": [
+            "The system must integrate with Stripe for payments."
+          ],
+          "sourceDocumentIds": [
+            "d735f1e3-5b3b-4906-bc8b-4fe02f47a11b"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Product images must load in under 3 seconds.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-d735f1e3-004",
+          "sourceExcerpts": [
+            "Product images must load in under 3 seconds."
+          ],
+          "sourceDocumentIds": [
+            "d735f1e3-5b3b-4906-bc8b-4fe02f47a11b"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "The system must support 10000 product listings.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-d735f1e3-005",
+          "sourceExcerpts": [
+            "The system must support 10000 product listings."
+          ],
+          "sourceDocumentIds": [
+            "d735f1e3-5b3b-4906-bc8b-4fe02f47a11b"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "Order history must be visible to logged-in users.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-d735f1e3-006",
+          "sourceExcerpts": [
+            "Order history must be visible to logged-in users."
+          ],
+          "sourceDocumentIds": [
+            "d735f1e3-5b3b-4906-bc8b-4fe02f47a11b"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "The admin panel must allow adding and removing products.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-d735f1e3-007",
+          "sourceExcerpts": [
+            "The admin panel must allow adding and removing products."
+          ],
+          "sourceDocumentIds": [
+            "d735f1e3-5b3b-4906-bc8b-4fe02f47a11b"
+          ],
+          "inferenceReasoning": null
+        }
+      ],
+      "inferredCount": 0,
+      "readinessScore": 0.0,
+      "sourceDocuments": [
+        {
+          "filename": "document.txt",
+          "document_id": "d735f1e3-5b3b-4906-bc8b-4fe02f47a11b",
+          "source_label": "Test 3 - Gap analysis doc 1",
+          "document_type": "plain_text"
+        }
+      ],
+      "systemDescription": "The system is an online bookstore platform that allows users to browse, search, and purchase books. It integrates with Stripe for payment processing, supports up to 10,000 product listings, and provides functionalities such as a persistent shopping cart, order history visibility for logged-in users, and an admin panel for managing product listings. Additionally, it ensures product images load quickly and efficiently.",
+      "totalRequirements": 7,
+      "highConfidenceCount": 7
+    }
+  },
+  "test4": {
+    "session": "4f8794ab-29a7-4985-ab6f-219a4c86e614",
+    "status": "PACKAGE_READY",
+    "elapsed": 10,
+    "inner": {
+      "gaps": [],
+      "conflicts": [],
+      "createdAt": "2026-05-31T21:01:59.914446+00:00",
+      "packageId": "e960f09a-eafe-4853-8917-d0cf54a8825f",
+      "sessionId": "4f8794ab-29a7-4985-ab6f-219a4c86e614",
+      "requirements": [
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must be available 99.9% of the time monthly.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-001",
+          "sourceExcerpts": [
+            "The system must be available 99.9% of the time monthly."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "All API responses must complete within 200ms at p95.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-002",
+          "sourceExcerpts": [
+            "All API responses must complete within 200ms at p95."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must support 50000 concurrent users.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-003",
+          "sourceExcerpts": [
+            "The system must support 50000 concurrent users."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "Users must authenticate with email and MFA.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-004",
+          "sourceExcerpts": [
+            "Users must authenticate with email and MFA."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "Role-based access control with admin, editor, viewer roles.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-005",
+          "sourceExcerpts": [
+            "Role-based access control with admin, editor, viewer roles."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "DATA",
+          "category": "data_considerations",
+          "statement": "All data encrypted at rest with AES-256 and in transit with TLS 1.3.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-006",
+          "sourceExcerpts": [
+            "All data encrypted at rest with AES-256 and in transit with TLS 1.3."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "DATA",
+          "category": "data_considerations",
+          "statement": "Audit logs retained for 7 years, immutable once written.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-007",
+          "sourceExcerpts": [
+            "Audit logs retained for 7 years, immutable once written."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "System deployed on Azure AKS in UK South region.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-008",
+          "sourceExcerpts": [
+            "System deployed on Azure AKS in UK South region."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Recovery time objective is 4 hours, recovery point objective 1 hour.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-009",
+          "sourceExcerpts": [
+            "Recovery time objective is 4 hours, recovery point objective 1 hour."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "OPERATIONAL",
+          "category": "non_functional",
+          "statement": "Prometheus and Grafana for monitoring.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-010",
+          "sourceExcerpts": [
+            "Prometheus and Grafana for monitoring."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "OPERATIONAL",
+          "category": "non_functional",
+          "statement": "Alerts to PagerDuty.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-011",
+          "sourceExcerpts": [
+            "Alerts to PagerDuty."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "DATA",
+          "category": "data_considerations",
+          "statement": "Data retained for 5 years per regulatory requirement.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-012",
+          "sourceExcerpts": [
+            "Data retained for 5 years per regulatory requirement."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "INTEGRATION",
+          "category": "integrations",
+          "statement": "Integration failures handled with exponential backoff retry.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-013",
+          "sourceExcerpts": [
+            "Integration failures handled with exponential backoff retry."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        }
+      ],
+      "inferredCount": 0,
+      "readinessScore": 0.0,
+      "sourceDocuments": [
+        {
+          "filename": "document.txt",
+          "document_id": "6fbd28a6-f041-4bbd-8336-d1f00d0739fa",
+          "source_label": "Test 4 - Gap analysis coverage doc 1",
+          "document_type": "plain_text"
+        }
+      ],
+      "systemDescription": "The system is a highly available and performant platform deployed on Azure AKS in the UK South region, designed to support up to 50,000 concurrent users. It ensures secure data handling with AES-256 encryption at rest and TLS 1.3 in transit, provides role-based access control, and integrates monitoring and alerting through Prometheus, Grafana, and PagerDuty. The system also includes robust data retention and recovery capabilities, with audit logs retained for 7 years and data for 5 years to meet regulatory requirements.",
+      "totalRequirements": 13,
+      "highConfidenceCount": 13
+    }
+  },
+  "test5": {
+    "session": "a57692c1-fe51-44e1-bef9-94df042e6465",
+    "status": "PACKAGE_READY",
+    "elapsed": 10,
+    "inner": {
+      "gaps": [],
+      "conflicts": [
+        {
+          "description": "Cloud-agnostic deployment conflicts with Azure-specific deployment.",
+          "interpretations": [
+            "The system must be deployable on any cloud provider.",
+            "The system must be deployed on Azure due to strategic partnership."
+          ],
+          "requirement_ids": [
+            "REQ-8fbda9ff-001",
+            "REQ-8fbda9ff-003"
+          ],
+          "clarification_question": "Should the system be cloud-agnostic or Azure-specific?"
+        },
+        {
+          "description": "Technology conflict between Azure Cosmos DB and PostgreSQL.",
+          "interpretations": [
+            "Use Azure Cosmos DB for performance.",
+            "Use PostgreSQL for consistency."
+          ],
+          "requirement_ids": [
+            "REQ-8fbda9ff-004",
+            "REQ-8fbda9ff-005"
+          ],
+          "clarification_question": "Which database technology should be used, Cosmos DB or PostgreSQL?"
+        },
+        {
+          "description": "Conflicting session timeout requirements.",
+          "interpretations": [
+            "Sessions expire after 15 minutes of inactivity.",
+            "Minimum session timeout is 60 minutes for usability."
+          ],
+          "requirement_ids": [
+            "REQ-8fbda9ff-006",
+            "REQ-8fbda9ff-007"
+          ],
+          "clarification_question": "What should be the session timeout duration?"
+        },
+        {
+          "description": "Conflicting project timeline requirements.",
+          "interpretations": [
+            "System must go live in 3 months.",
+            "Realistic timeline is 9-12 months minimum."
+          ],
+          "requirement_ids": [
+            "REQ-8fbda9ff-008",
+            "REQ-8fbda9ff-009"
+          ],
+          "clarification_question": "What is the realistic timeline for the system go-live?"
+        }
+      ],
+      "createdAt": "2026-05-31T21:02:35.701044+00:00",
+      "packageId": "b08c254d-d96c-4c66-9c76-345cdf4f9ab0",
+      "sessionId": "a57692c1-fe51-44e1-bef9-94df042e6465",
+      "requirements": [
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "The system must be cloud-agnostic and deployable on AWS, Azure, or GCP interchangeably.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-8fbda9ff-001",
+          "sourceExcerpts": [
+            "The system must be cloud-agnostic and deployable on AWS, Azure, or GCP interchangeably."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "No vendor lock-in.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-8fbda9ff-002",
+          "sourceExcerpts": [
+            "No vendor lock-in."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "All new systems must be deployed on Azure due to our Microsoft strategic partnership.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-001 states cloud-agnostic deployment, conflicting with Azure-specific deployment."
+          ],
+          "requirementId": "REQ-8fbda9ff-003",
+          "sourceExcerpts": [
+            "All new systems must be deployed on Azure due to our Microsoft strategic partnership."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "DATA",
+          "category": "data_considerations",
+          "statement": "We need Azure Cosmos DB for its performance characteristics at our expected scale.",
+          "confidence": "MEDIUM",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-8fbda9ff-004",
+          "sourceExcerpts": [
+            "We need Azure Cosmos DB for its performance characteristics at our expected scale."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "All new systems must use PostgreSQL for consistency.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-004 specifies Azure Cosmos DB, conflicting with PostgreSQL requirement."
+          ],
+          "requirementId": "REQ-8fbda9ff-005",
+          "sourceExcerpts": [
+            "All new systems must use PostgreSQL for consistency."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "All sessions must expire after 15 minutes of inactivity.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-007 specifies a minimum 60-minute timeout, conflicting with 15-minute expiration."
+          ],
+          "requirementId": "REQ-8fbda9ff-006",
+          "sourceExcerpts": [
+            "All sessions must expire after 15 minutes of inactivity."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Minimum 60-minute timeout required for usability.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-006 specifies a 15-minute expiration, conflicting with 60-minute timeout."
+          ],
+          "requirementId": "REQ-8fbda9ff-007",
+          "sourceExcerpts": [
+            "Minimum 60-minute timeout required for usability."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "System must go live in 3 months.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-009 suggests a 9-12 months timeline, conflicting with 3 months go-live."
+          ],
+          "requirementId": "REQ-8fbda9ff-008",
+          "sourceExcerpts": [
+            "System must go live in 3 months."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "Realistic timeline is 9-12 months minimum.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-008 specifies a 3 months go-live, conflicting with 9-12 months timeline."
+          ],
+          "requirementId": "REQ-8fbda9ff-009",
+          "sourceExcerpts": [
+            "Realistic timeline is 9-12 months minimum."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        }
+      ],
+      "inferredCount": 0,
+      "readinessScore": 0.0,
+      "sourceDocuments": [
+        {
+          "filename": "document.txt",
+          "document_id": "8fbda9ff-6ea5-461f-b848-139c4525c132",
+          "source_label": "Test 5 - Conflict detection doc 1",
+          "document_type": "plain_text"
+        }
+      ],
+      "systemDescription": "The system is designed to be a cloud-agnostic platform that can be deployed interchangeably on AWS, Azure, or GCP, with a focus on avoiding vendor lock-in. It requires the use of either Azure Cosmos DB for performance or PostgreSQL for consistency, and it must adhere to specific session timeout and project timeline constraints.",
+      "totalRequirements": 9,
+      "highConfidenceCount": 1
+    }
+  },
+  "test6": {
+    "session": "d0fa01f1-862c-4109-82d0-a8c29121d19f",
+    "status": "PACKAGE_READY",
+    "elapsed": 10,
+    "inner": {
+      "gaps": [],
+      "conflicts": [],
+      "createdAt": "2026-05-31T21:03:04.903627+00:00",
+      "packageId": "75407925-d074-438f-ac33-9743dc509c3f",
+      "sessionId": "d0fa01f1-862c-4109-82d0-a8c29121d19f",
+      "requirements": [
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must encrypt data at rest with AES-256.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b03fce39-001",
+          "sourceExcerpts": [
+            "The system must encrypt data at rest with AES-256."
+          ],
+          "sourceDocumentIds": [
+            "b03fce39-e9e4-438b-aa27-92a7c96b0452"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must encrypt data in transit with TLS 1.3.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b03fce39-002",
+          "sourceExcerpts": [
+            "The system must encrypt data in transit with TLS 1.3."
+          ],
+          "sourceDocumentIds": [
+            "b03fce39-e9e4-438b-aa27-92a7c96b0452"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "INTEGRATION",
+          "category": "integrations",
+          "statement": "The system must use PostgreSQL for operational data.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b03fce39-003",
+          "sourceExcerpts": [
+            "The system must use PostgreSQL for operational data."
+          ],
+          "sourceDocumentIds": [
+            "b03fce39-e9e4-438b-aa27-92a7c96b0452"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "INTEGRATION",
+          "category": "integrations",
+          "statement": "The system must use Redis for session caching.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b03fce39-004",
+          "sourceExcerpts": [
+            "The system must use Redis for session caching."
+          ],
+          "sourceDocumentIds": [
+            "b03fce39-e9e4-438b-aa27-92a7c96b0452"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "INTEGRATION",
+          "category": "integrations",
+          "statement": "The system must use S3-compatible storage for file blobs.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b03fce39-005",
+          "sourceExcerpts": [
+            "The system must use S3-compatible storage for file blobs."
+          ],
+          "sourceDocumentIds": [
+            "b03fce39-e9e4-438b-aa27-92a7c96b0452"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Admins must authenticate with MFA.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b03fce39-006",
+          "sourceExcerpts": [
+            "Admins must authenticate with MFA."
+          ],
+          "sourceDocumentIds": [
+            "b03fce39-e9e4-438b-aa27-92a7c96b0452"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Standard users must authenticate with email and password.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b03fce39-007",
+          "sourceExcerpts": [
+            "Standard users must authenticate with email and password."
+          ],
+          "sourceDocumentIds": [
+            "b03fce39-e9e4-438b-aa27-92a7c96b0452"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "API responses must complete in under 200ms.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b03fce39-008",
+          "sourceExcerpts": [
+            "API responses must complete in under 200ms."
+          ],
+          "sourceDocumentIds": [
+            "b03fce39-e9e4-438b-aa27-92a7c96b0452"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Report generation may take up to 30 seconds.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-b03fce39-009",
+          "sourceExcerpts": [
+            "Report generation may take up to 30 seconds."
+          ],
+          "sourceDocumentIds": [
+            "b03fce39-e9e4-438b-aa27-92a7c96b0452"
+          ],
+          "inferenceReasoning": null
+        }
+      ],
+      "inferredCount": 0,
+      "readinessScore": 0.0,
+      "sourceDocuments": [
+        {
+          "filename": "document.txt",
+          "document_id": "b03fce39-e9e4-438b-aa27-92a7c96b0452",
+          "source_label": "Test 6 - No false conflict positives doc 1",
+          "document_type": "plain_text"
+        }
+      ],
+      "systemDescription": "The system is a secure data management platform that ensures data encryption both at rest and in transit, utilizes PostgreSQL for operational data, Redis for session caching, and S3-compatible storage for file blobs. It supports multi-factor authentication for admins, email and password authentication for standard users, and guarantees API response times under 200ms while allowing report generation to take up to 30 seconds.",
+      "totalRequirements": 9,
+      "highConfidenceCount": 9
+    }
+  },
+  "test7_sparse": {
+    "session": "ec70dea8-0fdb-44b1-bd97-5123ea245ff5",
+    "status": "PACKAGE_READY",
+    "elapsed": 10,
+    "inner": {
+      "gaps": [],
+      "conflicts": [],
+      "createdAt": "2026-05-31T21:03:21.369531+00:00",
+      "packageId": "ce9d8c75-a1e5-411d-9136-ad715ea89b69",
+      "sessionId": "ec70dea8-0fdb-44b1-bd97-5123ea245ff5",
+      "requirements": [
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "Build a web application for the business.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-76d0bb41-001",
+          "sourceExcerpts": [
+            "Build us a web application for our business."
+          ],
+          "sourceDocumentIds": [
+            "76d0bb41-710a-4c8c-9768-aadd49e1da8d"
+          ],
+          "inferenceReasoning": null
+        }
+      ],
+      "inferredCount": 0,
+      "readinessScore": 0.0,
+      "sourceDocuments": [
+        {
+          "filename": "document.txt",
+          "document_id": "76d0bb41-710a-4c8c-9768-aadd49e1da8d",
+          "source_label": "Score test - many gaps doc 1",
+          "document_type": "plain_text"
+        }
+      ],
+      "systemDescription": "The system is a web application designed for business purposes, as specified in the functional requirement. It aims to serve the business's needs by providing an online platform accessible through the web.",
+      "totalRequirements": 1,
+      "highConfidenceCount": 1
+    }
+  },
+  "test7_well_ref": {
+    "session": "4f8794ab-29a7-4985-ab6f-219a4c86e614",
+    "status": "PACKAGE_READY",
+    "elapsed": 10,
+    "inner": {
+      "gaps": [],
+      "conflicts": [],
+      "createdAt": "2026-05-31T21:01:59.914446+00:00",
+      "packageId": "e960f09a-eafe-4853-8917-d0cf54a8825f",
+      "sessionId": "4f8794ab-29a7-4985-ab6f-219a4c86e614",
+      "requirements": [
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must be available 99.9% of the time monthly.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-001",
+          "sourceExcerpts": [
+            "The system must be available 99.9% of the time monthly."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "All API responses must complete within 200ms at p95.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-002",
+          "sourceExcerpts": [
+            "All API responses must complete within 200ms at p95."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "The system must support 50000 concurrent users.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-003",
+          "sourceExcerpts": [
+            "The system must support 50000 concurrent users."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "Users must authenticate with email and MFA.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-004",
+          "sourceExcerpts": [
+            "Users must authenticate with email and MFA."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "FUNCTIONAL",
+          "category": "functional",
+          "statement": "Role-based access control with admin, editor, viewer roles.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-005",
+          "sourceExcerpts": [
+            "Role-based access control with admin, editor, viewer roles."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "DATA",
+          "category": "data_considerations",
+          "statement": "All data encrypted at rest with AES-256 and in transit with TLS 1.3.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-006",
+          "sourceExcerpts": [
+            "All data encrypted at rest with AES-256 and in transit with TLS 1.3."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "DATA",
+          "category": "data_considerations",
+          "statement": "Audit logs retained for 7 years, immutable once written.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-007",
+          "sourceExcerpts": [
+            "Audit logs retained for 7 years, immutable once written."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "System deployed on Azure AKS in UK South region.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-008",
+          "sourceExcerpts": [
+            "System deployed on Azure AKS in UK South region."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Recovery time objective is 4 hours, recovery point objective 1 hour.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-009",
+          "sourceExcerpts": [
+            "Recovery time objective is 4 hours, recovery point objective 1 hour."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "OPERATIONAL",
+          "category": "non_functional",
+          "statement": "Prometheus and Grafana for monitoring.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-010",
+          "sourceExcerpts": [
+            "Prometheus and Grafana for monitoring."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "OPERATIONAL",
+          "category": "non_functional",
+          "statement": "Alerts to PagerDuty.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-011",
+          "sourceExcerpts": [
+            "Alerts to PagerDuty."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "DATA",
+          "category": "data_considerations",
+          "statement": "Data retained for 5 years per regulatory requirement.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-012",
+          "sourceExcerpts": [
+            "Data retained for 5 years per regulatory requirement."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "INTEGRATION",
+          "category": "integrations",
+          "statement": "Integration failures handled with exponential backoff retry.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-6fbd28a6-013",
+          "sourceExcerpts": [
+            "Integration failures handled with exponential backoff retry."
+          ],
+          "sourceDocumentIds": [
+            "6fbd28a6-f041-4bbd-8336-d1f00d0739fa"
+          ],
+          "inferenceReasoning": null
+        }
+      ],
+      "inferredCount": 0,
+      "readinessScore": 0.0,
+      "sourceDocuments": [
+        {
+          "filename": "document.txt",
+          "document_id": "6fbd28a6-f041-4bbd-8336-d1f00d0739fa",
+          "source_label": "Test 4 - Gap analysis coverage doc 1",
+          "document_type": "plain_text"
+        }
+      ],
+      "systemDescription": "The system is a highly available and performant platform deployed on Azure AKS in the UK South region, designed to support up to 50,000 concurrent users. It ensures secure data handling with AES-256 encryption at rest and TLS 1.3 in transit, provides role-based access control, and integrates monitoring and alerting through Prometheus, Grafana, and PagerDuty. The system also includes robust data retention and recovery capabilities, with audit logs retained for 7 years and data for 5 years to meet regulatory requirements.",
+      "totalRequirements": 13,
+      "highConfidenceCount": 13
+    }
+  },
+  "test7_conflict_ref": {
+    "session": "a57692c1-fe51-44e1-bef9-94df042e6465",
+    "status": "PACKAGE_READY",
+    "elapsed": 10,
+    "inner": {
+      "gaps": [],
+      "conflicts": [
+        {
+          "description": "Cloud-agnostic deployment conflicts with Azure-specific deployment.",
+          "interpretations": [
+            "The system must be deployable on any cloud provider.",
+            "The system must be deployed on Azure due to strategic partnership."
+          ],
+          "requirement_ids": [
+            "REQ-8fbda9ff-001",
+            "REQ-8fbda9ff-003"
+          ],
+          "clarification_question": "Should the system be cloud-agnostic or Azure-specific?"
+        },
+        {
+          "description": "Technology conflict between Azure Cosmos DB and PostgreSQL.",
+          "interpretations": [
+            "Use Azure Cosmos DB for performance.",
+            "Use PostgreSQL for consistency."
+          ],
+          "requirement_ids": [
+            "REQ-8fbda9ff-004",
+            "REQ-8fbda9ff-005"
+          ],
+          "clarification_question": "Which database technology should be used, Cosmos DB or PostgreSQL?"
+        },
+        {
+          "description": "Conflicting session timeout requirements.",
+          "interpretations": [
+            "Sessions expire after 15 minutes of inactivity.",
+            "Minimum session timeout is 60 minutes for usability."
+          ],
+          "requirement_ids": [
+            "REQ-8fbda9ff-006",
+            "REQ-8fbda9ff-007"
+          ],
+          "clarification_question": "What should be the session timeout duration?"
+        },
+        {
+          "description": "Conflicting project timeline requirements.",
+          "interpretations": [
+            "System must go live in 3 months.",
+            "Realistic timeline is 9-12 months minimum."
+          ],
+          "requirement_ids": [
+            "REQ-8fbda9ff-008",
+            "REQ-8fbda9ff-009"
+          ],
+          "clarification_question": "What is the realistic timeline for the system go-live?"
+        }
+      ],
+      "createdAt": "2026-05-31T21:02:35.701044+00:00",
+      "packageId": "b08c254d-d96c-4c66-9c76-345cdf4f9ab0",
+      "sessionId": "a57692c1-fe51-44e1-bef9-94df042e6465",
+      "requirements": [
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "The system must be cloud-agnostic and deployable on AWS, Azure, or GCP interchangeably.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-8fbda9ff-001",
+          "sourceExcerpts": [
+            "The system must be cloud-agnostic and deployable on AWS, Azure, or GCP interchangeably."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "No vendor lock-in.",
+          "confidence": "HIGH",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-8fbda9ff-002",
+          "sourceExcerpts": [
+            "No vendor lock-in."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "All new systems must be deployed on Azure due to our Microsoft strategic partnership.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-001 states cloud-agnostic deployment, conflicting with Azure-specific deployment."
+          ],
+          "requirementId": "REQ-8fbda9ff-003",
+          "sourceExcerpts": [
+            "All new systems must be deployed on Azure due to our Microsoft strategic partnership."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "DATA",
+          "category": "data_considerations",
+          "statement": "We need Azure Cosmos DB for its performance characteristics at our expected scale.",
+          "confidence": "MEDIUM",
+          "isInferred": false,
+          "ambiguities": [],
+          "requirementId": "REQ-8fbda9ff-004",
+          "sourceExcerpts": [
+            "We need Azure Cosmos DB for its performance characteristics at our expected scale."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "All new systems must use PostgreSQL for consistency.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-004 specifies Azure Cosmos DB, conflicting with PostgreSQL requirement."
+          ],
+          "requirementId": "REQ-8fbda9ff-005",
+          "sourceExcerpts": [
+            "All new systems must use PostgreSQL for consistency."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "All sessions must expire after 15 minutes of inactivity.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-007 specifies a minimum 60-minute timeout, conflicting with 15-minute expiration."
+          ],
+          "requirementId": "REQ-8fbda9ff-006",
+          "sourceExcerpts": [
+            "All sessions must expire after 15 minutes of inactivity."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "NON_FUNCTIONAL",
+          "category": "non_functional",
+          "statement": "Minimum 60-minute timeout required for usability.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-006 specifies a 15-minute expiration, conflicting with 60-minute timeout."
+          ],
+          "requirementId": "REQ-8fbda9ff-007",
+          "sourceExcerpts": [
+            "Minimum 60-minute timeout required for usability."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "System must go live in 3 months.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-009 suggests a 9-12 months timeline, conflicting with 3 months go-live."
+          ],
+          "requirementId": "REQ-8fbda9ff-008",
+          "sourceExcerpts": [
+            "System must go live in 3 months."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        },
+        {
+          "type": "CONSTRAINT",
+          "category": "constraints",
+          "statement": "Realistic timeline is 9-12 months minimum.",
+          "confidence": "LOW",
+          "isInferred": false,
+          "ambiguities": [
+            "CONFLICT: Requirement REQ-8fbda9ff-008 specifies a 3 months go-live, conflicting with 9-12 months timeline."
+          ],
+          "requirementId": "REQ-8fbda9ff-009",
+          "sourceExcerpts": [
+            "Realistic timeline is 9-12 months minimum."
+          ],
+          "sourceDocumentIds": [
+            "8fbda9ff-6ea5-461f-b848-139c4525c132"
+          ],
+          "inferenceReasoning": null
+        }
+      ],
+      "inferredCount": 0,
+      "readinessScore": 0.0,
+      "sourceDocuments": [
+        {
+          "filename": "document.txt",
+          "document_id": "8fbda9ff-6ea5-461f-b848-139c4525c132",
+          "source_label": "Test 5 - Conflict detection doc 1",
+          "document_type": "plain_text"
+        }
+      ],
+      "systemDescription": "The system is designed to be a cloud-agnostic platform that can be deployed interchangeably on AWS, Azure, or GCP, with a focus on avoiding vendor lock-in. It requires the use of either Azure Cosmos DB for performance or PostgreSQL for consistency, and it must adhere to specific session timeout and project timeline constraints.",
+      "totalRequirements": 9,
+      "highConfidenceCount": 1
+    }
+  }
+}

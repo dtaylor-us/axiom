@@ -63,6 +63,25 @@ export interface PipelineRunStatusDto {
   eventCount: number;
 }
 
+export interface PipelineStatusEventDto {
+  type: string;
+  stage: string | null;
+  sequenceNum: number;
+  emittedAt: string;
+  payload: string | null;
+}
+
+export interface PipelineStatusDto {
+  runId: string;
+  status: 'RUNNING' | 'COMPLETED' | 'COMPLETED_WITH_GAPS' | 'FAILED';
+  lastStageCompleted: string | null;
+  completedStages: string[];
+  activeStage: string | null;
+  events: PipelineStatusEventDto[];
+  governanceScore: number | null;
+  hasGaps: boolean;
+}
+
 /* ── Auth ─────────────────────────────────────────── */
 
 export interface AuthTokenResponse {

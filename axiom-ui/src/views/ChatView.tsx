@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useConversation } from '../hooks/useConversation';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { CopyButton } from '../components/CopyButton';
@@ -28,7 +29,10 @@ const EXAMPLES: { label: string; prompt: string }[] = [
 ];
 
 export function ChatView() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [input, setInput] = useState('');
+  const [infoBanner, setInfoBanner] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const {
@@ -50,12 +54,39 @@ export function ChatView() {
 
   /* Auto-submit workshop seed — kicks off the pipeline after Send to Pipeline. */
   useEffect(() => {
-    if (!workshopSeed || isStreaming) return;
+    if (!workshopSeed || isStreaming || messages.length > 0) return;
     const msg = workshopSeed;
     // Clear first so a re-render while streaming doesn't re-submit.
     setWorkshopSeed(null);
     void sendMessage(msg);
-  }, [workshopSeed, isStreaming, sendMessage, setWorkshopSeed]);
+  }, [workshopSeed, isStreaming, messages.length, sendMessage, setWorkshopSeed]);
+
+  useEffect(() => {
+    const state = location.state as {
+      prefillMessage?: string;
+      source?: string;
+      sessionId?: string;
+    } | null;
+
+    if (!state?.prefillMessage) {
+      return;
+    }
+
+    setInput(state.prefillMessage);
+    // Clear router state after consuming the prefill so future view switches
+    // do not keep resurrecting the same message.
+    navigate(location.pathname + location.search + location.hash, {
+      replace: true,
+      state: null,
+    });
+    window.history.replaceState({}, '');
+
+    if (state.source === 'specweaver') {
+      setInfoBanner('Requirements brief from SpecWeaver loaded. Review and click Send when ready.');
+    }
+
+    queueMicrotask(() => textareaRef.current?.focus());
+  }, [location.hash, location.pathname, location.search, location.state, navigate]);
 
   /* Auto-scroll on new content */
   useEffect(() => {
@@ -84,6 +115,7 @@ export function ChatView() {
       return;
     }
     const msg = input.trim();
+    setInfoBanner(null);
     setInput('');
     await sendMessage(msg);
   };
@@ -104,6 +136,13 @@ export function ChatView() {
     <div className="flex flex-col h-full" data-testid="chat-view">
       {/* ── Messages area ── */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {infoBanner && (
+          <div className="max-w-3xl mx-auto w-full px-4 pt-4" data-testid="specweaver-prefill-banner">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-900">
+              {infoBanner}
+            </div>
+          </div>
+        )}
         {canReattach && (
           <div className="max-w-3xl mx-auto w-full px-4 pt-4" data-testid="reconnect-banner">
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">

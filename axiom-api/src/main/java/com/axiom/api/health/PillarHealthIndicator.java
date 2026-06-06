@@ -1,10 +1,11 @@
 package com.axiom.api.health;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.axiom.api.config.PillarRegistryConfig;
 import com.axiom.api.config.PillarRegistryConfig.PillarDefinition;
 
@@ -27,16 +28,21 @@ public class PillarHealthIndicator implements ReactiveHealthIndicator {
     private static final Duration CACHE_TTL = Duration.ofSeconds(30);
     private static final String STATUS_UP = "UP";
     private static final String STATUS_DEGRADED = "DEGRADED";
+    private static final String STATUS_DOWN = "DOWN";
     private static final String STATUS_OUT_OF_SERVICE = "OUT_OF_SERVICE";
+    private static final String CACHE_KEY = "platform-health";
 
     private final WebClient webClient;
     private final PillarRegistryConfig pillarRegistry;
-
-    private volatile CachedHealth cachedHealth;
+    private final Cache<String, Health> healthCache;
 
     public PillarHealthIndicator(WebClient.Builder webClientBuilder, PillarRegistryConfig pillarRegistry) {
         this.webClient = webClientBuilder.build();
         this.pillarRegistry = pillarRegistry;
+        this.healthCache = Caffeine.newBuilder()
+                .expireAfterWrite(CACHE_TTL)
+                .maximumSize(1)
+                .build();
     }
 
     /**
@@ -46,13 +52,12 @@ public class PillarHealthIndicator implements ReactiveHealthIndicator {
      */
     @Override
     public Mono<Health> health() {
-        CachedHealth currentCache = cachedHealth;
-        if (currentCache != null && currentCache.expiresAt().isAfter(Instant.now())) {
-            return Mono.just(currentCache.health());
+        Health cachedValue = healthCache.getIfPresent(CACHE_KEY);
+        if (cachedValue != null) {
+            return Mono.just(cachedValue);
         }
 
-        return refreshHealth().doOnNext(health ->
-                cachedHealth = new CachedHealth(Instant.now().plus(CACHE_TTL), health));
+        return refreshHealth().doOnNext(health -> healthCache.put(CACHE_KEY, health));
     }
 
     private Mono<Health> refreshHealth() {
@@ -72,6 +77,7 @@ public class PillarHealthIndicator implements ReactiveHealthIndicator {
 
         return Mono.zip(statusMonos.values(), values -> {
             Map<String, Object> components = new LinkedHashMap<>();
+            components.put("gateway", Map.of("status", STATUS_UP));
             int i = 0;
             for (String pillarName : statusMonos.keySet()) {
                 components.put(pillarName, Map.of("status", values[i++]));
@@ -92,7 +98,7 @@ public class PillarHealthIndicator implements ReactiveHealthIndicator {
                     return Mono.just(STATUS_DEGRADED);
                 })
                 .timeout(PILLAR_TIMEOUT)
-                .onErrorReturn(STATUS_DEGRADED);
+                .onErrorReturn(STATUS_DOWN);
     }
 
     private String normalizeBaseUrl(String baseUrl) {
@@ -100,8 +106,5 @@ public class PillarHealthIndicator implements ReactiveHealthIndicator {
             return baseUrl.substring(0, baseUrl.length() - 1);
         }
         return baseUrl;
-    }
-
-    private record CachedHealth(Instant expiresAt, Health health) {
     }
 }

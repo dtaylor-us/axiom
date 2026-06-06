@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -225,6 +226,75 @@ class ChatServiceTest {
                 createRequest("hello", convId), "user1"))
                 .expectError(AgentCommunicationException.class)
                 .verify();
+
+        // Error happened before the first agent signal, so no run was created.
+        verify(pipelineRunService, never()).failRun(any(), any(), any());
+    }
+
+    @Test
+    void streamChat_marksRunFailedWhenMidStreamErrorOccurs() {
+        UUID convId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        Conversation conv = Conversation.builder()
+                .id(convId).userId("user1").title("t").build();
+        when(conversationService.resolveConversation(any(), eq("user1"), any()))
+                .thenReturn(conv);
+        when(conversationService.getRecentMessages(convId, 20))
+                .thenReturn(List.of());
+        when(pipelineRunService.createRun(conv, 0)).thenReturn(java.util.Optional.of(runId));
+
+        AgentResponse stageStart = new AgentResponse();
+        stageStart.setType(AgentResponse.EventType.STAGE_START);
+        stageStart.setStage("requirement_challenge");
+
+        when(agentBridgeService.stream(any())).thenReturn(
+                Flux.concat(
+                        Flux.just(stageStart),
+                        Flux.error(new AgentCommunicationException("agent dropped"))
+                )
+        );
+
+        StepVerifier.create(chatService.streamChat(
+                createRequest("hello", convId), "user1"))
+                // RUN_CREATED + STAGE_START then stream error
+                .expectNextCount(2)
+                .expectError(AgentCommunicationException.class)
+                .verify();
+
+        verify(pipelineRunService, atLeastOnce()).failRun(
+                eq(runId),
+                eq("requirement_challenge"),
+                org.mockito.ArgumentMatchers.contains("Agent stream terminated before COMPLETE"));
+    }
+
+    @Test
+    void streamChat_marksRunFailedWhenStreamCompletesWithoutCompleteEvent() {
+        UUID convId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        Conversation conv = Conversation.builder()
+                .id(convId).userId("user1").title("t").build();
+        when(conversationService.resolveConversation(any(), eq("user1"), any()))
+                .thenReturn(conv);
+        when(conversationService.getRecentMessages(convId, 20))
+                .thenReturn(List.of());
+        when(pipelineRunService.createRun(conv, 0)).thenReturn(java.util.Optional.of(runId));
+
+        AgentResponse stageStart = new AgentResponse();
+        stageStart.setType(AgentResponse.EventType.STAGE_START);
+        stageStart.setStage("requirement_parsing");
+
+        when(agentBridgeService.stream(any())).thenReturn(Flux.just(stageStart));
+
+        StepVerifier.create(chatService.streamChat(
+                createRequest("hello", convId), "user1"))
+                // RUN_CREATED + STAGE_START
+                .expectNextCount(2)
+                .verifyComplete();
+
+        verify(pipelineRunService, timeout(2000)).failRun(
+                eq(runId),
+                eq("requirement_parsing"),
+                eq("Agent stream ended without COMPLETE event"));
     }
 
     @Test

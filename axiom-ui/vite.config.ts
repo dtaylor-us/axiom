@@ -11,6 +11,11 @@ export default defineConfig({
         target: process.env.API_PROXY_TARGET || 'http://localhost:8081',
         changeOrigin: true,
       },
+      '/specweaver-api': {
+        target: process.env.SPECWEAVER_API_PROXY_TARGET || 'http://localhost:8082',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/specweaver-api/, ''),
+      },
     },
   },
   test: {

@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import {
   BrowserRouter,
+  useLocation,
+  useNavigate,
   Navigate,
   Route,
   Routes,
@@ -12,23 +14,136 @@ import { ForgotPasswordView } from './views/ForgotPasswordView';
 import { LoginView } from './views/LoginView';
 import { ArchitectureView } from './views/ArchitectureView';
 import { GovernanceView } from './views/GovernanceView';
-import { HomeView } from './views/HomeView';
+import { AxiomHomePage } from './views/AxiomHomePage';
 import { ResetPasswordView } from './views/ResetPasswordView';
 import { WorkshopView } from './views/workshop/WorkshopView';
+import { ArchonHomePage } from './views/archon/ArchonHomePage';
+import { ForgeHomePage } from './views/forge/ForgeHomePage';
+import { PackageDetailView } from './views/specweaver/PackageDetailView';
+import { SessionListView } from './views/specweaver/SessionListView';
+import { SessionView } from './views/specweaver/SessionView';
+import { ScoutHomePage } from './views/scout/ScoutHomePage';
+import { SpecWeaverHomePage } from './views/specweaver/SpecWeaverHomePage';
 import { StageProgress } from './components/StageProgress';
 import { PillarNav } from './components/PillarNav';
+import { PillarIcon } from './components/PillarIcon';
 import { ToastProvider, emitToast } from './components/Toast';
+import { getToken } from './api/auth';
+import { getPipelineStatus, getRunStatus, reattachStream } from './api/chat';
 import { getSessionMessages, listSessions } from './api/sessions';
 import { listWorkshopSessions } from './api/workshop';
-import type { SessionSummary } from './types/api';
+import type { Session as SpecWeaverSession } from './api/specweaver';
+import type { AgentEvent, ChatMessage, PipelineStatusEventDto, SessionSummary } from './types/api';
 import type { WorkshopSessionSummary } from './types/workshop';
+import { useSpecWeaverStore } from './store/useSpecWeaverStore';
 
-type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop';
+type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop' | 'specweaver';
 
 const STORAGE_KEYS = {
   lastView: 'archon.lastView',
   lastConversationId: 'archon.lastConversationId',
 } as const;
+
+const CONVERSATION_HYDRATION_RETRY_ATTEMPTS = 5;
+const CONVERSATION_HYDRATION_RETRY_DELAY_MS = 400;
+
+function getCurrentPillar(pathname: string): 'axiom' | 'archon' | 'specweaver' | 'scout' | 'forge' {
+  if (pathname.startsWith('/specweaver')) return 'specweaver';
+  if (pathname.startsWith('/scout')) return 'scout';
+  if (pathname.startsWith('/forge')) return 'forge';
+  if (pathname === '/') return 'axiom';
+  return 'archon';
+}
+
+function getPillarTitle(pathname: string): string {
+  const pillar = getCurrentPillar(pathname);
+  if (pillar === 'specweaver') return 'SpecWeaver — Requirements Intelligence | Axiom';
+  if (pillar === 'archon') return 'Archon — Architecture Reasoning | Axiom';
+  if (pillar === 'scout') return 'Scout — Repository Intelligence | Axiom';
+  if (pillar === 'forge') return 'Forge — Prototype Generation | Axiom';
+  return 'Axiom — Architecture Intelligence Platform';
+}
+
+function getPillarFavicon(pillar: 'axiom' | 'archon' | 'specweaver' | 'scout' | 'forge'): string {
+  const iconMap: Record<typeof pillar, { stroke: string; path: string }> = {
+    axiom: {
+      stroke: '%237B2FBE',
+      path: 'M12 3l8 4v10l-8 4-8-4V7l8-4 M12 7l4 2v6l-4 2-4-2V9l4-2',
+    },
+    archon: {
+      stroke: '%2310A37F',
+      path: 'M4 6h16 M4 12h10 M4 18h14',
+    },
+    specweaver: {
+      stroke: '%23118AB2',
+      path: 'M7 3h7l5 5v13H7a2 2 0 01-2-2V5a2 2 0 012-2z M14 3v5h5 M9 11h6 M9 14h6 M9 17h5',
+    },
+    scout: {
+      stroke: '%2349A078',
+      path: 'M10 10a3 3 0 106 0 3 3 0 00-6 0m9 9l-4.35-4.35',
+    },
+    forge: {
+      stroke: '%23C78F1E',
+      path: 'M14 3l7 7-4 1-1 4-7-7 5-5z M3 21l6-6',
+    },
+  };
+
+  const { stroke, path } = iconMap[pillar];
+
+  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='${path}'/%3E%3C/svg%3E`;
+}
+
+function getConversationIdFromPath(pathname: string): string | null {
+  if (pathname.startsWith('/archon/conversations/')) {
+    const value = pathname.split('/').filter(Boolean)[2];
+    return value || null;
+  }
+  if (pathname.startsWith('/conversations/')) {
+    const value = pathname.split('/').filter(Boolean)[1];
+    return value || null;
+  }
+  return null;
+}
+
+async function getHydratedConversationMessages(
+  conversationId: string,
+  token: string,
+): Promise<ChatMessage[]> {
+  let lastMessages: ChatMessage[] = [];
+
+  for (let attempt = 0; attempt < CONVERSATION_HYDRATION_RETRY_ATTEMPTS; attempt += 1) {
+    const messages = await getSessionMessages(conversationId, token);
+    lastMessages = messages;
+
+    if (messages.length > 0) {
+      return messages;
+    }
+
+    if (attempt < CONVERSATION_HYDRATION_RETRY_ATTEMPTS - 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, CONVERSATION_HYDRATION_RETRY_DELAY_MS));
+    }
+  }
+
+  return lastMessages;
+}
+
+function parsePipelineEventPayload(payload: string | null): Record<string, unknown> | undefined {
+  if (!payload) return undefined;
+  try {
+    const parsed = JSON.parse(payload) as Record<string, unknown>;
+    return parsed.payload as Record<string, unknown> | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function toAgentEvent(event: PipelineStatusEventDto): AgentEvent {
+  return {
+    type: event.type as AgentEvent['type'],
+    stage: event.stage ?? undefined,
+    payload: parsePipelineEventPayload(event.payload),
+  };
+}
 
 function safeGetItem(key: string): string | null {
   try {
@@ -59,7 +174,7 @@ function safeRemoveItem(key: string) {
 
 function readLastView(): View | null {
   const raw = safeGetItem(STORAGE_KEYS.lastView);
-  if (raw === 'home' || raw === 'chat' || raw === 'architecture' || raw === 'governance' || raw === 'workshop') return raw;
+  if (raw === 'home' || raw === 'chat' || raw === 'architecture' || raw === 'governance' || raw === 'workshop' || raw === 'specweaver') return raw;
   return null;
 }
 
@@ -91,19 +206,49 @@ const NAV_ITEMS: { key: View; label: string; icon: string }[] = [
   },
 ];
 
+const SPECWEAVER_STATUS_LABELS: Record<SpecWeaverSession['status'], string> = {
+  ACTIVE: 'Active',
+  PROCESSING: 'Processing',
+  PACKAGE_READY: 'Package Ready',
+  SENT_TO_ARCHON: 'Sent to Archon',
+};
+
+function getSpecWeaverSessionId(pathname: string): string | null {
+  const pathParts = pathname.split('/').filter(Boolean);
+  if (pathParts[0] !== 'specweaver') return null;
+  if (pathParts[1] !== 'sessions') return null;
+  if (!pathParts[2]) return null;
+  return pathParts[2];
+}
+
+function getSpecWeaverSessionTitle(session: SpecWeaverSession): string {
+  return session.title?.trim() ? session.title : 'Untitled session';
+}
+
 function AppContent() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const token = useStore((s) => s.token);
   const username = useStore((s) => s.username);
+  const setAuth = useStore((s) => s.setAuth);
   const clearAuth = useStore((s) => s.clearAuth);
   const conversationId = useStore((s) => s.conversationId);
   const stages = useStore((s) => s.stages);
+  const setRunState = useStore((s) => s.setRunState);
   const isStreaming = useStore((s) => s.isStreaming);
   const resetConversation = useStore((s) => s.resetConversation);
   const clearStages = useStore((s) => s.clearStages);
   const loadConversation = useStore((s) => s.loadConversation);
   const setConversationId = useStore((s) => s.setConversationId);
   const setWorkshopSeed = useStore((s) => s.setWorkshopSeed);
-  const [activeView, setActiveViewState] = useState<View>(() => readLastView() ?? 'home');
+  const handleEvent = useStore((s) => s.handleEvent);
+  const setStreaming = useStore((s) => s.setStreaming);
+  const specWeaverSessions = useSpecWeaverStore((s) => s.sessions);
+  const loadSpecWeaverSessions = useSpecWeaverStore((s) => s.loadSessions);
+  const createSpecWeaverSession = useSpecWeaverStore((s) => s.createSession);
+  const [activeView, setActiveViewState] = useState<View>(() =>
+    window.location.pathname.startsWith('/specweaver') ? 'specweaver' : readLastView() ?? 'home',
+  );
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -115,6 +260,10 @@ function AppContent() {
   const [selectedWorkshopSessionId, setSelectedWorkshopSessionId] = useState<string | null>(null);
   const [workshopRefreshKey, setWorkshopRefreshKey] = useState(0);
   const [newWorkshopKey, setNewWorkshopKey] = useState(0);
+  const [specWeaverSessionsLoading, setSpecWeaverSessionsLoading] = useState(false);
+  const [specWeaverSessionsError, setSpecWeaverSessionsError] = useState<string | null>(null);
+  const [isCreatingSpecWeaverSession, setIsCreatingSpecWeaverSession] = useState(false);
+  const [isRehydratingAuth, setIsRehydratingAuth] = useState(() => !!username && !token);
 
   const hasConversation = !!conversationId;
   const allStagesDone = stages.every((s) => s.status === 'complete' || s.status === 'error' || s.status === 'aborted');
@@ -123,11 +272,103 @@ function AppContent() {
 
   /* Auto-dismiss the pipeline panel 3 s after abort or all stages done */
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initializedPipelineRunRef = useRef<string | null>(null);
+  const consumedSpecWeaverPrefillRef = useRef<string | null>(null);
 
   const setActiveView = (v: View) => {
     setActiveViewState(v);
     safeSetItem(STORAGE_KEYS.lastView, v);
   };
+
+  const isPlatformHomeRoute = location.pathname === '/';
+  const isSpecWeaverRoute = location.pathname.startsWith('/specweaver');
+  const isScoutRoute = location.pathname.startsWith('/scout');
+  const isForgeRoute = location.pathname.startsWith('/forge');
+  const isArchonHomeRoute = location.pathname === '/archon';
+  const isArchonChatRoute = location.pathname === '/archon/chat';
+  const isConversationRoute = !!getConversationIdFromPath(location.pathname);
+  const activeSpecWeaverSessionId = isSpecWeaverRoute
+    ? getSpecWeaverSessionId(location.pathname)
+    : null;
+
+  useEffect(() => {
+    document.title = getPillarTitle(location.pathname);
+
+    const faviconHref = getPillarFavicon(getCurrentPillar(location.pathname));
+    let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = faviconHref;
+  }, [location.pathname]);
+
+  const loadSpecWeaverSessionHistory = async () => {
+    if (!token) return;
+    setSpecWeaverSessionsLoading(true);
+    setSpecWeaverSessionsError(null);
+    try {
+      await loadSpecWeaverSessions(token);
+    } catch (error) {
+      setSpecWeaverSessionsError((error as Error).message ?? 'Failed to load SpecWeaver sessions');
+    } finally {
+      setSpecWeaverSessionsLoading(false);
+    }
+  };
+
+  const handleCreateSpecWeaverSession = async () => {
+    if (!token || isCreatingSpecWeaverSession) return;
+    setIsCreatingSpecWeaverSession(true);
+    setSpecWeaverSessionsError(null);
+    try {
+      const session = await createSpecWeaverSession(token, undefined);
+      await loadSpecWeaverSessionHistory();
+      navigate(`/specweaver/sessions/${session.id}`);
+      setMobileDrawerOpen(false);
+    } catch (error) {
+      setSpecWeaverSessionsError((error as Error).message ?? 'Failed to create SpecWeaver session');
+    } finally {
+      setIsCreatingSpecWeaverSession(false);
+    }
+  };
+
+  const handleOpenSpecWeaverSession = (sessionId: string) => {
+    navigate(`/specweaver/sessions/${sessionId}`);
+    setMobileDrawerOpen(false);
+  };
+
+  // Rehydrate token on hard refresh using persisted username. Token itself is
+  // never stored in localStorage (ADL-023), but we can request a fresh one.
+  useEffect(() => {
+    let cancelled = false;
+    if (token || !username) {
+      setIsRehydratingAuth(false);
+      return;
+    }
+
+    setIsRehydratingAuth(true);
+    getToken(username)
+      .then((freshToken) => {
+        if (!cancelled) {
+          setAuth(freshToken, username);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          clearAuth();
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsRehydratingAuth(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, username, setAuth, clearAuth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +392,83 @@ function AppContent() {
       cancelled = true;
     };
   }, [token, activeView, workshopRefreshKey]);
+
+  useEffect(() => {
+    if (!token) return;
+    if (!isSpecWeaverRoute) return;
+
+    void loadSpecWeaverSessionHistory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, isSpecWeaverRoute]);
+
+  // Conversation and chat URLs should render the chat shell immediately, even
+  // while message hydration is still in-flight.
+  useEffect(() => {
+    if (!token) return;
+    if (!(isArchonChatRoute || isConversationRoute)) return;
+    if (activeView !== 'chat') {
+      setActiveView('chat');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isArchonChatRoute, isConversationRoute, token]);
+
+  // SpecWeaver handoff can arrive on /archon with prefill state.
+  // Force chat mode so the input is immediately visible for review.
+  useEffect(() => {
+    const state = location.state as { prefillMessage?: string } | null;
+    if (!state?.prefillMessage) return;
+
+    // Only consume each prefill payload once. Without this guard, stale
+    // location state can keep forcing Chat mode even after the user switches
+    // to Architecture or Governance.
+    const prefillKey = `${location.pathname}:${state.prefillMessage}`;
+    if (consumedSpecWeaverPrefillRef.current === prefillKey) {
+      return;
+    }
+    consumedSpecWeaverPrefillRef.current = prefillKey;
+
+    if (activeView !== 'chat') {
+      setActiveView('chat');
+    }
+  }, [activeView, location.pathname, location.state]);
+
+  // Recover from a persisted SpecWeaver view after navigating away from
+  // SpecWeaver routes, which otherwise can render an empty main panel.
+  useEffect(() => {
+    if (!token) return;
+    if (isSpecWeaverRoute) return;
+    if (isConversationRoute) return;
+    if (activeView !== 'specweaver') return;
+
+    setActiveView('chat');
+  }, [activeView, isConversationRoute, isSpecWeaverRoute, token]);
+
+  // If a conversation is open after refresh, recover durable run state so the
+  // user can reconnect to an in-flight pipeline.
+  useEffect(() => {
+    let cancelled = false;
+    if (!token || !conversationId || isStreaming) return;
+
+    getRunStatus(conversationId, token)
+      .then((status) => {
+        if (cancelled || !status) return;
+        if (status.status === 'RUNNING') {
+          setRunState({
+            runId: status.runId,
+            runStatus: status.status,
+            canReattach: true,
+            lastStageCompleted: status.lastStageCompleted ?? null,
+          });
+        }
+      })
+      .catch(() => {
+        // Best-effort only — UI still functions without durable status.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, conversationId, isStreaming, setRunState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,7 +504,7 @@ function AppContent() {
     if (!lastId) return;
 
     setLoadingSessionId(lastId);
-    getSessionMessages(lastId, token)
+    getHydratedConversationMessages(lastId, token)
       .then((msgs) => {
         if (cancelled) return;
         loadConversation(lastId, [...msgs].reverse());
@@ -206,11 +524,103 @@ function AppContent() {
     };
   }, [token, isStreaming, conversationId, loadConversation]);
 
+  useEffect(() => {
+    if (!token) return;
+    const pathConversationId = getConversationIdFromPath(location.pathname);
+    if (!pathConversationId) return;
+    if (isStreaming) return;
+    if (!pathConversationId || pathConversationId === conversationId) {
+      return;
+    }
+
+    setLoadingSessionId(pathConversationId);
+    getHydratedConversationMessages(pathConversationId, token)
+      .then((msgs) => {
+        loadConversation(pathConversationId, [...msgs].reverse());
+        setActiveView('chat');
+      })
+      .catch(() => {
+        setConversationId(pathConversationId);
+        setActiveView('chat');
+      })
+      .finally(() => setLoadingSessionId(null));
+  }, [conversationId, isStreaming, loadConversation, location.pathname, setConversationId, token]);
+
+  // Rebuild pipeline progress from persisted events immediately on mount.
+  // This closes the gap where early stages finish before the client is connected.
+  useEffect(() => {
+    let cancelled = false;
+    if (!token || !conversationId || isStreaming) return;
+    if (!getConversationIdFromPath(location.pathname)) return;
+
+    const initializePipelineProgress = async () => {
+      try {
+        const status = await getPipelineStatus(conversationId, token);
+        if (cancelled || !status) return;
+
+        const runKey = `${conversationId}:${status.runId}`;
+        if (initializedPipelineRunRef.current === runKey) {
+          return;
+        }
+        initializedPipelineRunRef.current = runKey;
+
+        clearStages();
+        status.events.forEach((event) => {
+          handleEvent(toAgentEvent(event));
+        });
+
+        setRunState({
+          runId: status.runId,
+          runStatus: status.status,
+          canReattach: status.status === 'RUNNING',
+          lastStageCompleted: status.lastStageCompleted,
+        });
+
+        if (status.status !== 'RUNNING') {
+          return;
+        }
+
+        setStreaming(true);
+        await reattachStream(
+          conversationId,
+          token,
+          (event) => {
+            if (!cancelled) {
+              handleEvent(event);
+            }
+          },
+          status.runId,
+        );
+      } catch {
+        // 404 or transient errors should not block normal chat behavior.
+      } finally {
+        if (!cancelled) {
+          setStreaming(false);
+        }
+      }
+    };
+
+    void initializePipelineProgress();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    clearStages,
+    conversationId,
+    handleEvent,
+    isStreaming,
+    location.pathname,
+    setRunState,
+    setStreaming,
+    token,
+  ]);
+
   // Without an active conversation, don't allow "empty" architecture/governance views
   useEffect(() => {
     if (!token) return;
     if (!hasConversation && (activeView === 'architecture' || activeView === 'governance')) {
-      setActiveView('home');
+      setActiveView('chat');
     }
     // workshop is always accessible — no conversation required
   }, [token, hasConversation, activeView]);
@@ -228,7 +638,31 @@ function AppContent() {
     setMobileDrawerOpen(false);
   };
 
-  const handleWorkshopSessionCreated = (_sessionId: string) => {
+  const handleStartNewChat = () => {
+    resetConversation();
+    setActiveView('chat');
+    navigate('/archon/chat');
+    setMobileDrawerOpen(false);
+  };
+
+  const handleNavigatePrimaryView = (view: View) => {
+    if (view === 'home') {
+      setActiveView('home');
+      navigate('/archon');
+      return;
+    }
+    if (view === 'chat') {
+      setActiveView('chat');
+      navigate('/archon/chat');
+      return;
+    }
+    setActiveView(view);
+    if (!location.pathname.startsWith('/archon') && !location.pathname.startsWith('/conversations/')) {
+      navigate('/archon/chat');
+    }
+  };
+
+  const handleWorkshopSessionCreated = () => {
     // Only refresh the sidebar list; do NOT change selectedWorkshopSessionId so
     // the current WorkshopView component is not remounted (which would wipe the
     // welcome message and conversation state for the session just started).
@@ -244,6 +678,7 @@ function AppContent() {
       // the chat view renders chronologically with the latest at the bottom.
       loadConversation(sessionId, [...msgs].reverse());
       setActiveView('chat');
+      navigate(`/archon/conversations/${sessionId}`);
       setMobileDrawerOpen(false);
     } catch {
       // keep UI minimal: the view itself will surface any downstream errors
@@ -264,9 +699,20 @@ function AppContent() {
 
   /* ---------- Not authenticated → show login ---------- */
   if (!token) {
+    if (isRehydratingAuth) {
+      return (
+        <ToastProvider>
+          <div className="flex h-dvh items-center justify-center bg-gray-50 text-gray-600" data-testid="auth-rehydrating">
+            Restoring your session...
+          </div>
+        </ToastProvider>
+      );
+    }
+
     return (
       <ToastProvider>
         <Routes>
+          <Route path="/" element={<AxiomHomePage />} />
           <Route path="/login" element={<LoginView />} />
           <Route path="/forgot-password" element={<ForgotPasswordView />} />
           <Route path="/reset-password" element={<ResetPasswordView />} />
@@ -277,7 +723,17 @@ function AppContent() {
   }
 
   const activeViewLabel =
-    activeView === 'home'
+    isPlatformHomeRoute
+      ? 'Axiom'
+      : isSpecWeaverRoute
+      ? 'SpecWeaver'
+      : isScoutRoute
+      ? 'Scout'
+      : isForgeRoute
+      ? 'Forge'
+      : isArchonHomeRoute
+      ? 'Archon'
+      : activeView === 'home'
       ? 'Home'
       : activeView === 'chat'
       ? 'Chat'
@@ -285,7 +741,9 @@ function AppContent() {
         ? 'Architecture'
         : activeView === 'governance'
           ? 'Governance'
-          : 'Workshop';
+          : activeView === 'workshop'
+            ? 'Workshop'
+            : 'SpecWeaver';
 
   return (
     <ToastProvider>
@@ -294,70 +752,147 @@ function AppContent() {
       <aside className="hidden md:flex w-[280px] shrink-0 bg-sidebar flex-col min-h-0 overflow-hidden" data-testid="sidebar">
         <div className="border-b border-sidebar-border px-4 py-4">
           <div className="axiom-brand flex items-center gap-3">
-            <div className="w-10 h-10 shrink-0 rounded-2xl bg-accent/90 flex items-center justify-center shadow-sm ring-1 ring-white/10">
-              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M3 21h18M3 10h18M12 3l9 7H3l9-7zM5 10v11m4-11v11m4-11v11m4-11v11" />
-              </svg>
+            <div className="axiom-brand-icon shrink-0">
+              <PillarIcon pillar="axiom" size={20} />
             </div>
             <div className="min-w-0">
-              <div className="axiom-brand-name text-[18px] font-semibold leading-tight text-white">Axiom</div>
-              <div className="axiom-brand-tagline text-[11px] uppercase tracking-[0.28em] text-gray-400">
+              <div className="axiom-brand-name leading-tight">Axiom</div>
+              <div className="axiom-brand-tagline text-[11px] font-medium uppercase tracking-[0.16em] text-gray-300">
                 Architecture Intelligence
               </div>
             </div>
           </div>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto sidebar-scroll">
+          <PillarNav />
           <div className="p-2 flex flex-col gap-1.5">
-            <button
-              onClick={() => {
-                resetConversation();
-                setActiveView('chat');
-              }}
-              disabled={isStreaming}
-              className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors disabled:opacity-40"
-              data-testid="new-chat"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M8 3v10M3 8h10" />
-              </svg>
-              New chat
-            </button>
-            {activeView === 'workshop' && (
+            {isSpecWeaverRoute ? (
               <button
-                onClick={() => { setSelectedWorkshopSessionId(null); setNewWorkshopKey((k) => k + 1); }}
+                onClick={() => {
+                  void handleCreateSpecWeaverSession();
+                }}
+                disabled={isCreatingSpecWeaverSession}
                 className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors"
-                data-testid="new-workshop"
+                data-testid="new-specweaver-session"
               >
                 <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M8 3v10M3 8h10" />
                 </svg>
-                New workshop
+                {isCreatingSpecWeaverSession ? 'Creating session...' : 'New session'}
               </button>
+            ) : (
+              <>
+                <button
+                  onClick={handleStartNewChat}
+                  disabled={isStreaming}
+                  className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors disabled:opacity-40"
+                  data-testid="new-chat"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M8 3v10M3 8h10" />
+                  </svg>
+                  New chat
+                </button>
+                {activeView === 'workshop' && (
+                  <button
+                    onClick={() => { setSelectedWorkshopSessionId(null); setNewWorkshopKey((k) => k + 1); }}
+                    className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors"
+                    data-testid="new-workshop"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M8 3v10M3 8h10" />
+                    </svg>
+                    New workshop
+                  </button>
+                )}
+              </>
             )}
           </div>
 
           <nav className="flex flex-col gap-0.5 px-2 mt-1">
-            {NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
+            {isSpecWeaverRoute ? (
               <button
-                key={key}
-                onClick={() => setActiveView(key)}
-                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
-                  activeView === key
-                    ? 'bg-sidebar-hover text-white'
-                    : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
-                }`}
-                data-testid={`nav-${key}`}
+                onClick={() => {
+                  navigate('/specweaver/sessions');
+                  setMobileDrawerOpen(false);
+                }}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors bg-sidebar-hover text-white"
+                data-testid="nav-specweaver-sessions"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={icon} />
+                  <path d="M4 6h16M4 12h16M4 18h10" />
                 </svg>
-                {label}
+                Sessions
               </button>
-            ))}
+            ) : (
+              NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
+                <button
+                  key={key}
+                  onClick={() => handleNavigatePrimaryView(key)}
+                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+                    activeView === key
+                      ? 'bg-sidebar-hover text-white'
+                      : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                  }`}
+                  data-testid={`nav-${key}`}
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d={icon} />
+                  </svg>
+                  {label}
+                </button>
+              ))
+            )}
           </nav>
 
-          {hasConversation && (
+          {isSpecWeaverRoute && activeSpecWeaverSessionId && (
+            <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
+              <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
+                  Active session
+                </span>
+              </div>
+              <nav className="flex flex-col gap-0.5 px-1 pb-1.5">
+                <button
+                  onClick={() => {
+                    navigate(`/specweaver/sessions/${activeSpecWeaverSessionId}`);
+                    setMobileDrawerOpen(false);
+                  }}
+                  className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
+                    location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}`
+                      ? 'bg-sidebar-hover text-white'
+                      : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                  }`}
+                  data-testid="nav-specweaver-session"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 6h16M4 12h16M4 18h10" />
+                  </svg>
+                  Session
+                </button>
+                <button
+                  onClick={() => {
+                    navigate(`/specweaver/sessions/${activeSpecWeaverSessionId}/package`);
+                    setMobileDrawerOpen(false);
+                  }}
+                  className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
+                    location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}/package`
+                      ? 'bg-sidebar-hover text-white'
+                      : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                  }`}
+                  data-testid="nav-specweaver-package"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 4h9l5 5v11a1 1 0 01-1 1H6a2 2 0 01-2-2V6a2 2 0 012-2zm8 1v4h4" />
+                  </svg>
+                  Package
+                </button>
+              </nav>
+            </div>
+          )}
+
+          {!isSpecWeaverRoute && hasConversation && (
             <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
               <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
@@ -389,9 +924,44 @@ function AppContent() {
 
           <div className="mt-3 px-2">
             <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
-              {activeView === 'workshop' ? 'Workshops' : 'History'}
+              {isSpecWeaverRoute ? 'Sessions' : activeView === 'workshop' ? 'Workshops' : 'History'}
             </h3>
-            {activeView === 'workshop' ? (
+            {isSpecWeaverRoute ? (
+              specWeaverSessionsLoading ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
+              ) : specWeaverSessionsError ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">{specWeaverSessionsError}</div>
+              ) : specWeaverSessions.length === 0 ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">No SpecWeaver sessions yet</div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {specWeaverSessions.map((session) => {
+                    const active = session.id === activeSpecWeaverSessionId;
+                    return (
+                      <button
+                        key={session.id}
+                        onClick={() => handleOpenSpecWeaverSession(session.id)}
+                        className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
+                          active
+                            ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                            : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                        }`}
+                        title={getSpecWeaverSessionTitle(session)}
+                        data-testid={`specweaver-history-${session.id}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                          <span className={`truncate ${active ? 'font-medium' : ''}`}>{getSpecWeaverSessionTitle(session)}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                          {SPECWEAVER_STATUS_LABELS[session.status]}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )
+            ) : activeView === 'workshop' ? (
               workshopSessionsLoading ? (
                 <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
               ) : workshopSessionsError ? (
@@ -462,7 +1032,7 @@ function AppContent() {
             )}
           </div>
 
-          {hasActiveStages && (
+          {!isSpecWeaverRoute && hasActiveStages && (
             <div className="mt-3 px-2 pb-2">
               <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">Pipeline</h3>
               <StageProgress stages={stages} />
@@ -507,14 +1077,12 @@ function AppContent() {
           <div className="absolute left-0 top-0 bottom-0 w-[92%] max-w-[380px] bg-sidebar flex flex-col pt-[env(safe-area-inset-top)]">
             <div className="border-b border-sidebar-border px-4 py-4">
               <div className="axiom-brand flex items-center gap-3">
-                <div className="w-9 h-9 shrink-0 rounded-2xl bg-accent/90 flex items-center justify-center shadow-sm ring-1 ring-white/10">
-                  <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3 21h18M3 10h18M12 3l9 7H3l9-7zM5 10v11m4-11v11m4-11v11m4-11v11" />
-                  </svg>
+                <div className="axiom-brand-icon axiom-brand-icon--mobile shrink-0">
+                  <PillarIcon pillar="axiom" size={16} />
                 </div>
                 <div className="min-w-0">
-                  <div className="axiom-brand-name text-[17px] font-semibold leading-tight text-white">Axiom</div>
-                  <div className="axiom-brand-tagline text-[10px] uppercase tracking-[0.28em] text-gray-400">
+                  <div className="axiom-brand-name text-[17px] leading-tight">Axiom</div>
+                  <div className="axiom-brand-tagline text-[10px] font-medium uppercase tracking-[0.14em] text-gray-300">
                     Architecture Intelligence
                   </div>
                 </div>
@@ -544,63 +1112,141 @@ function AppContent() {
               </section>
 
               <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/20 p-2 flex flex-col gap-1.5">
-                <button
-                  onClick={() => {
-                    resetConversation();
-                    setActiveView('chat');
-                    setMobileDrawerOpen(false);
-                  }}
-                  disabled={isStreaming}
-                  className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-3 text-[14px] text-gray-100 hover:bg-sidebar-hover transition-colors disabled:opacity-40"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M8 3v10M3 8h10" />
-                  </svg>
-                  New chat
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveView('workshop');
-                    setSelectedWorkshopSessionId(null);
-                    setNewWorkshopKey((k) => k + 1);
-                    setMobileDrawerOpen(false);
-                  }}
-                  className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-3 text-[14px] text-gray-100 hover:bg-sidebar-hover transition-colors"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M8 3v10M3 8h10" />
-                  </svg>
-                  New workshop
-                </button>
+                {isSpecWeaverRoute ? (
+                  <button
+                    onClick={() => {
+                      void handleCreateSpecWeaverSession();
+                    }}
+                    disabled={isCreatingSpecWeaverSession}
+                    className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-3 text-[14px] text-gray-100 hover:bg-sidebar-hover transition-colors disabled:opacity-40"
+                    data-testid="mobile-new-specweaver-session"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M8 3v10M3 8h10" />
+                    </svg>
+                    {isCreatingSpecWeaverSession ? 'Creating session...' : 'New session'}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleStartNewChat}
+                      disabled={isStreaming}
+                      className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-3 text-[14px] text-gray-100 hover:bg-sidebar-hover transition-colors disabled:opacity-40"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M8 3v10M3 8h10" />
+                      </svg>
+                      New chat
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveView('workshop');
+                        navigate('/archon/chat');
+                        setSelectedWorkshopSessionId(null);
+                        setNewWorkshopKey((k) => k + 1);
+                        setMobileDrawerOpen(false);
+                      }}
+                      className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-3 text-[14px] text-gray-100 hover:bg-sidebar-hover transition-colors"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M8 3v10M3 8h10" />
+                      </svg>
+                      New workshop
+                    </button>
+                  </>
+                )}
               </section>
 
               <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/20 p-2">
                 <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-2 pb-1">Navigate</h3>
                 <nav className="flex flex-col gap-1">
-                  {NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
+                  {isSpecWeaverRoute ? (
                     <button
-                      key={key}
                       onClick={() => {
-                        setActiveView(key);
+                        navigate('/specweaver/sessions');
                         setMobileDrawerOpen(false);
                       }}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${
-                        activeView === key
-                          ? 'bg-sidebar-hover text-white'
-                          : 'text-gray-300 hover:bg-sidebar-hover hover:text-gray-100'
-                      }`}
-                      data-testid={`mobile-drawer-nav-${key}`}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors bg-sidebar-hover text-white"
+                      data-testid="mobile-drawer-nav-specweaver-sessions"
                     >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d={icon} />
+                        <path d="M4 6h16M4 12h16M4 18h10" />
                       </svg>
-                      {label}
+                      Sessions
                     </button>
-                  ))}
+                  ) : (
+                    NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          handleNavigatePrimaryView(key);
+                          setMobileDrawerOpen(false);
+                        }}
+                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${
+                          activeView === key
+                            ? 'bg-sidebar-hover text-white'
+                            : 'text-gray-300 hover:bg-sidebar-hover hover:text-gray-100'
+                        }`}
+                        data-testid={`mobile-drawer-nav-${key}`}
+                      >
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d={icon} />
+                        </svg>
+                        {label}
+                      </button>
+                    ))
+                  )}
                 </nav>
               </section>
 
-              {hasConversation && (
+              {isSpecWeaverRoute && activeSpecWeaverSessionId && (
+                <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
+                  <div className="px-2 pt-1 pb-1 flex items-center gap-1.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
+                      Active session
+                    </span>
+                  </div>
+                  <nav className="flex flex-col gap-1 px-1 pb-1">
+                    <button
+                      onClick={() => {
+                        navigate(`/specweaver/sessions/${activeSpecWeaverSessionId}`);
+                        setMobileDrawerOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
+                        location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}`
+                          ? 'bg-sidebar-hover text-white'
+                          : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                      }`}
+                      data-testid="mobile-drawer-nav-specweaver-session"
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 6h16M4 12h16M4 18h10" />
+                      </svg>
+                      Session
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate(`/specweaver/sessions/${activeSpecWeaverSessionId}/package`);
+                        setMobileDrawerOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
+                        location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}/package`
+                          ? 'bg-sidebar-hover text-white'
+                          : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                      }`}
+                      data-testid="mobile-drawer-nav-specweaver-package"
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 4h9l5 5v11a1 1 0 01-1 1H6a2 2 0 01-2-2V6a2 2 0 012-2zm8 1v4h4" />
+                      </svg>
+                      Package
+                    </button>
+                  </nav>
+                </section>
+              )}
+
+              {!isSpecWeaverRoute && hasConversation && (
                 <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
                   <div className="px-2 pt-1 pb-1 flex items-center gap-1.5">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
@@ -635,11 +1281,46 @@ function AppContent() {
 
               <details className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/20" open>
                 <summary className="list-none cursor-pointer px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest flex items-center justify-between">
-                  <span>{activeView === 'workshop' ? 'Workshops' : 'History'}</span>
+                  <span>{isSpecWeaverRoute ? 'Sessions' : activeView === 'workshop' ? 'Workshops' : 'History'}</span>
                   <span className="text-gray-400 text-[11px] normal-case">Toggle</span>
                 </summary>
                 <div className="px-2 pb-3">
-                  {activeView === 'workshop' ? (
+                  {isSpecWeaverRoute ? (
+                    specWeaverSessionsLoading ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
+                    ) : specWeaverSessionsError ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">{specWeaverSessionsError}</div>
+                    ) : specWeaverSessions.length === 0 ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">No SpecWeaver sessions yet</div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {specWeaverSessions.map((session) => {
+                          const active = session.id === activeSpecWeaverSessionId;
+                          return (
+                            <button
+                              key={session.id}
+                              onClick={() => handleOpenSpecWeaverSession(session.id)}
+                              className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors ${
+                                active
+                                  ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                  : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                              }`}
+                              title={getSpecWeaverSessionTitle(session)}
+                              data-testid={`mobile-specweaver-history-${session.id}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                                <span className={`truncate ${active ? 'font-medium' : ''}`}>{getSpecWeaverSessionTitle(session)}</span>
+                              </div>
+                              <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                                {SPECWEAVER_STATUS_LABELS[session.status]}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )
+                  ) : activeView === 'workshop' ? (
                     workshopSessionsLoading ? (
                       <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
                     ) : workshopSessionsError ? (
@@ -708,7 +1389,7 @@ function AppContent() {
                 </div>
               </details>
 
-              {hasActiveStages && (
+              {!isSpecWeaverRoute && hasActiveStages && (
                 <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
                   <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-2 mb-1.5">Pipeline</h3>
                   <StageProgress stages={stages} />
@@ -769,54 +1450,68 @@ function AppContent() {
             <button
               type="button"
               onClick={() => {
-                resetConversation();
-                setActiveView('chat');
+                if (isSpecWeaverRoute) {
+                  void handleCreateSpecWeaverSession();
+                  return;
+                }
+                handleStartNewChat();
               }}
-              disabled={isStreaming}
+              disabled={isSpecWeaverRoute ? isCreatingSpecWeaverSession : isStreaming}
               className="text-xs font-medium rounded-lg px-2.5 py-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
             >
-              New
+              {isSpecWeaverRoute ? 'New session' : 'New'}
             </button>
           </div>
         </div>
 
         {/* Content (leave space for fixed mobile bottom nav) */}
         <div className="flex-1 min-h-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
-          {activeView === 'home' && (
-            <HomeView
-              onStartSession={() => {
-                resetConversation();
-                setActiveView('chat');
-              }}
-              onNavigateToWorkshop={() => setActiveView('workshop')}
-            />
-          )}
-          {activeView === 'chat' && <ChatView />}
-          {activeView === 'architecture' && (
-            <div className="h-full overflow-y-auto">
-              <div className="max-w-5xl mx-auto"><ArchitectureView /></div>
-            </div>
-          )}
-          {activeView === 'governance' && (
-            <div className="h-full overflow-y-auto">
-              <div className="max-w-5xl mx-auto"><GovernanceView /></div>
-            </div>
-          )}
-          {activeView === 'workshop' && (
-            <WorkshopView
-              key={selectedWorkshopSessionId ?? `new-${newWorkshopKey}`}
-              initialSessionId={selectedWorkshopSessionId}
-              onNavigateToChat={(conversationId, initialMessage) => {
-                safeSetItem(STORAGE_KEYS.lastConversationId, conversationId);
-                // Seed the store with the conversation ID and the requirements
-                // text. ChatView will auto-submit the seed via the SSE stream
-                // so the pipeline runs and produces a response.
-                setConversationId(conversationId);
-                setWorkshopSeed(initialMessage);
-                setActiveView('chat');
-              }}
-              onSessionCreated={handleWorkshopSessionCreated}
-            />
+          {isPlatformHomeRoute ? (
+            <AxiomHomePage />
+          ) : isSpecWeaverRoute ? (
+            <Routes>
+              <Route path="/specweaver" element={<SpecWeaverHomePage />} />
+              <Route path="/specweaver/sessions" element={<SessionListView />} />
+              <Route path="/specweaver/sessions/:sessionId" element={<SessionView />} />
+              <Route path="/specweaver/sessions/:sessionId/package" element={<PackageDetailView />} />
+            </Routes>
+          ) : isScoutRoute ? (
+            <ScoutHomePage />
+          ) : isForgeRoute ? (
+            <ForgeHomePage />
+          ) : isArchonHomeRoute ? (
+            <ArchonHomePage />
+          ) : (
+            <>
+              {activeView === 'chat' && <ChatView />}
+              {activeView === 'architecture' && (
+                <div className="h-full overflow-y-auto">
+                  <div className="max-w-5xl mx-auto"><ArchitectureView /></div>
+                </div>
+              )}
+              {activeView === 'governance' && (
+                <div className="h-full overflow-y-auto">
+                  <div className="max-w-5xl mx-auto"><GovernanceView /></div>
+                </div>
+              )}
+              {activeView === 'workshop' && (
+                <WorkshopView
+                  key={selectedWorkshopSessionId ?? `new-${newWorkshopKey}`}
+                  initialSessionId={selectedWorkshopSessionId}
+                  onNavigateToChat={(conversationId, initialMessage) => {
+                    safeSetItem(STORAGE_KEYS.lastConversationId, conversationId);
+                    // Seed the store with the conversation ID and the requirements
+                    // text. ChatView will auto-submit the seed via the SSE stream
+                    // so the pipeline runs and produces a response.
+                    setConversationId(conversationId);
+                    setWorkshopSeed(initialMessage);
+                    setActiveView('chat');
+                    navigate('/archon/chat');
+                  }}
+                  onSessionCreated={handleWorkshopSessionCreated}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -830,7 +1525,7 @@ function AppContent() {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setActiveView(key)}
+                  onClick={() => handleNavigatePrimaryView(key)}
                   disabled={disabled}
                   className={`flex flex-col items-center justify-center gap-1 text-[11px] transition-colors ${
                     active ? 'text-accent' : 'text-gray-500'

@@ -1,19 +1,25 @@
 package com.axiom.api.filter;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.server.reactive.ServerHttpRequest;
-import org.springframework.stereotype.Component;
 
 /**
  * Ensures routed pillar requests always carry validated user context headers.
  */
-@Component
 public class UserContextForwardingFilter
         extends AbstractGatewayFilterFactory<UserContextForwardingFilter.Config> {
 
-    public UserContextForwardingFilter() {
+    public static final String AXIOM_INTERNAL_SECRET_HEADER = "X-Axiom-Internal-Secret";
+
+    private final String internalSecret;
+
+    public UserContextForwardingFilter(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            @Value("${axiom.internal.secret:}") String internalSecret) {
         super(Config.class);
+        this.internalSecret = internalSecret == null ? "" : internalSecret;
     }
 
     /**
@@ -46,6 +52,12 @@ public class UserContextForwardingFilter
                     .header(JwtAuthenticationFilter.AXIOM_USER_ID_HEADER, userId)
                     .header(JwtAuthenticationFilter.AXIOM_EMAIL_HEADER, email)
                     .build();
+
+            if (!internalSecret.isBlank()) {
+                request = request.mutate()
+                        .header(AXIOM_INTERNAL_SECRET_HEADER, internalSecret)
+                        .build();
+            }
 
             return chain.filter(exchange.mutate().request(request).build());
         };

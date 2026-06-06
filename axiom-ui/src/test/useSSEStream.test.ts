@@ -72,6 +72,11 @@ describe('useSSEStream', () => {
       sendPromise = result.current.send('test');
     });
 
+    // send() performs an async preflight run-status check before startStream.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     expect(useStore.getState().isStreaming).toBe(true);
 
     await act(async () => {
@@ -105,8 +110,9 @@ describe('useSSEStream', () => {
   });
 
   it('pollsRunStatusWhenStreamFailsWithConversationId', async () => {
+    mockGetRunStatus.mockResolvedValueOnce(null);
     mockStreamChat.mockRejectedValue(new Error('Proxy disconnect'));
-    mockGetRunStatus.mockResolvedValue({
+    mockGetRunStatus.mockResolvedValueOnce({
       runId: 'run-abc',
       conversationId: 'conv-poll',
       status: 'RUNNING',
@@ -125,6 +131,67 @@ describe('useSSEStream', () => {
     expect(mockGetRunStatus).toHaveBeenCalledWith('conv-poll', 'jwt');
     expect(useStore.getState().runId).toBe('run-abc');
     expect(useStore.getState().canReattach).toBe(true);
+  });
+
+  it('reattachesWhenRunAlreadyActiveBeforeSubmit', async () => {
+    mockGetRunStatus.mockResolvedValue({
+      runId: 'run-live',
+      conversationId: 'conv-live',
+      status: 'RUNNING',
+      lastStageCompleted: 'requirements',
+      startedAt: '2024-01-01T00:00:00Z',
+      eventCount: 3,
+    });
+    mockReattachStream.mockResolvedValue(undefined);
+    useStore.setState({ token: 'jwt', conversationId: 'conv-live' });
+
+    const { result } = renderHook(() => useSSEStream());
+
+    await act(async () => {
+      await result.current.send('test');
+    });
+
+    expect(mockStreamChat).not.toHaveBeenCalled();
+    expect(mockReattachStream).toHaveBeenCalledWith(
+      'conv-live',
+      'jwt',
+      expect.any(Function),
+      'run-live',
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('reattachesWhenDuplicateRunRaceOccurs', async () => {
+    mockGetRunStatus
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        runId: 'run-race',
+        conversationId: 'conv-race',
+        status: 'RUNNING',
+        lastStageCompleted: 'governance_analysis',
+        startedAt: '2024-01-01T00:00:00Z',
+        eventCount: 5,
+      });
+    mockStreamChat.mockRejectedValue(
+      new Error('Stream request failed: 409 {"type":"urn:archon:duplicate-pipeline-run"}'),
+    );
+    mockReattachStream.mockResolvedValue(undefined);
+    useStore.setState({ token: 'jwt', conversationId: 'conv-race' });
+
+    const { result } = renderHook(() => useSSEStream());
+
+    await act(async () => {
+      await result.current.send('test');
+    });
+
+    expect(mockReattachStream).toHaveBeenCalledWith(
+      'conv-race',
+      'jwt',
+      expect.any(Function),
+      'run-race',
+      expect.any(AbortSignal),
+    );
+    expect(useStore.getState().error).toBeNull();
   });
 
   it('doesNotPollRunStatusWhenConversationIdIsNull', async () => {

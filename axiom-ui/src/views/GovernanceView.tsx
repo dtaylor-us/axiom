@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useGovernance } from '../hooks/useGovernance';
 import { useTactics } from '../hooks/useTactics';
 import { useBuyVsBuild } from '../hooks/useBuyVsBuild';
+import { useArchitecture } from '../hooks/useArchitecture';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { SeverityGrid } from '../components/SeverityGrid';
 import { CopyButton } from '../components/CopyButton';
 import { StructuredExportBar, MarkdownExportActions } from '../components/StructuredData';
-import type { Weakness, TacticRecommendation, TradeOffDecision, AdlDocument, FmeaEntry, BuyVsBuildDecision, BuyVsBuildSummary } from '../types/api';
+import type { Weakness, TacticRecommendation, TradeOffDecision, AdlDocument, FmeaEntry, BuyVsBuildDecision, BuyVsBuildSummary, Component } from '../types/api';
 
 /* ── Badge helpers ────────────────────────────── */
 
@@ -176,6 +177,93 @@ function sourcingMarkdown(summary: BuyVsBuildSummary): string {
   return lines.join('\n');
 }
 
+const OWNERSHIP_TO_RECOMMENDATION: Record<string, 'build' | 'buy' | 'adopt'> = {
+  'enterprise-built': 'build',
+  'bought-saas': 'buy',
+  'adopted-platform': 'adopt',
+  'integration-adapter': 'build',
+  'governance-service': 'build',
+};
+
+type SourcingDecisionView = BuyVsBuildDecision & {
+  inferredFromOwnership?: boolean;
+};
+
+function normalizeComponentKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function inferDecisionFromComponent(component: Component): SourcingDecisionView | null {
+  if (!component.ownership) return null;
+  const recommendation = OWNERSHIP_TO_RECOMMENDATION[component.ownership];
+  if (!recommendation) return null;
+
+  return {
+    componentName: component.name,
+    recommendation,
+    rationale: 'Derived from component ownership metadata.',
+    alternativesConsidered: [],
+    recommendedSolution: component.technology || (recommendation === 'build' ? 'Custom build' : ''),
+    estimatedBuildCost: recommendation === 'build' ? 'TBD' : 'N/A',
+    vendorLockInRisk: recommendation === 'buy' ? 'medium' : 'low',
+    integrationEffort: recommendation === 'build' ? 'medium' : 'low',
+    conflictsWithUserPreference: false,
+    conflictExplanation: '',
+    isCoreeDifferentiator: false,
+    inferredFromOwnership: true,
+  };
+}
+
+function buildSourcingDecisionView(
+  components: Component[],
+  decisions: BuyVsBuildDecision[],
+): SourcingDecisionView[] {
+  const merged = new Map<string, SourcingDecisionView>();
+
+  for (const decision of decisions) {
+    merged.set(normalizeComponentKey(decision.componentName), {
+      ...decision,
+      inferredFromOwnership: false,
+    });
+  }
+
+  for (const component of components) {
+    const key = normalizeComponentKey(component.name);
+    if (merged.has(key)) continue;
+    const inferred = inferDecisionFromComponent(component);
+    if (inferred) {
+      merged.set(key, inferred);
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
+function buildSourcingSummaryView(
+  summary: BuyVsBuildSummary | null,
+  components: Component[],
+): BuyVsBuildSummary | null {
+  const mergedDecisions = buildSourcingDecisionView(components, summary?.decisions ?? []);
+  if (!summary && mergedDecisions.length === 0) {
+    return null;
+  }
+
+  const buildCount = mergedDecisions.filter((d) => d.recommendation === 'build').length;
+  const buyCount = mergedDecisions.filter((d) => d.recommendation === 'buy').length;
+  const adoptCount = mergedDecisions.filter((d) => d.recommendation === 'adopt').length;
+  const conflictCount = mergedDecisions.filter((d) => d.conflictsWithUserPreference).length;
+
+  return {
+    summaryText: summary?.summaryText ?? '',
+    totalDecisions: mergedDecisions.length,
+    buildCount,
+    buyCount,
+    adoptCount,
+    conflictCount,
+    decisions: mergedDecisions,
+  };
+}
+
 /* ── Types ────────────────────────────────────── */
 
 type Tab = 'trade-offs' | 'adl' | 'weaknesses' | 'fmea' | 'tactics' | 'sourcing';
@@ -186,11 +274,13 @@ export function GovernanceView() {
   const [activeTab, setActiveTab] = useState<Tab>('trade-offs');
   const [sourcingFilter, setSourcingFilter] = useState<'all' | 'build' | 'buy' | 'adopt'>('all');
   const [sourcingConflictsOnly, setSourcingConflictsOnly] = useState(false);
+  const { architecture } = useArchitecture();
   const { tradeOffs, adl, weaknesses, fmea, governanceReport, loading, error } = useGovernance();
   const { tactics, summary: tacticsSummary, loading: tacticsLoading } = useTactics();
   const { summary: sourcingSummary } = useBuyVsBuild({
     recommendation: sourcingFilter === 'all' ? undefined : sourcingFilter,
   });
+  const sourcingSummaryView = buildSourcingSummaryView(sourcingSummary, architecture?.components ?? []);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'trade-offs', label: 'Trade-offs' },
@@ -223,8 +313,8 @@ export function GovernanceView() {
           ? { md: tacticsMarkdown(tactics), filename: 'tactics.md' }
           : null;
       case 'sourcing': {
-        return sourcingSummary && sourcingSummary.totalDecisions > 0
-          ? { md: sourcingMarkdown(sourcingSummary), filename: 'sourcing-decisions.md' }
+        return sourcingSummaryView && sourcingSummaryView.totalDecisions > 0
+          ? { md: sourcingMarkdown(sourcingSummaryView), filename: 'sourcing-decisions.md' }
           : null;
       }
     }
@@ -466,28 +556,28 @@ export function GovernanceView() {
       {/* ── Sourcing ── */}
       {activeTab === 'sourcing' && (
         <div data-testid="panel-sourcing" className="space-y-4">
-          {!sourcingSummary ? (
+          {!sourcingSummaryView ? (
             <p className="text-gray-400 italic">No sourcing decisions available</p>
           ) : (
             <>
               <div className="bg-white border border-gray-200 rounded-xl p-4">
                 <p className="text-sm font-semibold text-gray-800">Summary</p>
-                {sourcingSummary.summaryText ? (
-                  <p className="text-sm text-gray-600 mt-2">{sourcingSummary.summaryText}</p>
+                {sourcingSummaryView.summaryText ? (
+                  <p className="text-sm text-gray-600 mt-2">{sourcingSummaryView.summaryText}</p>
                 ) : (
                   <p className="text-sm text-gray-400 mt-2 italic">No summary text available</p>
                 )}
 
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <span className="text-xs font-semibold rounded-full bg-gray-100 text-gray-700 px-3 py-1">Total {sourcingSummary.totalDecisions}</span>
-                  <span className="text-xs font-semibold rounded-full bg-blue-50 text-blue-700 px-3 py-1">Build {sourcingSummary.buildCount}</span>
-                  <span className="text-xs font-semibold rounded-full bg-purple-50 text-purple-700 px-3 py-1">Buy {sourcingSummary.buyCount}</span>
-                  <span className="text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 px-3 py-1">Adopt {sourcingSummary.adoptCount}</span>
+                  <span className="text-xs font-semibold rounded-full bg-gray-100 text-gray-700 px-3 py-1">Total {sourcingSummaryView.totalDecisions}</span>
+                  <span className="text-xs font-semibold rounded-full bg-blue-50 text-blue-700 px-3 py-1">Build {sourcingSummaryView.buildCount}</span>
+                  <span className="text-xs font-semibold rounded-full bg-purple-50 text-purple-700 px-3 py-1">Buy {sourcingSummaryView.buyCount}</span>
+                  <span className="text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 px-3 py-1">Adopt {sourcingSummaryView.adoptCount}</span>
                 </div>
 
-                {sourcingSummary.conflictCount > 0 && (
+                {sourcingSummaryView.conflictCount > 0 && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3 text-amber-900">
-                    <p className="text-sm font-semibold">Preference conflicts: {sourcingSummary.conflictCount}</p>
+                    <p className="text-sm font-semibold">Preference conflicts: {sourcingSummaryView.conflictCount}</p>
                     <p className="text-sm mt-1">
                       Some recommendations conflict with your stated preferences. Review conflicts below.
                     </p>
@@ -522,9 +612,9 @@ export function GovernanceView() {
               </div>
 
               <div className="space-y-3">
-                {sourcingSummary.decisions
-                  .filter((d: BuyVsBuildDecision) => !sourcingConflictsOnly || d.conflictsWithUserPreference)
-                  .map((d: BuyVsBuildDecision) => (
+                {sourcingSummaryView.decisions
+                  .filter((d: SourcingDecisionView) => !sourcingConflictsOnly || d.conflictsWithUserPreference)
+                  .map((d: SourcingDecisionView) => (
                     <div key={d.componentName} className="border border-gray-200 rounded-xl p-4 bg-white">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -560,6 +650,9 @@ export function GovernanceView() {
                           {d.recommendedSolution ? d.recommendedSolution : 'Custom build'}
                         </p>
                         <p>{d.rationale}</p>
+                        {d.inferredFromOwnership && (
+                          <p className="text-xs text-gray-500">Decision inferred from component ownership metadata.</p>
+                        )}
                         <p><span className="font-semibold">Estimated cost:</span> {d.estimatedBuildCost}</p>
                         <p><span className="font-semibold">Lock-in risk:</span> {d.vendorLockInRisk}</p>
                       </div>

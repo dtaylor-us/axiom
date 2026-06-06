@@ -1,0 +1,7 @@
+ALTER TABLE generated_packages
+  ADD COLUMN IF NOT EXISTS duplicate_count INT
+    NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS gap_count INT
+    NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS conflict_count INT
+    NOT NULL DEFAULT 0;

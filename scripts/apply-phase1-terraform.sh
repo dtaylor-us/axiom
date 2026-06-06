@@ -180,6 +180,41 @@ import_existing_aks_resources_if_needed() {
 
   local rg_name project_name environment_name law_name pip_name aks_name agent_pool_name
   local law_id pip_id aks_id agent_pool_id
+  local aks_cluster_principal_id aks_node_resource_group
+
+  import_existing_role_assignment_if_needed() {
+    local state_address="$1"
+    local scope="$2"
+    local role_name="$3"
+    local assignee_object_id="$4"
+
+    if terraform state list | grep -q "^${state_address}$"; then
+      info "Role assignment ${state_address} already in Terraform state."
+      return
+    fi
+
+    if [[ -z "${scope}" || -z "${role_name}" || -z "${assignee_object_id}" ]]; then
+      warn "Insufficient data to auto-import ${state_address}; Terraform will attempt create."
+      return
+    fi
+
+    local existing_assignment_id
+    existing_assignment_id="$(az role assignment list \
+      --scope "${scope}" \
+      --assignee-object-id "${assignee_object_id}" \
+      --role "${role_name}" \
+      --query '[0].id' \
+      -o tsv 2>/dev/null || true)"
+
+    if [[ -z "${existing_assignment_id}" ]]; then
+      info "Role assignment ${state_address} not found in Azure; Terraform will create it."
+      return
+    fi
+
+    info "Existing role assignment detected for ${state_address}. Importing ${existing_assignment_id}"
+    terraform import -var-file="${VAR_FILE}" "${state_address}" "${existing_assignment_id}" >/dev/null
+    success "Imported existing role assignment ${state_address} into Terraform state."
+  }
 
   rg_name="$(terraform console -var-file="${VAR_FILE}" <<'EOF' | tail -n 1 | tr -d '"'
 "rg-${var.project}-${var.environment}"
@@ -249,6 +284,37 @@ EOF
     success "Imported existing AKS ingress Public IP into Terraform state."
   else
     info "AKS ingress Public IP ${pip_name} not found; Terraform will create it."
+  fi
+
+  # Import pre-existing AKS role assignments so apply does not fail with
+  # RoleAssignmentExists on long-lived environments.
+  aks_cluster_principal_id="$(az aks show --resource-group "${rg_name}" --name "${aks_name}" --query 'identity.principalId' -o tsv 2>/dev/null || true)"
+  aks_node_resource_group="$(az aks show --resource-group "${rg_name}" --name "${aks_name}" --query 'nodeResourceGroup' -o tsv 2>/dev/null || true)"
+
+  if [[ -n "${aks_cluster_principal_id}" && "${aks_cluster_principal_id}" != "None" ]]; then
+    import_existing_role_assignment_if_needed \
+      "module.aks.azurerm_role_assignment.monitoring" \
+      "${aks_id}" \
+      "Monitoring Metrics Publisher" \
+      "${aks_cluster_principal_id}"
+
+    if [[ -n "${aks_node_resource_group}" && "${aks_node_resource_group}" != "None" ]]; then
+      import_existing_role_assignment_if_needed \
+        "module.aks.azurerm_role_assignment.aks_network_contributor" \
+        "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${aks_node_resource_group}" \
+        "Network Contributor" \
+        "${aks_cluster_principal_id}"
+    else
+      warn "Could not resolve AKS node resource group; skipping node RG role assignment auto-import."
+    fi
+
+    import_existing_role_assignment_if_needed \
+      "module.aks.azurerm_role_assignment.aks_network_contributor_main_rg" \
+      "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${rg_name}" \
+      "Network Contributor" \
+      "${aks_cluster_principal_id}"
+  else
+    warn "Could not resolve AKS managed identity principal ID; skipping role assignment auto-import checks."
   fi
 }
 

@@ -40,6 +40,39 @@ export function useSSEStream() {
       const controller = new AbortController();
       abortRef.current = controller;
 
+      const tryReattachActiveRun = async (): Promise<boolean> => {
+        if (!activeConversationId) return false;
+        try {
+          const status = await getRunStatus(activeConversationId, token);
+          if (!status || status.status !== 'RUNNING') return false;
+
+          startStream(activeConversationId);
+          setRunState({
+            runId: status.runId,
+            runStatus: status.status,
+            lastStageCompleted: status.lastStageCompleted ?? null,
+            canReattach: false,
+          });
+          // Reset stage progress so replayed events rebuild state deterministically.
+          useStore.getState().clearStages();
+          await reattachStream(
+            activeConversationId,
+            token,
+            handleEvent,
+            status.runId,
+            controller.signal,
+          );
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      // Avoid duplicate-run collisions by attaching to an existing active run first.
+      if (await tryReattachActiveRun()) {
+        return;
+      }
+
       startStream(activeConversationId);
       beginUserTurn(message);
 
@@ -54,7 +87,23 @@ export function useSSEStream() {
         );
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
-          setError((err as Error).message ?? 'Stream failed');
+          const errorMessage = (err as Error).message ?? 'Stream failed';
+
+          // Race guard: if another stream was started milliseconds earlier,
+          // recover by attaching to the active run instead of surfacing an error.
+          if (
+            errorMessage.includes('duplicate-pipeline-run') ||
+            errorMessage.includes('already active') ||
+            errorMessage.includes('Stream request failed: 409')
+          ) {
+            const reattached = await tryReattachActiveRun();
+            if (reattached) {
+              setError(null);
+              return;
+            }
+          }
+
+          setError(errorMessage);
 
           // The API stream may end without a COMPLETE when a proxy disconnects.
           // Detect that case by polling durable run status.
@@ -69,7 +118,7 @@ export function useSSEStream() {
                   canReattach: true,
                 });
               }
-            } catch (e) {
+            } catch (_e) {
               // Best-effort only; leave banner suppressed if status can't be retrieved.
             }
           }

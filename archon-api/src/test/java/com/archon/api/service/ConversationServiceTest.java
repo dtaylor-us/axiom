@@ -40,13 +40,13 @@ class ConversationServiceTest {
 
         assertNotNull(result.getId());
         verify(conversationRepo).save(any(Conversation.class));
-        verify(conversationRepo, never()).findByIdAndUserId(any(), any());
+        verify(conversationRepo, never()).findByIdAndUserIdIn(any(), any());
     }
 
     @Test
     void resolveConversation_throwsNotFoundForUnknownId() {
         UUID unknown = UUID.randomUUID();
-        when(conversationRepo.findByIdAndUserId(unknown, "user1"))
+        when(conversationRepo.findByIdAndUserIdIn(eq(unknown), any()))
                 .thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
@@ -59,7 +59,7 @@ class ConversationServiceTest {
         UUID existing = UUID.randomUUID();
         Conversation conv = Conversation.builder()
                 .id(existing).userId("user1").title("test").build();
-        when(conversationRepo.findByIdAndUserId(existing, "user1"))
+        when(conversationRepo.findByIdAndUserIdIn(eq(existing), any()))
                 .thenReturn(Optional.of(conv));
 
         Conversation result = conversationService.resolveConversation(

@@ -13,7 +13,7 @@ RUN mvn package -DskipTests -q
 # --- dev stage: mounts source at runtime, no image rebuild needed ---
 FROM deps AS dev
 EXPOSE 8080
-ENTRYPOINT ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-Dspring.devtools.restart.enabled=false"]
+ENTRYPOINT ["mvn", "spring-boot:run", "-Dspring-boot.run.mainClass=com.axiom.api.AxiomApiApplication", "-Dspring-boot.run.jvmArguments=-Dspring.devtools.restart.enabled=false"]
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app

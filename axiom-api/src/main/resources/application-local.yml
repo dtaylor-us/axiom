@@ -1,10 +1,9 @@
-# Local development overrides
-# axiom-api is under the 'platform' Compose profile
-# and only starts when explicitly included.
-# archon-api must be running before axiom-api starts.
+# Local development overrides.
+# axiom-api runs in the platform profile alongside both pillar services.
 
 axiom:
   pillars:
     archon:
       base-url: http://archon-api:8081
-      enabled: true
+    specweaver:
+      base-url: http://specweaver-api:8082

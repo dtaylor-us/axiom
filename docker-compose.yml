@@ -83,7 +83,7 @@ services:
     container_name: archon-agent
     environment:
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-secret-change-in-prod}
-      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_HARDWARE_TIER: ${OLLAMA_HARDWARE_TIER:-2}
       OLLAMA_PRIMARY_MODEL: ${OLLAMA_PRIMARY_MODEL:-qwen3:14b}
@@ -99,7 +99,7 @@ services:
       AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-gpt-4o}
       QDRANT_URL: http://qdrant:6333
       LOG_LEVEL: INFO
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${ARCHON_AGENT_OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       OTEL_SERVICE_NAME: archon-agent
       OTEL_TRACES_SAMPLER: always_on
@@ -164,13 +164,15 @@ services:
       - SPECWEAVER_API_PORT=8082
       - SPRING_PROFILES_ACTIVE=local
       - POSTGRES_URL=jdbc:postgresql://postgres:5432/specweaver
-      - JWT_SECRET=${SPECWEAVER_JWT_SECRET:-local-specweaver-jwt-secret}
+      - POSTGRES_USERNAME=archon
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-localdev}
+      - JWT_SECRET=${SPECWEAVER_JWT_SECRET:-dev-jwt-secret-minimum-32-chars-here}
       - STORAGE_TYPE=minio
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_BUCKET=specweaver-documents
-      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
       - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
     depends_on:
       postgres:
@@ -178,7 +180,7 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -203,7 +205,7 @@ services:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_BUCKET=specweaver-documents
-      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - OLLAMA_PRIMARY_MODEL=${OLLAMA_PRIMARY_MODEL:-qwen3:14b}
       - OLLAMA_FAST_MODEL=${OLLAMA_FAST_MODEL:-qwen3:8b}
@@ -212,14 +214,15 @@ services:
       - OLLAMA_TEMPERATURE=${OLLAMA_TEMPERATURE:-0.1}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${SPECWEAVER_AGENT_OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
       specweaver-api:
         condition: service_healthy
       qdrant:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8085/health || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8085/health')\" || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -243,13 +246,13 @@ services:
       - SPECWEAVER_API_BASE_URL=http://specweaver-api:8082
       - AXIOM_GATEWAY_BYPASS=false
       - SPRING_PROFILES_ACTIVE=local
-      - POSTGRES_URL=jdbc:postgresql://postgres:5432/axiom_platform
-      - JWT_SECRET=${AXIOM_PLATFORM_JWT_SECRET:-local-axiom-jwt-secret}
+      - JWT_SECRET=${JWT_SECRET}
+      - AXIOM_INTERNAL_SECRET=${AXIOM_INTERNAL_SECRET:-}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
-      postgres:
-        condition: service_healthy
       api:
+        condition: service_healthy
+      specweaver-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]

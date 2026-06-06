@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { ArchitectureView } from '../views/ArchitectureView';
 
 let architectureState: Record<string, unknown>;
 let diagramsState: Record<string, unknown>;
+let buyVsBuildState: Record<string, unknown>;
+let tacticsState: Record<string, unknown>;
 
 vi.mock('../hooks/useArchitecture', () => ({
   useArchitecture: () => architectureState,
@@ -11,6 +13,19 @@ vi.mock('../hooks/useArchitecture', () => ({
 
 vi.mock('../hooks/useDiagrams', () => ({
   useDiagrams: () => diagramsState,
+}));
+
+vi.mock('../hooks/useBuyVsBuild', () => ({
+  useBuyVsBuild: () => buyVsBuildState,
+}));
+
+vi.mock('../hooks/useTactics', () => ({
+  useTactics: () => tacticsState,
+}));
+
+vi.mock('../store/useStore', () => ({
+  useStore: (selector: (state: { overrideWarning: string }) => unknown) =>
+    selector({ overrideWarning: '' }),
 }));
 
 // Mock MermaidDiagram to avoid mermaid import in jsdom
@@ -28,6 +43,8 @@ describe('ArchitectureView', () => {
       error: null,
     };
     diagramsState = { collection: null, loading: false, error: null };
+    buyVsBuildState = { summary: null, loading: false, error: null };
+    tacticsState = { tactics: [], loading: false, error: null };
   });
 
   it('rendersLoadingState', () => {
@@ -121,5 +138,51 @@ describe('ArchitectureView', () => {
     expect(screen.getByText('Primary Flow')).toBeInTheDocument();
     expect(screen.getByText('Order State Machine')).toBeInTheDocument();
     expect(screen.getByText('Addresses: modularity')).toBeInTheDocument();
+  });
+
+  it('fillsMissingSourcingDecisionsFromComponentOwnership', () => {
+    architectureState.architecture = {
+      conversationId: 'c1',
+      style: 'Service-based',
+      components: [
+        { name: 'Web Server', ownership: 'enterprise-built', responsibility: 'Serve UI', technology: 'Node.js' },
+        { name: 'Authentication Service', ownership: 'bought-saas', responsibility: 'Auth provider integration', technology: 'Okta SDK' },
+      ],
+      interactions: [],
+      componentDiagram: 'graph LR; A-->B',
+      sequenceDiagram: 'sequenceDiagram; A->>B: call',
+    };
+
+    buyVsBuildState.summary = {
+      summaryText: '',
+      totalDecisions: 1,
+      buildCount: 1,
+      buyCount: 0,
+      adoptCount: 0,
+      conflictCount: 0,
+      decisions: [
+        {
+          componentName: 'Web Server',
+          recommendation: 'build',
+          rationale: 'Core capability',
+          alternativesConsidered: [],
+          recommendedSolution: 'Custom build',
+          estimatedBuildCost: '$$',
+          vendorLockInRisk: 'low',
+          integrationEffort: 'medium',
+          conflictsWithUserPreference: false,
+          conflictExplanation: '',
+          isCoreeDifferentiator: true,
+        },
+      ],
+    };
+
+    render(<ArchitectureView />);
+
+    // The missing bought component should be inferred into sourcing decisions.
+    const sourcingSection = screen.getByTestId('buy-vs-build-section');
+    expect(within(sourcingSection).getByText('Buy 1')).toBeInTheDocument();
+    expect(within(sourcingSection).getByText('Authentication Service')).toBeInTheDocument();
+    expect(within(sourcingSection).getByText('Decision inferred from component ownership metadata.')).toBeInTheDocument();
   });
 });

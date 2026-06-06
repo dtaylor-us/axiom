@@ -107,7 +107,10 @@ public class ChatController {
                         .data(objectMapper.writeValueAsString(response),
                                 MediaType.APPLICATION_JSON));
             } catch (IOException e) {
-                emitter.completeWithError(e);
+                // Client-side disconnects can surface as broken-pipe writes.
+                // Complete quietly so the API does not emit a synthetic 500.
+                log.debug("SSE client disconnected while streaming", e);
+                emitter.complete();
             }
         }, emitter::completeWithError, emitter::complete);
 

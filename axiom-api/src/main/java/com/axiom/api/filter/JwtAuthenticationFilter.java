@@ -1,19 +1,15 @@
 package com.axiom.api.filter;
 
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.SecretKey;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
@@ -23,7 +19,6 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
-import org.springframework.security.web.server.WebFilterExchange;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -44,16 +39,14 @@ public class JwtAuthenticationFilter implements WebFilter {
     static final String EMAIL_ATTRIBUTE = "axiom.email";
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String HMAC_ALGORITHM = "HmacSHA256";
+    private static final String USER_ID_CLAIM = "userId";
+    private static final String EMAIL_CLAIM = "email";
 
-    private final ObjectMapper objectMapper;
-    private final byte[] jwtSecret;
+    private final SecretKey signingKey;
 
     public JwtAuthenticationFilter(
-            ObjectMapper objectMapper,
             @Value("${jwt.secret}") String jwtSecret) {
-        this.objectMapper = objectMapper;
-        this.jwtSecret = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -93,6 +86,7 @@ public class JwtAuthenticationFilter implements WebFilter {
 
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 principal.userId(), token, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        authentication.setDetails(principal.email());
 
         return chain.filter(enrichedExchange)
                 .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
@@ -122,55 +116,33 @@ public class JwtAuthenticationFilter implements WebFilter {
 
     private JwtPrincipal parseAndValidateToken(String token) {
         try {
-            String[] tokenParts = token.split("\\.");
-            if (tokenParts.length != 3) {
+            Claims claims = Jwts.parser()
+                    .verifyWith(signingKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            String subject = claims.getSubject();
+            if (subject == null || subject.isBlank()) {
                 return null;
             }
 
-            String signingInput = tokenParts[0] + "." + tokenParts[1];
-            byte[] expectedSignature = hmacSha256(signingInput.getBytes(StandardCharsets.UTF_8), jwtSecret);
-            byte[] tokenSignature = Base64.getUrlDecoder().decode(tokenParts[2]);
-            if (!MessageDigest.isEqual(expectedSignature, tokenSignature)) {
+            String userId = claims.get(USER_ID_CLAIM, String.class);
+            String email = claims.get(EMAIL_CLAIM, String.class);
+            Instant expiration = claims.getExpiration() == null
+                    ? null
+                    : claims.getExpiration().toInstant();
+
+            if (expiration == null || expiration.isBefore(Instant.now())) {
                 return null;
             }
 
-            byte[] payloadBytes = Base64.getUrlDecoder().decode(tokenParts[1]);
-            Map<String, Object> payload = objectMapper.readValue(payloadBytes, new TypeReference<>() { });
-
-            String userId = asString(payload.get("sub"));
-            String email = asString(payload.get("email"));
-            Long expiration = asLong(payload.get("exp"));
-
-            if (userId == null || userId.isBlank()) {
-                return null;
-            }
-            if (expiration == null || expiration <= Instant.now().getEpochSecond()) {
-                return null;
-            }
-
+            String resolvedUserId = userId == null || userId.isBlank() ? subject : userId;
             String resolvedEmail = email == null || email.isBlank() ? userId : email;
-            return new JwtPrincipal(userId, resolvedEmail);
-        } catch (Exception ex) {
+            return new JwtPrincipal(resolvedUserId, resolvedEmail == null || resolvedEmail.isBlank() ? subject : resolvedEmail);
+        } catch (JwtException | IllegalArgumentException ex) {
             return null;
         }
-    }
-
-    private static byte[] hmacSha256(byte[] content, byte[] key)
-            throws NoSuchAlgorithmException, InvalidKeyException {
-        Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-        mac.init(new SecretKeySpec(key, HMAC_ALGORITHM));
-        return mac.doFinal(content);
-    }
-
-    private static String asString(Object value) {
-        return value instanceof String stringValue ? stringValue : null;
-    }
-
-    private static Long asLong(Object value) {
-        if (value instanceof Number numberValue) {
-            return numberValue.longValue();
-        }
-        return null;
     }
 
     private record JwtPrincipal(String userId, String email) {

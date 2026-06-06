@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: specweaver-agent
+  labels:
+    {{- include "ai-architect.labels" . | nindent 4 }}
+    app.kubernetes.io/component: specweaver-agent
+spec:
+  replicas: {{ .Values.specweaverAgent.replicaCount }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: specweaver-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: specweaver-agent
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: specweaver-agent
+          image: {{ include "ai-architect.image" (dict "global" .Values.global "image" .Values.specweaverAgent.image) }}
+          imagePullPolicy: {{ .Values.specweaverAgent.image.pullPolicy }}
+          ports:
+            - containerPort: 8085
+              protocol: TCP
+          env:
+            - name: SPECWEAVER_AGENT_PORT
+              value: "8085"
+            - name: LLM_PROVIDER
+              value: "openai"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: openai-api-key
+            - name: OPENAI_MODEL
+              value: "gpt-4o"
+            - name: QDRANT_URL
+              value: "http://qdrant:6333"
+            - name: STORAGE_TYPE
+              value: "azure-blob"
+            - name: AZURE_STORAGE_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: storage-connection-string
+                  optional: true
+            - name: AZURE_BLOB_CONTAINER
+              value: "specweaver-documents"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: ""
+          resources:
+            {{- toYaml .Values.specweaverAgent.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8085
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8085
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          {{- if .Values.keyVault.enabled }}
+          volumeMounts:
+            - name: secrets-store
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+          {{- end }}
+      {{- if .Values.keyVault.enabled }}
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ .Release.Name }}-secrets
+      {{- end }}

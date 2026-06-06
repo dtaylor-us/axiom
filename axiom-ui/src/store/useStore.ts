@@ -207,7 +207,6 @@ export const useStore = create<AppStore>((set, get) => ({
       lastStageCompleted: null,
       pipelineHasGaps: false,
       pipelineGaps: [],
-      workshopSeed: null,
     })),
   setStreaming: (v) => set({ isStreaming: v }),
   setError: (msg) => set({ error: msg }),

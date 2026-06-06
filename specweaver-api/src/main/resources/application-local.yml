@@ -1,0 +1,18 @@
+spring:
+  jpa:
+    show-sql: true
+  datasource:
+    url: jdbc:postgresql://postgres:5432/specweaver
+
+axiom:
+  gateway:
+    bypass: true
+
+specweaver:
+  storage:
+    type: minio
+
+logging:
+  level:
+    com.specweaver: DEBUG
+    org.springframework.web.reactive: DEBUG

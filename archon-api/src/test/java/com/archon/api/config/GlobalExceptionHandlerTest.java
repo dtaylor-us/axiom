@@ -4,6 +4,7 @@ import com.archon.api.exception.InvalidResetTokenException;
 import com.archon.api.exception.PasswordValidationException;
 import com.archon.api.exception.RateLimitExceededException;
 import com.archon.api.exception.AgentCommunicationException;
+import com.archon.api.exception.DuplicatePipelineRunException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
@@ -19,6 +20,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -179,5 +181,24 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), pd.getStatus());
         assertEquals("Service Unavailable", pd.getTitle());
         assertEquals(URI.create("urn:archon:agent-unavailable"), pd.getType());
+    }
+
+    @Test
+    void handleDuplicatePipelineRun_returnsConflictProblem() {
+        ProblemDetail pd = handler.handleDuplicatePipelineRun(
+                new DuplicatePipelineRunException("run already active"));
+
+        assertEquals(HttpStatus.CONFLICT.value(), pd.getStatus());
+        assertEquals("Conflict", pd.getTitle());
+        assertEquals(URI.create("urn:archon:duplicate-pipeline-run"), pd.getType());
+        assertEquals("run already active", pd.getDetail());
+    }
+
+    @Test
+    void handleAsyncRequestNotUsable_returnsNoContent() {
+        ResponseEntity<Void> response = handler.handleAsyncRequestNotUsable(
+                new AsyncRequestNotUsableException("broken pipe"));
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
     }
 }

@@ -79,6 +79,68 @@ const ownershipLabels: Record<string, string> = {
   'governance-service': 'Governance',
 };
 
+const OWNERSHIP_TO_RECOMMENDATION: Record<string, 'build' | 'buy' | 'adopt'> = {
+  'enterprise-built': 'build',
+  'bought-saas': 'buy',
+  'adopted-platform': 'adopt',
+  'integration-adapter': 'build',
+  'governance-service': 'build',
+};
+
+type SourcingDecisionView = BuyVsBuildDecision & {
+  inferredFromOwnership?: boolean;
+};
+
+function normalizeComponentKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function inferDecisionFromComponent(component: ArchitectureOutput['components'][number]): SourcingDecisionView | null {
+  if (!component.ownership) return null;
+  const recommendation = OWNERSHIP_TO_RECOMMENDATION[component.ownership];
+  if (!recommendation) return null;
+
+  return {
+    componentName: component.name,
+    recommendation,
+    rationale: 'Derived from component ownership metadata.',
+    alternativesConsidered: [],
+    recommendedSolution: component.technology || (recommendation === 'build' ? 'Custom build' : ''),
+    estimatedBuildCost: recommendation === 'build' ? 'TBD' : 'N/A',
+    vendorLockInRisk: recommendation === 'buy' ? 'medium' : 'low',
+    integrationEffort: recommendation === 'build' ? 'medium' : 'low',
+    conflictsWithUserPreference: false,
+    conflictExplanation: '',
+    isCoreeDifferentiator: false,
+    inferredFromOwnership: true,
+  };
+}
+
+function buildSourcingDecisionView(
+  components: ArchitectureOutput['components'],
+  decisions: BuyVsBuildDecision[],
+): SourcingDecisionView[] {
+  const merged = new Map<string, SourcingDecisionView>();
+
+  for (const decision of decisions) {
+    merged.set(normalizeComponentKey(decision.componentName), {
+      ...decision,
+      inferredFromOwnership: false,
+    });
+  }
+
+  for (const component of components) {
+    const key = normalizeComponentKey(component.name);
+    if (merged.has(key)) continue;
+    const inferred = inferDecisionFromComponent(component);
+    if (inferred) {
+      merged.set(key, inferred);
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
 /**
  * Validates Mermaid source before invoking the renderer.
  */
@@ -184,6 +246,16 @@ export function ArchitectureView() {
     loading: buyVsBuildLoading,
     error: buyVsBuildError,
   } = useBuyVsBuild();
+
+  const sourcingDecisions = buildSourcingDecisionView(
+    architecture?.components ?? [],
+    buyVsBuild?.decisions ?? [],
+  );
+  const hasSourcingData = sourcingDecisions.length > 0;
+  const buildCount = sourcingDecisions.filter((d) => d.recommendation === 'build').length;
+  const buyCount = sourcingDecisions.filter((d) => d.recommendation === 'buy').length;
+  const adoptCount = sourcingDecisions.filter((d) => d.recommendation === 'adopt').length;
+  const conflictCount = sourcingDecisions.filter((d) => d.conflictsWithUserPreference).length;
 
   if (loading) {
     return (
@@ -393,27 +465,27 @@ export function ArchitectureView() {
           </div>
         )}
 
-        {!buyVsBuildLoading && !buyVsBuildError && (!buyVsBuild || buyVsBuild.totalDecisions === 0) && (
+        {!buyVsBuildLoading && !buyVsBuildError && !hasSourcingData && (
           <p className="text-sm text-gray-400 italic">
             No sourcing decisions available yet.
           </p>
         )}
 
-        {buyVsBuild && buyVsBuild.totalDecisions > 0 && (
+        {hasSourcingData && (
           <>
             <div className="flex flex-wrap gap-2 mb-3">
-              <span className="text-xs font-semibold rounded-full bg-blue-50 text-blue-700 px-3 py-1">Build {buyVsBuild.buildCount}</span>
-              <span className="text-xs font-semibold rounded-full bg-purple-50 text-purple-700 px-3 py-1">Buy {buyVsBuild.buyCount}</span>
-              <span className="text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 px-3 py-1">Adopt {buyVsBuild.adoptCount}</span>
-              {buyVsBuild.conflictCount > 0 && (
+              <span className="text-xs font-semibold rounded-full bg-blue-50 text-blue-700 px-3 py-1">Build {buildCount}</span>
+              <span className="text-xs font-semibold rounded-full bg-purple-50 text-purple-700 px-3 py-1">Buy {buyCount}</span>
+              <span className="text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 px-3 py-1">Adopt {adoptCount}</span>
+              {conflictCount > 0 && (
                 <span className="text-xs font-semibold rounded-full bg-amber-50 text-amber-800 px-3 py-1">
-                  {buyVsBuild.conflictCount} preference conflicts
+                  {conflictCount} preference conflicts
                 </span>
               )}
             </div>
 
             <div className="space-y-3">
-              {buyVsBuild.decisions.map((d: BuyVsBuildDecision) => (
+              {sourcingDecisions.map((d: SourcingDecisionView) => (
                 <details key={d.componentName} className="border border-gray-200 rounded-lg p-3 bg-white">
                   <summary className="cursor-pointer list-none flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -444,6 +516,11 @@ export function ArchitectureView() {
                   <div className="mt-3 text-sm text-gray-700 space-y-2">
                     <p><span className="font-semibold">Estimated cost:</span> {d.estimatedBuildCost}</p>
                     <p className="text-sm text-gray-700">{d.rationale}</p>
+                    {d.inferredFromOwnership && (
+                      <p className="text-xs text-gray-500">
+                        Decision inferred from component ownership metadata.
+                      </p>
+                    )}
                     {d.conflictsWithUserPreference && d.conflictExplanation && (
                       <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-900">
                         <p className="text-xs font-semibold">Preference conflict</p>
@@ -455,7 +532,7 @@ export function ArchitectureView() {
               ))}
             </div>
 
-            {buyVsBuild.summaryText && (
+            {buyVsBuild?.summaryText && (
               <p className="text-sm text-gray-600 mt-4">{buyVsBuild.summaryText}</p>
             )}
           </>

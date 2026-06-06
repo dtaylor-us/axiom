@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { streamChat, getRunStatus, reattachStream } from '../api/chat';
+import { streamChat, getPipelineStatus, getRunStatus, reattachStream } from '../api/chat';
 import type { AgentEvent } from '../types/api';
 
 // Helper to create a ReadableStream from string chunks
@@ -254,5 +254,52 @@ describe('reattachStream', () => {
       '/api/v1/sessions/conv-1/run/stream?runId=run-xyz',
       expect.objectContaining({ headers: { Authorization: 'Bearer tok' } }),
     );
+  });
+});
+
+describe('getPipelineStatus', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returnsNullOn404', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 404,
+    } as unknown as Response);
+
+    const result = await getPipelineStatus('conv-1', 'tok');
+    expect(result).toBeNull();
+  });
+
+  it('returnsPipelineStatusOn200', async () => {
+    const dto = {
+      runId: 'run-1',
+      status: 'RUNNING',
+      lastStageCompleted: 'requirement_parsing',
+      completedStages: ['requirement_parsing'],
+      activeStage: 'requirement_challenge',
+      events: [],
+      governanceScore: null,
+      hasGaps: false,
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => dto,
+    } as unknown as Response);
+
+    const result = await getPipelineStatus('conv-1', 'tok');
+    expect(result).toEqual(dto);
+  });
+
+  it('throwsOnNon404ErrorResponse', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => 'Server error',
+    } as unknown as Response);
+
+    await expect(getPipelineStatus('conv-1', 'tok')).rejects.toThrow('500');
   });
 });

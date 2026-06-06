@@ -52,7 +52,11 @@ public class SecurityConfig {
                 .exceptionHandling(spec -> spec.authenticationEntryPoint(
                         new HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeExchange(spec -> spec
-                        .pathMatchers("/api/v1/auth/**").permitAll()
+                        .pathMatchers("/api/v1/auth/login").permitAll()
+                        .pathMatchers("/api/v1/auth/register").permitAll()
+                        .pathMatchers("/api/v1/auth/forgot-password").permitAll()
+                        .pathMatchers("/api/v1/auth/reset-password").permitAll()
+                        .pathMatchers("/api/v1/auth/reset-password/validate").permitAll()
                         .pathMatchers("/actuator/health", "/actuator/info").permitAll()
                         .anyExchange().authenticated())
                 .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
