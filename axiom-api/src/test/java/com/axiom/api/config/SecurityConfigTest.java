@@ -1,6 +1,7 @@
 package com.axiom.api.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -128,6 +129,18 @@ class SecurityConfigTest {
                 .uri("http://localhost:" + localPort + "/actuator/health")
                 .exchange()
                 .expectStatus().isOk();
+    }
+
+    /**
+     * Actuator health group endpoints bypass JWT checks for Kubernetes probes.
+     */
+    @Test
+    void actuatorReadinessBypassesJwtCheck() {
+        webTestClient.get()
+                .uri("http://localhost:" + localPort + "/actuator/health/readiness")
+                .exchange()
+                .expectStatus()
+                .value(status -> assertNotEquals(401, status));
     }
 
     private static String createToken(String subject, String email, long validForSeconds) {
