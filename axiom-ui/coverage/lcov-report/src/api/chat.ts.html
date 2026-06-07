@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">89.33% </span>
+                <span class="strong">89.41% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>67/75</span>
+                <span class='fraction'>76/85</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">77.77% </span>
+                <span class="strong">79.31% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>42/54</span>
+                <span class='fraction'>46/58</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">72.72% </span>
+                <span class="strong">71.42% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>8/11</span>
+                <span class='fraction'>10/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>62/62</span>
+                <span class='fraction'>70/70</span>
             </div>
         
             
@@ -233,13 +233,36 @@
 <a name='L168'></a><a href='#L168'>168</a>
 <a name='L169'></a><a href='#L169'>169</a>
 <a name='L170'></a><a href='#L170'>170</a>
-<a name='L171'></a><a href='#L171'>171</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -403,13 +426,33 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { AgentEvent } from '../types/api';
 import type { PipelineRunStatusDto } from '../types/api';
-import { CHAT_BASE, SESSIONS_BASE } from './config';
+import type { PipelineStatusDto } from '../types/api';
+import { CHAT_BASE, CONVERSATIONS_BASE, SESSIONS_BASE } from './config';
 &nbsp;
 const STREAM_URL = `${CHAT_BASE}/stream`;
 const RUN_STATUS_URL = (conversationId: string) =&gt;
   `${SESSIONS_BASE}/${conversationId}/run/status`;
+const PIPELINE_STATUS_URL = (conversationId: string) =&gt;
+  `${CONVERSATIONS_BASE}/${conversationId}/pipeline-status`;
 const REATTACH_URL = (conversationId: string, runId?: string) =&gt;
   `${SESSIONS_BASE}/${conversationId}/run/stream${runId ? `?runId=${encodeURIComponent(runId)}` : ''}`;
 &nbsp;
@@ -573,6 +616,23 @@ export async function reattachStream(
     // Reattach stream closes after replay; do not treat as unexpected.
   });
 }
+&nbsp;
+export async function getPipelineStatus(
+  conversationId: string,
+  token: string,
+): Promise&lt;PipelineStatusDto | null&gt; {
+  const res = await fetch(PIPELINE_STATUS_URL(conversationId), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+&nbsp;
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const text = await res.text().<span class="fstat-no" title="function not covered" >catch(() =&gt; <span class="cstat-no" title="statement not covered" >'</span>');</span>
+    throw new Error(`Pipeline status failed: ${res.status} ${text}`);
+  }
+&nbsp;
+  return (await res.json()) as PipelineStatusDto;
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -580,7 +640,7 @@ export async function reattachStream(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-31T19:27:34.036Z
+                at 2026-06-06T22:19:09.547Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -150,6 +150,12 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   specweaver-api:
     build:
@@ -246,8 +252,8 @@ services:
       - SPECWEAVER_API_BASE_URL=http://specweaver-api:8082
       - AXIOM_GATEWAY_BYPASS=false
       - SPRING_PROFILES_ACTIVE=local
-      - JWT_SECRET=${JWT_SECRET}
-      - AXIOM_INTERNAL_SECRET=${AXIOM_INTERNAL_SECRET:-}
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-minimum-32-chars-here}
+      - AXIOM_INTERNAL_SECRET=${AXIOM_INTERNAL_SECRET:-dev-secret-change-in-prod}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
       api:

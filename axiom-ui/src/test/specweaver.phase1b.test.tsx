@@ -148,7 +148,7 @@ function renderPackageView(pkg = packageData(), session = sessionData()) {
     <MemoryRouter initialEntries={['/specweaver/sessions/sw-1/package']}>
       <Routes>
         <Route path="/specweaver/sessions/:sessionId/package" element={<PackageDetailView />} />
-        <Route path="/" element={<ChatStateProbe />} />
+        <Route path="/archon" element={<ChatStateProbe />} />
       </Routes>
     </MemoryRouter>,
   );
