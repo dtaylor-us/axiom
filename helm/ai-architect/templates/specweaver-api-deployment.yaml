@@ -40,6 +40,13 @@ spec:
               value: "false"
             - name: POSTGRES_URL
               value: "jdbc:postgresql://{{ .Values.database.host }}:5432/specweaver?sslmode=require"
+            - name: POSTGRES_USERNAME
+              value: "axiom"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: db-password
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
