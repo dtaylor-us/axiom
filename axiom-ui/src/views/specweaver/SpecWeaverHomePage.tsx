@@ -2,9 +2,59 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { PillarBadge } from '../../components/PillarBadge';
+import { FeatureCard } from '../../components/landing/FeatureCard';
+import { SectionHeading } from '../../components/landing/SectionHeading';
 import { useStore } from '../../store/useStore';
 import { useSpecWeaverStore } from '../../store/useSpecWeaverStore';
 import type { Session, SessionStatus } from '../../api/specweaver';
+
+const SPECWEAVER_FEATURES = [
+  {
+    icon: '📄',
+    iconBg: '#f0f9ff',
+    title: 'Smart extraction',
+    description: 'Pulls explicit and implied requirements from any document type. Marks inferred items with reasoning chains.',
+    highlight: 'Explicit · Inferred · Ambiguous',
+  },
+  {
+    icon: '🔗',
+    iconBg: '#f0f9ff',
+    title: 'Semantic deduplication',
+    description:
+      'Qdrant vector embeddings merge semantically similar requirements across multiple documents. Sources preserved.',
+    highlight: 'nomic-embed-text · cosine similarity',
+  },
+  {
+    icon: '⚠️',
+    iconBg: '#fefce8',
+    title: 'Gap analysis',
+    description:
+      'Domain-aware checklist detects missing areas: auth, availability, retention, security, monitoring. Asks the right questions.',
+    highlight: 'Checklist + LLM domain pass',
+  },
+  {
+    icon: '⚡',
+    iconBg: '#fff7ed',
+    title: 'Conflict detection',
+    description:
+      'Identifies contradictions between stakeholders. Preserves both sides with interpretations. Never silently resolves.',
+    highlight: 'Heuristic + LLM detection',
+  },
+  {
+    icon: '📊',
+    iconBg: '#f0f9ff',
+    title: 'Readiness scoring',
+    description: 'Scores package quality 0.0-1.0 based on gap severity, conflict count, and confidence distribution.',
+    highlight: '0.10 floor · computed server-side',
+  },
+  {
+    icon: '🚀',
+    iconBg: '#f0fdf4',
+    title: 'One-click to Archon',
+    description: 'Pre-populate the Archon chat input with a formatted requirements brief. You control when the pipeline starts.',
+    highlight: 'Brief text · user-initiated',
+  },
+];
 
 const STATUS_LABELS: Record<SessionStatus, string> = {
   ACTIVE: 'Active',
@@ -60,20 +110,18 @@ export function SpecWeaverHomePage() {
   const recentSessions: Session[] = sessions.slice(0, 3);
 
   return (
-    <div className="specweaver-scope h-full overflow-y-auto bg-gray-50" data-testid="specweaver-home-page">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <header className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="flex items-center gap-3">
+    <div className="specweaver-scope landing-page h-full overflow-y-auto bg-gray-50" data-testid="specweaver-home-page">
+      <div className="landing-inner">
+        <section className="pillar-hero">
+          <div className="pillar-hero-badge">
             <PillarBadge pillar="specweaver" />
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">SpecWeaver</h1>
-              <p className="text-sm font-medium text-gray-500">Requirements Intelligence</p>
-            </div>
           </div>
-          <p className="mt-4 text-sm text-gray-700 leading-relaxed max-w-3xl">
-            Transform messy stakeholder documents into clean, structured, architecture-ready requirements.
+          <h1>Requirements intelligence, not just extraction.</h1>
+          <p>
+            Accepts the messy reality of stakeholder input: meeting notes, emails, PDFs, informal bullets, and transforms
+            it into a structured, traceable, architecture-ready package with gaps flagged and conflicts surfaced.
           </p>
-        </header>
+        </section>
 
         <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6">
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
@@ -125,22 +173,13 @@ export function SpecWeaverHomePage() {
           </div>
         </section>
 
-        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="text-sm font-semibold text-gray-900">HOW IT WORKS</h2>
-          <ol className="mt-3 space-y-4 text-sm text-gray-700">
-            <li>
-              <p className="font-semibold text-gray-900">1. Upload your documents</p>
-              <p className="mt-1">Paste text, upload PDFs or Word documents. SpecWeaver accepts meeting notes, emails, workshop outputs, and informal bullet lists.</p>
-            </li>
-            <li>
-              <p className="font-semibold text-gray-900">2. Extract and classify</p>
-              <p className="mt-1">The AI pipeline extracts every requirement, deduplicates across documents, identifies what is missing, and flags contradictions.</p>
-            </li>
-            <li>
-              <p className="font-semibold text-gray-900">3. Review and send to Archon</p>
-              <p className="mt-1">Review the requirements package, check gaps and conflicts, then open it directly in Archon for architecture analysis.</p>
-            </li>
-          </ol>
+        <section className="landing-section--compact">
+          <SectionHeading title="What SpecWeaver does" accent="var(--color-pillar-specweaver)" />
+          <div className="feature-cards-grid">
+            {SPECWEAVER_FEATURES.map((card) => (
+              <FeatureCard key={card.title} {...card} />
+            ))}
+          </div>
         </section>
       </div>
     </div>

@@ -20,13 +20,10 @@ import org.springframework.security.web.server.authentication.HttpStatusServerEn
  * without re-validating the JWT.
  *
  * Public endpoints (no authentication required):
- *   POST /api/v1/auth/login
- *   POST /api/v1/auth/register
- *   POST /api/v1/auth/forgot-password
- *   POST /api/v1/auth/reset-password
- *   GET  /api/v1/auth/reset-password/validate
- *   GET  /actuator/health
- *   GET  /actuator/info
+ *   /api/v1/auth/**
+ *   GET /actuator/health
+ *   GET /actuator/health/**
+ *   GET /actuator/info
  *
  * All other paths require a valid Bearer token.
  */
@@ -54,7 +51,7 @@ public class SecurityConfig {
                         new HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeExchange(spec -> spec
                         .pathMatchers("/api/v1/auth/**").permitAll()
-                        .pathMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .pathMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .anyExchange().authenticated())
                 .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
                 .build();

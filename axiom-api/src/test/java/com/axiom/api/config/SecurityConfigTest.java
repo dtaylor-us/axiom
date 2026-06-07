@@ -65,6 +65,7 @@ class SecurityConfigTest {
     static void registerProperties(DynamicPropertyRegistry registry) {
         registry.add("ARCHON_API_BASE_URL", () -> archonServer.url("/").toString());
         registry.add("JWT_SECRET", () -> JWT_SECRET);
+        registry.add("management.endpoint.health.probes.enabled", () -> "true");
     }
 
     /**
@@ -178,6 +179,17 @@ class SecurityConfigTest {
     void actuatorHealthBypassesJwtCheck() {
         webTestClient.get()
                 .uri("http://localhost:" + localPort + "/actuator/health")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    /**
+     * Actuator health group endpoints bypass JWT checks for Kubernetes probes.
+     */
+    @Test
+    void actuatorReadinessBypassesJwtCheck() {
+        webTestClient.get()
+                .uri("http://localhost:" + localPort + "/actuator/health/readiness")
                 .exchange()
                 .expectStatus().isOk();
     }
