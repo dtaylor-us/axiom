@@ -453,11 +453,11 @@ jobs:
 
       - name: Verify rollout
         run: |
-          kubectl rollout status deployment/archon-api \
+          kubectl rollout status deployment/ai-architect-api \
             --namespace ai-architect --timeout=5m
-          kubectl rollout status deployment/archon-agent \
+          kubectl rollout status deployment/ai-architect-agent \
             --namespace ai-architect --timeout=5m
-          kubectl rollout status deployment/axiom-ui \
+          kubectl rollout status deployment/ai-architect-ui \
             --namespace ai-architect --timeout=5m
           kubectl rollout status deployment/axiom-api \
             --namespace ai-architect --timeout=5m

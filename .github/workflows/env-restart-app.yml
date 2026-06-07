@@ -82,10 +82,10 @@ jobs:
       - name: "Restart API"
         if: inputs.service == 'all' || inputs.service == 'api'
         run: |
-          echo "Restarting archon-api..."
-          kubectl rollout restart deployment/archon-api \
+          echo "Restarting ai-architect-api..."
+          kubectl rollout restart deployment/ai-architect-api \
             --namespace ai-architect
-          kubectl rollout status deployment/archon-api \
+          kubectl rollout status deployment/ai-architect-api \
             --namespace ai-architect \
             --timeout=300s
           echo "API restart complete"
@@ -93,10 +93,10 @@ jobs:
       - name: "Restart agent"
         if: inputs.service == 'all' || inputs.service == 'agent'
         run: |
-          echo "Restarting archon-agent..."
-          kubectl rollout restart deployment/archon-agent \
+          echo "Restarting ai-architect-agent..."
+          kubectl rollout restart deployment/ai-architect-agent \
             --namespace ai-architect
-          kubectl rollout status deployment/archon-agent \
+          kubectl rollout status deployment/ai-architect-agent \
             --namespace ai-architect \
             --timeout=300s
           echo "Agent restart complete"
@@ -104,13 +104,46 @@ jobs:
       - name: "Restart UI"
         if: inputs.service == 'all' || inputs.service == 'ui'
         run: |
-          echo "Restarting axiom-ui..."
-          kubectl rollout restart deployment/axiom-ui \
+          echo "Restarting ai-architect-ui..."
+          kubectl rollout restart deployment/ai-architect-ui \
             --namespace ai-architect
-          kubectl rollout status deployment/axiom-ui \
+          kubectl rollout status deployment/ai-architect-ui \
             --namespace ai-architect \
             --timeout=300s
           echo "UI restart complete"
+
+      - name: "Restart axiom-api"
+        if: inputs.service == 'all'
+        run: |
+          echo "Restarting axiom-api..."
+          kubectl rollout restart deployment/axiom-api \
+            --namespace ai-architect
+          kubectl rollout status deployment/axiom-api \
+            --namespace ai-architect \
+            --timeout=300s
+          echo "axiom-api restart complete"
+
+      - name: "Restart specweaver-api"
+        if: inputs.service == 'all'
+        run: |
+          echo "Restarting specweaver-api..."
+          kubectl rollout restart deployment/specweaver-api \
+            --namespace ai-architect
+          kubectl rollout status deployment/specweaver-api \
+            --namespace ai-architect \
+            --timeout=300s
+          echo "specweaver-api restart complete"
+
+      - name: "Restart specweaver-agent"
+        if: inputs.service == 'all'
+        run: |
+          echo "Restarting specweaver-agent..."
+          kubectl rollout restart deployment/specweaver-agent \
+            --namespace ai-architect
+          kubectl rollout status deployment/specweaver-agent \
+            --namespace ai-architect \
+            --timeout=300s
+          echo "specweaver-agent restart complete"
 
       # if: always() so the pod list is printed even when a restart step fails.
       # This gives immediate visibility into what went wrong.
