@@ -17,7 +17,10 @@ import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -34,6 +37,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "test.context=security")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class SecurityConfigTest {
 
     private static final String JWT_SECRET = "abcdefghijklmnopqrstuvwxyz123456";
@@ -67,6 +71,7 @@ class SecurityConfigTest {
      * Valid JWTs must authenticate protected routes.
      */
     @Test
+    @Order(3)
     void validJwtOnProtectedEndpointReturns200() throws InterruptedException {
         archonServer.enqueue(new MockResponse().setResponseCode(200).setBody("ok"));
 
@@ -76,13 +81,15 @@ class SecurityConfigTest {
                 .exchange()
                 .expectStatus().isOk();
 
-        assertEquals(1, archonServer.getRequestCount());
+        RecordedRequest forwardedRequest = archonServer.takeRequest();
+        assertEquals("/api/v1/actuator/health", forwardedRequest.getPath());
     }
 
     /**
      * Missing JWTs must be rejected for protected routes.
      */
     @Test
+    @Order(4)
     void missingJwtOnProtectedEndpointReturns401() {
         webTestClient.get()
                 .uri("http://localhost:" + localPort + "/api/v1/archon/actuator/health")
@@ -94,6 +101,7 @@ class SecurityConfigTest {
      * Expired JWTs must be rejected for protected routes.
      */
     @Test
+    @Order(5)
     void expiredJwtOnProtectedEndpointReturns401() {
         webTestClient.get()
                 .uri("http://localhost:" + localPort + "/api/v1/archon/actuator/health")
@@ -106,6 +114,7 @@ class SecurityConfigTest {
      * Malformed JWTs must be rejected for protected routes.
      */
     @Test
+    @Order(6)
     void malformedJwtOnProtectedEndpointReturns401() {
         webTestClient.get()
                 .uri("http://localhost:" + localPort + "/api/v1/archon/actuator/health")
@@ -118,6 +127,7 @@ class SecurityConfigTest {
      * Auth endpoints must route without a gateway JWT challenge.
      */
     @Test
+    @Order(1)
     void authEndpointsAreAccessibleWithoutJwt() throws InterruptedException {
         archonServer.enqueue(new MockResponse().setResponseCode(401));
 
@@ -136,6 +146,7 @@ class SecurityConfigTest {
      * Auth login must be forwarded to archon-api without path rewriting.
      */
     @Test
+    @Order(2)
     void authLoginRoutesToArchonApi() throws InterruptedException {
         archonServer.enqueue(new MockResponse()
                 .setResponseCode(200)
@@ -163,6 +174,7 @@ class SecurityConfigTest {
      * Actuator health endpoint is public and bypasses JWT checks.
      */
     @Test
+    @Order(7)
     void actuatorHealthBypassesJwtCheck() {
         webTestClient.get()
                 .uri("http://localhost:" + localPort + "/actuator/health")
