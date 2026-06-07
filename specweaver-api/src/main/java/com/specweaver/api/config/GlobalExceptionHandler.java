@@ -6,6 +6,7 @@ import com.specweaver.api.exception.PackageNotFoundException;
 import com.specweaver.api.exception.SessionNotFoundException;
 import com.specweaver.api.exception.StorageException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -29,6 +30,9 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @Value("${spring.servlet.multipart.max-file-size:20MB}")
+    private String maxFileSize;
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
     public ProblemDetail handleNotFound(Exception ex) {
@@ -64,7 +68,7 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleMaxUploadSize(MaxUploadSizeExceededException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.PAYLOAD_TOO_LARGE,
-                "Maximum upload size is 20MB. Split large documents before submitting.");
+                "Maximum upload size is %s. Split large documents before submitting.".formatted(maxFileSize));
         problem.setTitle("File Too Large");
         problem.setType(URI.create("urn:specweaver:file-too-large"));
         return problem;

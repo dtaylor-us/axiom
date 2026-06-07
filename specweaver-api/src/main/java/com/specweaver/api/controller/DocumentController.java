@@ -5,8 +5,10 @@ import com.specweaver.api.dto.response.DocumentResponse;
 import com.specweaver.api.service.AuthenticationUserResolver;
 import com.specweaver.api.service.DocumentIngestionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,19 +33,15 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DocumentController {
 
-    // Limit individual file uploads to 20MB because ingestion currently reads the
-    // full payload into memory before downstream processing begins.
-    private static final long MAX_FILE_SIZE_BYTES = 20L * 1024L * 1024L;
     // Cap raw text submissions at roughly 500KB so request bodies stay bounded
     // even when no multipart file is attached.
     private static final int MAX_TEXT_LENGTH = 500_000;
-    private static final String FILE_TOO_LARGE_MESSAGE =
-            "Maximum upload size is 20MB. Split large documents before submitting.";
-    private static final String TEXT_TOO_LARGE_MESSAGE =
-            "Maximum text size is 500000 characters. Split large documents before submitting.";
 
     private final DocumentIngestionService documentIngestionService;
     private final AuthenticationUserResolver userResolver;
+
+    @Value("${spring.servlet.multipart.max-file-size:20MB}")
+    private String maxFileSize;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -84,12 +82,21 @@ public class DocumentController {
     }
 
     private void validateUploadSize(MultipartFile file, String text) {
-        if (file != null && file.getSize() > MAX_FILE_SIZE_BYTES) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, FILE_TOO_LARGE_MESSAGE);
+        if (file != null && file.getSize() > DataSize.parse(maxFileSize).toBytes()) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, fileTooLargeMessage());
         }
 
         if (text != null && text.length() > MAX_TEXT_LENGTH) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, TEXT_TOO_LARGE_MESSAGE);
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, textTooLargeMessage());
         }
+    }
+
+    private String fileTooLargeMessage() {
+        return "Maximum upload size is %s. Split large documents before submitting.".formatted(maxFileSize);
+    }
+
+    private String textTooLargeMessage() {
+        return "Maximum text size is %d characters. Split large documents before submitting."
+                .formatted(MAX_TEXT_LENGTH);
     }
 }
