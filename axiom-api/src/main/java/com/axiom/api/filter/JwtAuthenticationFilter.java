@@ -96,7 +96,8 @@ public class JwtAuthenticationFilter implements WebFilter {
         String path = request.getPath().value();
         HttpMethod method = request.getMethod();
 
-        if ("/actuator/health".equals(path) && HttpMethod.GET.equals(method)) {
+        if (HttpMethod.GET.equals(method)
+                && ("/actuator/health".equals(path) || path.startsWith("/actuator/health/"))) {
             return true;
         }
         if ("/actuator/info".equals(path) && HttpMethod.GET.equals(method)) {
