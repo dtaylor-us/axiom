@@ -111,6 +111,9 @@ public class JwtAuthenticationFilter implements WebFilter {
         if ("/api/v1/auth/forgot-password".equals(path) && HttpMethod.POST.equals(method)) {
             return true;
         }
+        if ("/api/v1/auth/reset-password/validate".equals(path) && HttpMethod.GET.equals(method)) {
+            return true;
+        }
         return "/api/v1/auth/reset-password".equals(path) && HttpMethod.POST.equals(method);
     }
 

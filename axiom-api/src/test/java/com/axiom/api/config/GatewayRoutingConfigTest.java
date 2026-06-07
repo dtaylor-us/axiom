@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -110,16 +111,21 @@ class GatewayRoutingConfigTest {
     }
 
     /**
-     * Ensures auth endpoints are handled locally and are not forwarded to pillars.
+     * Ensures auth endpoints are forwarded to archon-api without gateway rewriting.
      */
     @Test
-    void authEndpoints_areNotRoutedToPillar() {
+    void authEndpoints_areRoutedToArchonApi() throws Exception {
+        archonServer.enqueue(new MockResponse().setResponseCode(401));
+
         webTestClient.post()
                 .uri("http://localhost:" + localPort + "/api/v1/auth/login")
+                .header("Content-Type", "application/json")
+                .bodyValue("{\"email\":\"test@test.com\",\"password\":\"wrong\"}")
                 .exchange()
-                .expectStatus().isNotFound();
+                .expectStatus().isUnauthorized();
 
-        assertEquals(0, archonServer.getRequestCount());
+        RecordedRequest request = archonServer.takeRequest(1, TimeUnit.SECONDS);
+        assertEquals("/api/v1/auth/login", request.getPath());
     }
 
     /**
@@ -127,12 +133,14 @@ class GatewayRoutingConfigTest {
      */
     @Test
     void protectedRoute_withoutJwtReturnsUnauthorized() {
+        int requestCountBefore = archonServer.getRequestCount();
+
         webTestClient.get()
                 .uri("http://localhost:" + localPort + "/api/v1/archon/actuator/health")
                 .exchange()
                 .expectStatus().isUnauthorized();
 
-        assertEquals(0, archonServer.getRequestCount());
+        assertEquals(requestCountBefore, archonServer.getRequestCount());
     }
 
     private static String createToken(String subject, String email, long validForSeconds) {
