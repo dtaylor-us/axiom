@@ -96,21 +96,26 @@ jobs:
   build-axiom-api:
     name: Build axiom-api
     runs-on: ubuntu-latest
-    if: hashFiles('axiom-api/Dockerfile') != ''
-    # Skipped safely until axiom-api/Dockerfile exists
     steps:
       - uses: actions/checkout@v4
 
+      - name: Skip message when axiom-api Dockerfile is absent
+        if: ${{ hashFiles('axiom-api/Dockerfile') == '' }}
+        run: echo "Skipping axiom-api image build because axiom-api/Dockerfile is missing"
+
       - uses: azure/login@v2
+        if: ${{ hashFiles('axiom-api/Dockerfile') != '' }}
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: ACR login
+        if: ${{ hashFiles('axiom-api/Dockerfile') != '' }}
         run: az acr login --name ${{ secrets.ACR_NAME }}
 
       - name: Build and push axiom-api
+        if: ${{ hashFiles('axiom-api/Dockerfile') != '' }}
         run: |
           az acr build \
             --registry ${{ secrets.ACR_NAME }} \
@@ -122,20 +127,26 @@ jobs:
   build-specweaver-api:
     name: Build specweaver-api
     runs-on: ubuntu-latest
-    if: hashFiles('specweaver-api/Dockerfile') != ''
     steps:
       - uses: actions/checkout@v4
 
+      - name: Skip message when specweaver-api Dockerfile is absent
+        if: ${{ hashFiles('specweaver-api/Dockerfile') == '' }}
+        run: echo "Skipping specweaver-api image build because specweaver-api/Dockerfile is missing"
+
       - uses: azure/login@v2
+        if: ${{ hashFiles('specweaver-api/Dockerfile') != '' }}
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: ACR login
+        if: ${{ hashFiles('specweaver-api/Dockerfile') != '' }}
         run: az acr login --name ${{ secrets.ACR_NAME }}
 
       - name: Build and push specweaver-api
+        if: ${{ hashFiles('specweaver-api/Dockerfile') != '' }}
         run: |
           az acr build \
             --registry ${{ secrets.ACR_NAME }} \
@@ -147,20 +158,26 @@ jobs:
   build-specweaver-agent:
     name: Build specweaver-agent
     runs-on: ubuntu-latest
-    if: hashFiles('specweaver-agent/Dockerfile') != ''
     steps:
       - uses: actions/checkout@v4
 
+      - name: Skip message when specweaver-agent Dockerfile is absent
+        if: ${{ hashFiles('specweaver-agent/Dockerfile') == '' }}
+        run: echo "Skipping specweaver-agent image build because specweaver-agent/Dockerfile is missing"
+
       - uses: azure/login@v2
+        if: ${{ hashFiles('specweaver-agent/Dockerfile') != '' }}
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: ACR login
+        if: ${{ hashFiles('specweaver-agent/Dockerfile') != '' }}
         run: az acr login --name ${{ secrets.ACR_NAME }}
 
       - name: Build and push specweaver-agent
+        if: ${{ hashFiles('specweaver-agent/Dockerfile') != '' }}
         run: |
           az acr build \
             --registry ${{ secrets.ACR_NAME }} \
