@@ -381,7 +381,7 @@ jobs:
             --namespace ai-architect \
             --create-namespace \
             --wait \
-            --timeout 15m \
+            --timeout 25m \
             --atomic \
             --set api.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/api \
             --set api.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
@@ -395,6 +395,7 @@ jobs:
             --set specweaverApi.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
             --set specweaverAgent.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/specweaver-agent \
             --set specweaverAgent.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
+            --set database.host=psql-axiom-dev-bpxn.postgres.database.azure.com \
             --set keyVault.vaultName=${{ secrets.KEY_VAULT_NAME }} \
             --set keyVault.tenantId=${{ secrets.KEY_VAULT_TENANT_ID }} \
             --set keyVault.userAssignedIdentityClientId=${{ secrets.AKS_KUBELET_CLIENT_ID }} \
