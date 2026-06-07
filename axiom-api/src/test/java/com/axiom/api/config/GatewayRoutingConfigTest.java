@@ -30,7 +30,10 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 /**
  * Verifies gateway route behavior for Archon requests and auth boundaries.
  */
-@SpringBootTest(classes = AxiomApiApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        classes = AxiomApiApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "test.context=gateway")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class GatewayRoutingConfigTest {
 

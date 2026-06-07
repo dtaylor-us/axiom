@@ -29,7 +29,10 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 /**
  * Verifies reactive security rules for protected and public gateway endpoints.
  */
-@SpringBootTest(classes = AxiomApiApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        classes = AxiomApiApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "test.context=security")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class SecurityConfigTest {
 
