@@ -1,7 +1,6 @@
 package com.axiom.api.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -56,6 +55,7 @@ class SecurityConfigTest {
     static void registerProperties(DynamicPropertyRegistry registry) {
         registry.add("ARCHON_API_BASE_URL", () -> archonServer.url("/").toString());
         registry.add("JWT_SECRET", () -> JWT_SECRET);
+        registry.add("management.endpoint.health.probes.enabled", () -> "true");
     }
 
     /**
@@ -139,8 +139,7 @@ class SecurityConfigTest {
         webTestClient.get()
                 .uri("http://localhost:" + localPort + "/actuator/health/readiness")
                 .exchange()
-                .expectStatus()
-                .value(status -> assertNotEquals(401, status));
+                .expectStatus().isOk();
     }
 
     private static String createToken(String subject, String email, long validForSeconds) {
