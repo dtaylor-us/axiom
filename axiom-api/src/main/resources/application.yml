@@ -1,0 +1,65 @@
+server:
+  port: ${AXIOM_API_PORT:8080}
+
+spring:
+  application:
+    name: axiom-api
+  cloud:
+    gateway:
+      routes:
+        - id: archon
+          uri: ${ARCHON_API_BASE_URL:http://archon-api:8081}
+          predicates:
+            - Path=/api/v1/archon/**
+          filters:
+            - RewritePath=/api/v1/archon/(?<segment>.*), /api/v1/${segment}
+            - AddRequestHeader=X-Axiom-Pillar, archon
+        - id: specweaver
+          uri: ${SPECWEAVER_API_BASE_URL:http://specweaver-api:8082}
+          predicates:
+            - Path=/api/v1/specweaver/**
+          filters:
+            - RewritePath=/api/v1/specweaver/(?<segment>.*), /api/v1/${segment}
+            - AddRequestHeader=X-Axiom-Pillar, specweaver
+
+      default-filters:
+        - name: UserContextForwarding
+      httpclient:
+        response-timeout: 600s
+        connect-timeout: 10000
+
+axiom:
+  platform:
+    name: Axiom
+    version: 1.0.0
+  internal:
+    secret: ${AXIOM_INTERNAL_SECRET:}
+  pillars:
+    archon:
+      base-url: ${ARCHON_API_BASE_URL:http://archon-api:8081}
+      enabled: true
+      health-path: /actuator/health
+    specweaver:
+      base-url: ${SPECWEAVER_API_BASE_URL:http://specweaver-api:8082}
+      enabled: true
+      health-path: /actuator/health
+    scout:
+      base-url: ${SCOUT_API_BASE_URL:http://scout-api:8083}
+      enabled: false
+      health-path: /actuator/health
+    forge:
+      base-url: ${FORGE_API_BASE_URL:http://forge-api:8084}
+      enabled: false
+      health-path: /actuator/health
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiry-hours: ${JWT_EXPIRY_HOURS:24}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  health:
+    show-details: always

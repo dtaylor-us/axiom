@@ -1,0 +1,7 @@
+axiom:
+  gateway:
+    bypass: false
+
+specweaver:
+  storage:
+    type: azure-blob

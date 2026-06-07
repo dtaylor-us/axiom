@@ -19,7 +19,7 @@ bootstrapSecrets:
 agent:
   replicaCount: 2
   image:
-    repository: archon/ai-architect-agent
+    repository: archon/archon-agent
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -68,7 +68,7 @@ agent:
 api:
   replicaCount: 2
   image:
-    repository: archon/ai-architect-api
+    repository: archon/archon-api
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -108,7 +108,7 @@ api:
 ui:
   replicaCount: 2
   image:
-    repository: archon/ai-architect-ui
+    repository: archon/axiom-ui
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -120,6 +120,76 @@ ui:
     limits:
       cpu: 500m
       memory: 256Mi
+
+# ── Axiom Platform Gateway (Spring Cloud Gateway) ─────────────
+axiomApi:
+  replicaCount: 2
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPU: 70
+
+# ── SpecWeaver API ─────────────────────────────────────────────
+specweaverApi:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8082
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPU: 70
+
+# ── SpecWeaver Agent ───────────────────────────────────────────
+specweaverAgent:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8085
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPU: 70
+
+# ── External database host (prod) ──────────────────────────────
+database:
+  host: ai-architect-postgres
 
 # ── PostgreSQL ──────────────────────────────────────────────────
 postgres:
@@ -209,3 +279,5 @@ keyVault:
       key: jwt-secret
     - name: internal-secret
       key: agent-internal-secret
+    - name: specweaver-jwt-secret
+      key: specweaver-jwt-secret

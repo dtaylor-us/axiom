@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/azure-bootstrap.sh
 #
-# One-time Azure setup for the AI Architect Assistant deployment.
+# One-time Azure setup for the Axiom deployment.
 # Run this script before any Terraform commands.
 #
 # What it does:

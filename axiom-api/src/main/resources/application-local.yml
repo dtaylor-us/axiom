@@ -1,0 +1,9 @@
+# Local development overrides.
+# axiom-api runs in the platform profile alongside both pillar services.
+
+axiom:
+  pillars:
+    archon:
+      base-url: http://archon-api:8081
+    specweaver:
+      base-url: http://specweaver-api:8082

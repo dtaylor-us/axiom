@@ -1,0 +1,7 @@
+# Production profile for in-cluster routing.
+axiom:
+  pillars:
+    archon:
+      base-url: http://archon-api.archon.svc.cluster.local:8081
+    specweaver:
+      base-url: http://specweaver-api.specweaver.svc.cluster.local:8082

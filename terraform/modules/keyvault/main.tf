@@ -105,3 +105,25 @@ resource "azurerm_key_vault_secret" "azure_openai_api_key" {
   key_vault_id = azurerm_key_vault.main.id
   depends_on   = [azurerm_role_assignment.deployer_admin]
 }
+
+resource "azurerm_key_vault_secret" "axiom_platform_jwt_secret" {
+  name         = "axiom-platform-jwt-secret"
+  value        = "placeholder-set-after-provisioning"
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.deployer_admin]
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+resource "azurerm_key_vault_secret" "specweaver_jwt_secret" {
+  name         = "specweaver-jwt-secret"
+  value        = "placeholder-set-after-provisioning"
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.deployer_admin]
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}

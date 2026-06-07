@@ -60,8 +60,8 @@ jobs:
       - name: Build and push API
         uses: docker/build-push-action@v5
         with:
-          context: ./ai-architect-api
-          file: ./ai-architect-api/Dockerfile
+          context: ./archon-api
+          file: ./archon-api/Dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER }}/api:${{ github.sha }}
@@ -72,8 +72,8 @@ jobs:
       - name: Build and push agent
         uses: docker/build-push-action@v5
         with:
-          context: ./ai-architect-agent
-          file: ./ai-architect-agent/Dockerfile
+          context: ./archon-agent
+          file: ./archon-agent/Dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER }}/agent:${{ github.sha }}
@@ -84,8 +84,8 @@ jobs:
       - name: Build and push UI
         uses: docker/build-push-action@v5
         with:
-          context: ./ai-architect-ui
-          file: ./ai-architect-ui/Dockerfile
+          context: ./axiom-ui
+          file: ./axiom-ui/Dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER }}/ui:${{ github.sha }}
@@ -93,10 +93,113 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.ACR_LOGIN_SERVER }}/ui:cache
           cache-to: type=registry,ref=${{ secrets.ACR_LOGIN_SERVER }}/ui:cache,mode=max
 
+  build-axiom-api:
+    name: Build axiom-api
+    runs-on: ubuntu-latest
+    if: hashFiles('axiom-api/Dockerfile') != ''
+    # Skipped safely until axiom-api/Dockerfile exists
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push axiom-api
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image axiom-api:${{ github.sha }} \
+            --image axiom-api:latest \
+            --file axiom-api/Dockerfile \
+            axiom-api/
+
+  build-specweaver-api:
+    name: Build specweaver-api
+    runs-on: ubuntu-latest
+    if: hashFiles('specweaver-api/Dockerfile') != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push specweaver-api
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image specweaver-api:${{ github.sha }} \
+            --image specweaver-api:latest \
+            --file specweaver-api/Dockerfile \
+            specweaver-api/
+
+  build-specweaver-agent:
+    name: Build specweaver-agent
+    runs-on: ubuntu-latest
+    if: hashFiles('specweaver-agent/Dockerfile') != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push specweaver-agent
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image specweaver-agent:${{ github.sha }} \
+            --image specweaver-agent:latest \
+            --file specweaver-agent/Dockerfile \
+            specweaver-agent/
+
+  check-pillar-structure:
+    name: Check pillar service count
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify max two services per pillar
+        run: |
+          FAILED=0
+          for pillar in archon specweaver scout forge; do
+            if [ -d "$pillar" ]; then
+              COUNT=$(find "$pillar" -maxdepth 1 -type d \
+                \( -name "*-api" -o -name "*-agent" \) | wc -l)
+              if [ "$COUNT" -gt 2 ]; then
+                echo "VIOLATION: $pillar has $COUNT services (max 2)"
+                FAILED=1
+              else
+                echo "OK: $pillar has $COUNT service(s)"
+              fi
+            fi
+          done
+          exit $FAILED
+
   deploy:
     name: Deploy to AKS
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs:
+      - build-and-push
+      - build-axiom-api
+      - build-specweaver-api
+      - build-specweaver-agent
     environment: production
     steps:
       - uses: actions/checkout@v4
@@ -261,7 +364,7 @@ jobs:
             --namespace ai-architect \
             --create-namespace \
             --wait \
-            --timeout 10m \
+            --timeout 15m \
             --atomic \
             --set api.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/api \
             --set api.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
@@ -269,6 +372,12 @@ jobs:
             --set agent.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
             --set ui.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/ui \
             --set ui.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
+            --set axiomApi.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/axiom-api \
+            --set axiomApi.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
+            --set specweaverApi.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/specweaver-api \
+            --set specweaverApi.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
+            --set specweaverAgent.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/specweaver-agent \
+            --set specweaverAgent.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
             --set keyVault.vaultName=${{ secrets.KEY_VAULT_NAME }} \
             --set keyVault.tenantId=${{ secrets.KEY_VAULT_TENANT_ID }} \
             --set keyVault.userAssignedIdentityClientId=${{ secrets.AKS_KUBELET_CLIENT_ID }} \
@@ -327,11 +436,17 @@ jobs:
 
       - name: Verify rollout
         run: |
-          kubectl rollout status deployment/ai-architect-api \
+          kubectl rollout status deployment/archon-api \
             --namespace ai-architect --timeout=5m
-          kubectl rollout status deployment/ai-architect-agent \
+          kubectl rollout status deployment/archon-agent \
             --namespace ai-architect --timeout=5m
-          kubectl rollout status deployment/ai-architect-ui \
+          kubectl rollout status deployment/axiom-ui \
+            --namespace ai-architect --timeout=5m
+          kubectl rollout status deployment/axiom-api \
+            --namespace ai-architect --timeout=5m
+          kubectl rollout status deployment/specweaver-api \
+            --namespace ai-architect --timeout=5m
+          kubectl rollout status deployment/specweaver-agent \
             --namespace ai-architect --timeout=5m
 
       - name: Verify certificate issuance

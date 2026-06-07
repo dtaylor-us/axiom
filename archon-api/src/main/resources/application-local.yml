@@ -1,0 +1,15 @@
+spring:
+  jpa:
+    show-sql: true
+
+axiom:
+  gateway:
+    bypass: true
+    # Direct JWT auth enabled for local development.
+    # archon-api can be tested without axiom-api running.
+    # Set to false when testing the full gateway stack.
+
+logging:
+  level:
+    com.archon: DEBUG
+    org.springframework.web.reactive: DEBUG

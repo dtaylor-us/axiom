@@ -24,7 +24,7 @@ This is the simplest way to run everything. One command starts all five services
 ### 1. Configure environment variables
 
 ```bash
-cd ai-architect
+cd axiom
 cp .env.example .env
 ```
 
@@ -88,14 +88,14 @@ Run services individually for faster iteration with hot-reload.
 #### A. Start infrastructure (PostgreSQL + Qdrant)
 
 ```bash
-cd ai-architect
+cd axiom
 docker compose up postgres qdrant -d
 ```
 
 #### B. Start the Agent (Python/FastAPI)
 
 ```bash
-cd ai-architect-agent
+cd archon-agent
 
 # Create virtual environment and install dependencies
 python -m venv .venv
@@ -119,7 +119,7 @@ The agent health endpoint will be available at [http://localhost:8001/health](ht
 #### C. Start the API Gateway (Java/Spring Boot)
 
 ```bash
-cd ai-architect-api
+cd archon-api
 
 # Set environment variables
 export DB_URL=jdbc:postgresql://localhost:5432/archon
@@ -144,7 +144,7 @@ curl http://localhost:8080/actuator/health
 #### Start the UI (React/Vite)
 
 ```bash
-cd ai-architect-ui
+cd axiom-ui
 
 # Install dependencies
 npm install
@@ -164,7 +164,7 @@ The Vite dev server starts at [http://localhost:5173](http://localhost:5173) and
 ### Frontend (UI)
 
 ```bash
-cd ai-architect-ui
+cd axiom-ui
 npx vitest run                # run all tests
 npx vitest run --coverage     # run with coverage report (80% line minimum)
 npx vitest                    # watch mode
@@ -173,7 +173,7 @@ npx vitest                    # watch mode
 ### API Gateway (Java)
 
 ```bash
-cd ai-architect-api
+cd archon-api
 ./mvnw test                   # unit + integration tests (uses Testcontainers)
 ./mvnw verify                 # includes JaCoCo coverage check (80% line minimum)
 ```
@@ -181,7 +181,7 @@ cd ai-architect-api
 ### Agent (Python)
 
 ```bash
-cd ai-architect-agent
+cd archon-agent
 source .venv/bin/activate
 pytest                        # all tests
 pytest tests/unit/            # unit tests only
@@ -195,7 +195,7 @@ pytest --cov=app              # with coverage (80% minimum enforced)
 To create an optimized production build of the frontend:
 
 ```bash
-cd ai-architect-ui
+cd axiom-ui
 npm run build
 ```
 

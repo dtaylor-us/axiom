@@ -3,6 +3,11 @@ output "fqdn" {
   value       = azurerm_postgresql_flexible_server.main.fqdn
 }
 
+output "server_name" {
+  description = "Name of the PostgreSQL Flexible Server resource."
+  value       = azurerm_postgresql_flexible_server.main.name
+}
+
 output "admin_password" {
   description = "Generated administrator password for the PostgreSQL server. Sensitive."
   value       = random_password.db_admin.result

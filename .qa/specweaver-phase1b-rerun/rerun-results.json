@@ -1,0 +1,2178 @@
+{
+  "meta": {
+    "date": "2026-06-03",
+    "rerun": "phase1b-post-fixes",
+    "provider": "openai"
+  },
+  "tests": {
+    "test1": {
+      "title": "RERUN4 test1",
+      "docs": 2,
+      "session": "36de1d01-2efd-4f11-9ceb-3bc8813040f9",
+      "generateTrigger": "HTTP 202",
+      "status": "PACKAGE_READY",
+      "elapsedPollSeconds": 0,
+      "wallMs": 7,
+      "package": {
+        "packageId": "181c4686-b119-418b-8a41-9a7da8453361",
+        "sessionId": "36de1d01-2efd-4f11-9ceb-3bc8813040f9",
+        "createdAt": "2026-06-04T02:37:50.744799Z",
+        "readinessScore": 0.52,
+        "readinessLabel": "Partially ready \u2014 gaps present",
+        "systemDescription": "The system is designed to handle high transaction volumes, with a peak capacity of 50,000 transactions per hour, while ensuring data security through AES-256 encryption at rest. It requires user authentication for access and is capable of generating reports in under 5 seconds.",
+        "requirements": [
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The system must handle 50000 transactions per hour at peak load.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-cf2f8edd-001",
+            "sourceExcerpts": [
+              "The system must handle 50000 transactions per hour at peak load.",
+              "Peak throughput requirement is 50000 transactions per hour."
+            ],
+            "sourceDocumentIds": [
+              "cf2f8edd-30c8-4fce-9b04-f8a79fba3133",
+              "598d13e8-e825-4a75-a0fd-07d9a102101e"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "CONSTRAINT",
+            "category": "constraints",
+            "statement": "All users must authenticate before accessing the system.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-cf2f8edd-002",
+            "sourceExcerpts": [
+              "All users must authenticate before accessing the system.",
+              "Authentication is required for all system access."
+            ],
+            "sourceDocumentIds": [
+              "cf2f8edd-30c8-4fce-9b04-f8a79fba3133",
+              "598d13e8-e825-4a75-a0fd-07d9a102101e"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "DATA",
+            "category": "data_considerations",
+            "statement": "The system must store data encrypted at rest using AES-256.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-cf2f8edd-003",
+            "sourceExcerpts": [
+              "The system must store data encrypted at rest using AES-256.",
+              "Data at rest must use AES-256 encryption."
+            ],
+            "sourceDocumentIds": [
+              "cf2f8edd-30c8-4fce-9b04-f8a79fba3133",
+              "598d13e8-e825-4a75-a0fd-07d9a102101e"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Reports must be generated in under 5 seconds.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-cf2f8edd-004",
+            "sourceExcerpts": [
+              "Reports must be generated in under 5 seconds.",
+              "Report generation must complete within 5 seconds."
+            ],
+            "sourceDocumentIds": [
+              "cf2f8edd-30c8-4fce-9b04-f8a79fba3133",
+              "598d13e8-e825-4a75-a0fd-07d9a102101e"
+            ],
+            "inferenceReasoning": null
+          }
+        ],
+        "gaps": [
+          {
+            "gapId": "GAP-575c6974",
+            "area": "Performance requirements",
+            "severity": "high",
+            "explanation": "Without explicit performance targets, the architecture cannot make informed decisions about caching, database selection, or infrastructure sizing.",
+            "clarificationQuestion": "What are the expected response times under normal load? What is the peak concurrent user count or transaction volume?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-d6c776c3",
+            "area": "Availability and uptime expectations",
+            "severity": "high",
+            "explanation": "Availability targets drive decisions about redundancy, deployment topology, and disaster recovery.",
+            "clarificationQuestion": "What is the required availability SLA? Is there a maintenance window? What is the acceptable recovery time objective?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-d6aae806",
+            "area": "Data retention and archival policy",
+            "severity": "high",
+            "explanation": "Data retention policy affects storage architecture, compliance posture, and database design.",
+            "clarificationQuestion": "How long must data be retained? Are there regulatory requirements driving the retention period? How should data be archived or purged?",
+            "affectedCategories": [
+              "data_considerations",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-5a959933",
+            "area": "Audit and compliance logging",
+            "severity": "medium",
+            "explanation": "Audit logging requirements affect database design and may require an append-only event store pattern.",
+            "clarificationQuestion": "What user actions must be audited? How long must audit logs be retained? Must audit logs be immutable?",
+            "affectedCategories": [
+              "non_functional",
+              "data_considerations"
+            ]
+          },
+          {
+            "gapId": "GAP-4bd8e5cc",
+            "area": "Failure handling and recovery",
+            "severity": "medium",
+            "explanation": "Failure handling requirements affect resilience patterns, error UX design, and monitoring strategy.",
+            "clarificationQuestion": "How should the system behave when a downstream dependency fails? What is acceptable degraded-mode behaviour?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-06aa0273",
+            "area": "Deployment and operational environment",
+            "severity": "medium",
+            "explanation": "Deployment constraints affect technology selection, cost, and operational model.",
+            "clarificationQuestion": "Where must the system be deployed? Are there cloud provider constraints? What is the target operational model?",
+            "affectedCategories": [
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-0c86375d",
+            "area": "Monitoring and observability",
+            "severity": "low",
+            "explanation": "Observability requirements affect the choice of monitoring stack and instrumentation approach.",
+            "clarificationQuestion": "What monitoring and alerting is required? Are there existing monitoring tools to integrate with?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-573e4133",
+            "area": "Regulatory Compliance",
+            "severity": "critical",
+            "explanation": "If the system operates within a regulated industry, such as finance or healthcare, compliance with relevant regulations is crucial to avoid legal penalties and ensure trust.",
+            "clarificationQuestion": "What regulatory standards must the system comply with (e.g., GDPR, HIPAA, PCI-DSS)?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL",
+              "CONSTRAINTS"
+            ]
+          },
+          {
+            "gapId": "GAP-c8f562f8",
+            "area": "Data Privacy",
+            "severity": "high",
+            "explanation": "Ensuring data privacy is essential to protect sensitive information and maintain user trust, especially if the system handles personal or confidential data.",
+            "clarificationQuestion": "What privacy measures are in place to protect user data beyond encryption?",
+            "affectedCategories": [
+              "DATA_CONSIDERATIONS",
+              "CONSTRAINTS"
+            ]
+          },
+          {
+            "gapId": "GAP-ee30eb63",
+            "area": "Tenant Isolation",
+            "severity": "high",
+            "explanation": "In a multi-tenant architecture, ensuring tenant isolation is critical to prevent data leakage and unauthorized access between tenants.",
+            "clarificationQuestion": "How does the system ensure data and resource isolation between different tenants?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL",
+              "DATA_CONSIDERATIONS"
+            ]
+          },
+          {
+            "gapId": "GAP-bd451ddc",
+            "area": "Data Integrity",
+            "severity": "medium",
+            "explanation": "Maintaining data integrity ensures that information is accurate and reliable, which is vital for decision-making and operational processes.",
+            "clarificationQuestion": "What mechanisms are in place to ensure data integrity during processing and storage?",
+            "affectedCategories": [
+              "DATA_CONSIDERATIONS"
+            ]
+          },
+          {
+            "gapId": "GAP-3a4dbc26",
+            "area": "User Experience",
+            "severity": "medium",
+            "explanation": "A seamless user experience is important for user satisfaction and system adoption, especially if the system is customer-facing.",
+            "clarificationQuestion": "What user experience considerations have been made to ensure ease of use and accessibility?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          }
+        ],
+        "conflicts": [],
+        "sourceDocuments": [
+          {
+            "filename": "document.txt",
+            "document_id": "cf2f8edd-30c8-4fce-9b04-f8a79fba3133",
+            "source_label": "test1 doc 1",
+            "document_type": "plain_text"
+          },
+          {
+            "filename": "document.txt",
+            "document_id": "598d13e8-e825-4a75-a0fd-07d9a102101e",
+            "source_label": "test1 doc 2",
+            "document_type": "plain_text"
+          }
+        ],
+        "totalRequirements": 4,
+        "highConfidenceCount": 4,
+        "inferredCount": 0,
+        "duplicateCount": 0,
+        "gapCount": 12,
+        "conflictCount": 0
+      }
+    },
+    "test2": {
+      "title": "RERUN4 test2",
+      "docs": 1,
+      "session": "9ee40de6-2bc7-483f-980a-3a680f8b1790",
+      "generateTrigger": "HTTP 202",
+      "status": "PACKAGE_READY",
+      "elapsedPollSeconds": 0,
+      "wallMs": 9,
+      "package": {
+        "packageId": "63bdb374-1527-4dc6-b15d-a0f97529ffda",
+        "sessionId": "9ee40de6-2bc7-483f-980a-3a680f8b1790",
+        "createdAt": "2026-06-04T02:38:16.543040Z",
+        "readinessScore": 0.32,
+        "readinessLabel": "Significant gaps \u2014 review needed",
+        "systemDescription": "The system is designed to ensure secure data handling by encrypting data at rest, in transit, and in backup files. It also emphasizes performance with response times under 2 seconds for general operations and under 10 seconds for reports. User authentication is enforced through username and password, while admins require additional multi-factor authentication.",
+        "requirements": [
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The system must encrypt data at rest.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-830156d0-001",
+            "sourceExcerpts": [
+              "The system must encrypt data at rest."
+            ],
+            "sourceDocumentIds": [
+              "830156d0-b843-4b87-af65-0b6ff249a95a"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The system must encrypt data in transit.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-830156d0-002",
+            "sourceExcerpts": [
+              "The system must encrypt data in transit."
+            ],
+            "sourceDocumentIds": [
+              "830156d0-b843-4b87-af65-0b6ff249a95a"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The system must encrypt backup files.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-830156d0-003",
+            "sourceExcerpts": [
+              "The system must encrypt backup files."
+            ],
+            "sourceDocumentIds": [
+              "830156d0-b843-4b87-af65-0b6ff249a95a"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Response time must be under 2 seconds.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-830156d0-004",
+            "sourceExcerpts": [
+              "Response time must be under 2 seconds."
+            ],
+            "sourceDocumentIds": [
+              "830156d0-b843-4b87-af65-0b6ff249a95a"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Response time for reports must be under 10 seconds.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-830156d0-005",
+            "sourceExcerpts": [
+              "Response time for reports must be under 10 seconds."
+            ],
+            "sourceDocumentIds": [
+              "830156d0-b843-4b87-af65-0b6ff249a95a"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Users must log in with username and password.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-830156d0-006",
+            "sourceExcerpts": [
+              "Users must log in with username and password."
+            ],
+            "sourceDocumentIds": [
+              "830156d0-b843-4b87-af65-0b6ff249a95a"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Admins must log in with username, password, and MFA.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-830156d0-007",
+            "sourceExcerpts": [
+              "Admins must log in with username, password, and MFA."
+            ],
+            "sourceDocumentIds": [
+              "830156d0-b843-4b87-af65-0b6ff249a95a"
+            ],
+            "inferenceReasoning": null
+          }
+        ],
+        "gaps": [
+          {
+            "gapId": "GAP-f9d7b6c4",
+            "area": "Availability and uptime expectations",
+            "severity": "high",
+            "explanation": "Availability targets drive decisions about redundancy, deployment topology, and disaster recovery.",
+            "clarificationQuestion": "What is the required availability SLA? Is there a maintenance window? What is the acceptable recovery time objective?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-847c32d3",
+            "area": "Data retention and archival policy",
+            "severity": "high",
+            "explanation": "Data retention policy affects storage architecture, compliance posture, and database design.",
+            "clarificationQuestion": "How long must data be retained? Are there regulatory requirements driving the retention period? How should data be archived or purged?",
+            "affectedCategories": [
+              "data_considerations",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-819e2945",
+            "area": "Authentication and authorisation model",
+            "severity": "critical",
+            "explanation": "Authentication and authorisation are foundational security requirements. Their absence leaves the security architecture undefined.",
+            "clarificationQuestion": "How will users authenticate? Is SSO required? What is the role and permission model?",
+            "affectedCategories": [
+              "functional",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-42ec50af",
+            "area": "Failure handling and recovery",
+            "severity": "medium",
+            "explanation": "Failure handling requirements affect resilience patterns, error UX design, and monitoring strategy.",
+            "clarificationQuestion": "How should the system behave when a downstream dependency fails? What is acceptable degraded-mode behaviour?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-5c0c70d6",
+            "area": "Deployment and operational environment",
+            "severity": "medium",
+            "explanation": "Deployment constraints affect technology selection, cost, and operational model.",
+            "clarificationQuestion": "Where must the system be deployed? Are there cloud provider constraints? What is the target operational model?",
+            "affectedCategories": [
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-96771171",
+            "area": "Regulatory Compliance",
+            "severity": "critical",
+            "explanation": "If the system operates in a regulated industry, compliance with relevant regulations is crucial to avoid legal penalties and ensure trust.",
+            "clarificationQuestion": "What regulatory standards must the system comply with (e.g., GDPR, HIPAA)?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-c8f9cbc2",
+            "area": "Data Integrity",
+            "severity": "high",
+            "explanation": "Ensuring data integrity is vital to maintain trust and reliability, especially if the system handles sensitive or critical data.",
+            "clarificationQuestion": "What measures are in place to ensure data integrity during processing and storage?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-4aa5eba6",
+            "area": "User Authorization",
+            "severity": "medium",
+            "explanation": "Beyond authentication, defining user roles and permissions is essential for controlling access to sensitive data and functions.",
+            "clarificationQuestion": "What user roles and permissions are required to ensure proper access control?",
+            "affectedCategories": [
+              "FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-1ef8f82c",
+            "area": "Data Anonymization",
+            "severity": "medium",
+            "explanation": "In systems handling sensitive data, anonymization is important to protect user privacy and comply with data protection laws.",
+            "clarificationQuestion": "Is there a need to anonymize data to protect user privacy?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-91e9bf83",
+            "area": "Interoperability",
+            "severity": "medium",
+            "explanation": "Ensuring the system can interact with other systems is crucial for seamless integration and data exchange.",
+            "clarificationQuestion": "What external systems or services does the system need to integrate with?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          }
+        ],
+        "conflicts": [
+          {
+            "conflictId": "b74d4369-aea0-4dbe-84f1-8d3235ad3ea7",
+            "requirementIds": [
+              "REQ-830156d0-004",
+              "REQ-830156d0-005"
+            ],
+            "description": "There is a contradiction between the general response time requirement and the specific response time requirement for reports.",
+            "interpretations": [
+              "The general response time requirement implies that all system responses, including reports, must be under 2 seconds.",
+              "The specific response time requirement for reports implies that reports can take up to 10 seconds, which contradicts the general requirement."
+            ],
+            "clarificationQuestion": "Should the response time requirement for reports be considered an exception to the general response time requirement?"
+          }
+        ],
+        "sourceDocuments": [
+          {
+            "filename": "document.txt",
+            "document_id": "830156d0-b843-4b87-af65-0b6ff249a95a",
+            "source_label": "test2 doc 1",
+            "document_type": "plain_text"
+          }
+        ],
+        "totalRequirements": 7,
+        "highConfidenceCount": 7,
+        "inferredCount": 0,
+        "duplicateCount": 0,
+        "gapCount": 10,
+        "conflictCount": 1
+      }
+    },
+    "test3": {
+      "title": "RERUN4 test3",
+      "docs": 1,
+      "session": "c5488e90-a5ae-4021-9d75-76b5139ab308",
+      "generateTrigger": "HTTP 202",
+      "status": "PACKAGE_READY",
+      "elapsedPollSeconds": 0,
+      "wallMs": 5,
+      "package": {
+        "packageId": "76a46582-f439-4381-8812-d726b2858c8b",
+        "sessionId": "c5488e90-a5ae-4021-9d75-76b5139ab308",
+        "createdAt": "2026-06-04T02:38:42.488473Z",
+        "readinessScore": 0.52,
+        "readinessLabel": "Partially ready \u2014 gaps present",
+        "systemDescription": "The system is an online bookstore platform that allows users to browse, search, and purchase books. It integrates with Stripe for payment processing, supports up to 10,000 product listings, and provides functionalities such as a persistent shopping cart, visible order history for logged-in users, and an admin panel for managing products. Additionally, it ensures product images load quickly and efficiently.",
+        "requirements": [
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Users can browse, search, and purchase books.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-87b11796-001",
+            "sourceExcerpts": [
+              "Users can browse, search, and purchase books."
+            ],
+            "sourceDocumentIds": [
+              "87b11796-7a0d-49c5-84c9-b1e7661a1223"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The shopping cart must persist for 30 days.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-87b11796-002",
+            "sourceExcerpts": [
+              "The shopping cart must persist for 30 days."
+            ],
+            "sourceDocumentIds": [
+              "87b11796-7a0d-49c5-84c9-b1e7661a1223"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "INTEGRATION",
+            "category": "integrations",
+            "statement": "The system must integrate with Stripe for payments.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-87b11796-003",
+            "sourceExcerpts": [
+              "The system must integrate with Stripe for payments."
+            ],
+            "sourceDocumentIds": [
+              "87b11796-7a0d-49c5-84c9-b1e7661a1223"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Product images must load in under 3 seconds.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-87b11796-004",
+            "sourceExcerpts": [
+              "Product images must load in under 3 seconds."
+            ],
+            "sourceDocumentIds": [
+              "87b11796-7a0d-49c5-84c9-b1e7661a1223"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "CONSTRAINT",
+            "category": "constraints",
+            "statement": "The system must support 10000 product listings.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-87b11796-005",
+            "sourceExcerpts": [
+              "The system must support 10000 product listings."
+            ],
+            "sourceDocumentIds": [
+              "87b11796-7a0d-49c5-84c9-b1e7661a1223"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Order history must be visible to logged-in users.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-87b11796-006",
+            "sourceExcerpts": [
+              "Order history must be visible to logged-in users."
+            ],
+            "sourceDocumentIds": [
+              "87b11796-7a0d-49c5-84c9-b1e7661a1223"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "The admin panel must allow adding and removing products.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-87b11796-007",
+            "sourceExcerpts": [
+              "The admin panel must allow adding and removing products."
+            ],
+            "sourceDocumentIds": [
+              "87b11796-7a0d-49c5-84c9-b1e7661a1223"
+            ],
+            "inferenceReasoning": null
+          }
+        ],
+        "gaps": [
+          {
+            "gapId": "GAP-8a16da42",
+            "area": "Performance requirements",
+            "severity": "high",
+            "explanation": "Without explicit performance targets, the architecture cannot make informed decisions about caching, database selection, or infrastructure sizing.",
+            "clarificationQuestion": "What are the expected response times under normal load? What is the peak concurrent user count or transaction volume?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-09588e1c",
+            "area": "Availability and uptime expectations",
+            "severity": "high",
+            "explanation": "Availability targets drive decisions about redundancy, deployment topology, and disaster recovery.",
+            "clarificationQuestion": "What is the required availability SLA? Is there a maintenance window? What is the acceptable recovery time objective?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-6cbd535e",
+            "area": "Authentication and authorisation model",
+            "severity": "critical",
+            "explanation": "Authentication and authorisation are foundational security requirements. Their absence leaves the security architecture undefined.",
+            "clarificationQuestion": "How will users authenticate? Is SSO required? What is the role and permission model?",
+            "affectedCategories": [
+              "functional",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-f463c8d3",
+            "area": "Failure handling and recovery",
+            "severity": "medium",
+            "explanation": "Failure handling requirements affect resilience patterns, error UX design, and monitoring strategy.",
+            "clarificationQuestion": "How should the system behave when a downstream dependency fails? What is acceptable degraded-mode behaviour?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-3b4d46c0",
+            "area": "Deployment and operational environment",
+            "severity": "medium",
+            "explanation": "Deployment constraints affect technology selection, cost, and operational model.",
+            "clarificationQuestion": "Where must the system be deployed? Are there cloud provider constraints? What is the target operational model?",
+            "affectedCategories": [
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-99006e81",
+            "area": "Integration error handling",
+            "severity": "medium",
+            "explanation": "When integrations are required, error handling for integration failures must be specified.",
+            "clarificationQuestion": "How should the system handle failures in external integrations? Is eventual consistency acceptable or must integration calls be synchronous and reliable?",
+            "affectedCategories": [
+              "integrations"
+            ]
+          },
+          {
+            "gapId": "GAP-6f505cb4",
+            "area": "Content Licensing",
+            "severity": "high",
+            "explanation": "Ensuring that all digital content, such as books, is legally licensed for sale and distribution is crucial to avoid legal issues and maintain business integrity.",
+            "clarificationQuestion": "What licensing agreements are in place for the digital distribution of books?",
+            "affectedCategories": [
+              "Functional",
+              "Constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-17e4b33c",
+            "area": "Tax Compliance",
+            "severity": "high",
+            "explanation": "Different regions have varying tax regulations for online sales, which can impact the system's design and integration with payment processors.",
+            "clarificationQuestion": "How will the system handle tax calculations for different regions?",
+            "affectedCategories": [
+              "Functional",
+              "Integrations"
+            ]
+          },
+          {
+            "gapId": "GAP-45a99293",
+            "area": "User Privacy",
+            "severity": "medium",
+            "explanation": "Handling user data, especially order history and payment information, requires adherence to privacy laws to protect user information and maintain trust.",
+            "clarificationQuestion": "What measures are in place to ensure user data privacy and compliance with regulations like GDPR?",
+            "affectedCategories": [
+              "Non_Functional",
+              "Constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-49558e57",
+            "area": "Content Recommendation",
+            "severity": "medium",
+            "explanation": "Providing personalized book recommendations can enhance user experience and increase sales, requiring architectural support for data analysis and machine learning.",
+            "clarificationQuestion": "Is there a plan to implement personalized content recommendations?",
+            "affectedCategories": [
+              "Functional"
+            ]
+          },
+          {
+            "gapId": "GAP-62d42a3f",
+            "area": "Internationalization",
+            "severity": "medium",
+            "explanation": "Supporting multiple languages and currencies can expand the user base and requires architectural considerations for localization.",
+            "clarificationQuestion": "What are the plans for supporting multiple languages and currencies?",
+            "affectedCategories": [
+              "Functional",
+              "Non_Functional"
+            ]
+          }
+        ],
+        "conflicts": [],
+        "sourceDocuments": [
+          {
+            "filename": "document.txt",
+            "document_id": "87b11796-7a0d-49c5-84c9-b1e7661a1223",
+            "source_label": "test3 doc 1",
+            "document_type": "plain_text"
+          }
+        ],
+        "totalRequirements": 7,
+        "highConfidenceCount": 7,
+        "inferredCount": 0,
+        "duplicateCount": 0,
+        "gapCount": 11,
+        "conflictCount": 0
+      }
+    },
+    "test4": {
+      "title": "RERUN4 test4",
+      "docs": 1,
+      "session": "542520b7-31be-476c-b84f-750d91554369",
+      "generateTrigger": "HTTP 202",
+      "status": "PACKAGE_READY",
+      "elapsedPollSeconds": 0,
+      "wallMs": 6,
+      "package": {
+        "packageId": "59874f57-a695-4cfe-b8e6-97ab79ebe12b",
+        "sessionId": "542520b7-31be-476c-b84f-750d91554369",
+        "createdAt": "2026-06-04T02:39:34.147089Z",
+        "readinessScore": 0.63,
+        "readinessLabel": "Partially ready \u2014 gaps present",
+        "systemDescription": "The system is a highly available and performant platform deployed on Azure AKS in the UK South region, designed to support up to 50,000 concurrent users. It ensures secure user authentication with email and MFA, role-based access control, and data encryption both at rest and in transit. The system includes monitoring and alerting capabilities with Prometheus, Grafana, and PagerDuty, and handles integration failures with exponential backoff retry.",
+        "requirements": [
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The system must be available 99.9% of the time monthly.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-001",
+            "sourceExcerpts": [
+              "The system must be available 99.9% of the time monthly."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "All API responses must complete within 200ms at p95.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-002",
+            "sourceExcerpts": [
+              "All API responses must complete within 200ms at p95."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The system must support 50000 concurrent users.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-003",
+            "sourceExcerpts": [
+              "The system must support 50000 concurrent users."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Users must authenticate with email and MFA.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-004",
+            "sourceExcerpts": [
+              "Users must authenticate with email and MFA."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Role-based access control with admin, editor, viewer roles.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-005",
+            "sourceExcerpts": [
+              "Role-based access control with admin, editor, viewer roles."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "All data encrypted at rest with AES-256 and in transit with TLS 1.3.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-006",
+            "sourceExcerpts": [
+              "All data encrypted at rest with AES-256 and in transit with TLS 1.3."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Audit logs retained for 7 years, immutable once written.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-007",
+            "sourceExcerpts": [
+              "Audit logs retained for 7 years, immutable once written."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "CONSTRAINT",
+            "category": "constraints",
+            "statement": "System deployed on Azure AKS in UK South region.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-008",
+            "sourceExcerpts": [
+              "System deployed on Azure AKS in UK South region."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Recovery time objective is 4 hours, recovery point objective 1 hour.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-009",
+            "sourceExcerpts": [
+              "Recovery time objective is 4 hours, recovery point objective 1 hour."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "OPERATIONAL",
+            "category": "non_functional",
+            "statement": "Prometheus and Grafana for monitoring.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-010",
+            "sourceExcerpts": [
+              "Prometheus and Grafana for monitoring."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "OPERATIONAL",
+            "category": "non_functional",
+            "statement": "Alerts to PagerDuty.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-011",
+            "sourceExcerpts": [
+              "Alerts to PagerDuty."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "CONSTRAINT",
+            "category": "constraints",
+            "statement": "Data retained for 5 years per regulatory requirement.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-012",
+            "sourceExcerpts": [
+              "Data retained for 5 years per regulatory requirement."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "INTEGRATION",
+            "category": "integrations",
+            "statement": "Integration failures handled with exponential backoff retry.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-b48c46a3-013",
+            "sourceExcerpts": [
+              "Integration failures handled with exponential backoff retry."
+            ],
+            "sourceDocumentIds": [
+              "b48c46a3-0d48-48f3-9296-8ab233f9dc6b"
+            ],
+            "inferenceReasoning": null
+          }
+        ],
+        "gaps": [
+          {
+            "gapId": "GAP-4c86ba9d",
+            "area": "Integration error handling",
+            "severity": "medium",
+            "explanation": "When integrations are required, error handling for integration failures must be specified.",
+            "clarificationQuestion": "How should the system handle failures in external integrations? Is eventual consistency acceptable or must integration calls be synchronous and reliable?",
+            "affectedCategories": [
+              "integrations"
+            ]
+          },
+          {
+            "gapId": "GAP-56bcf49e",
+            "area": "Regulatory Compliance",
+            "severity": "critical",
+            "explanation": "The system lacks explicit requirements for regulatory compliance, which is crucial for ensuring legal adherence and avoiding penalties, especially if the system handles sensitive or regulated data.",
+            "clarificationQuestion": "What specific regulatory standards (e.g., GDPR, HIPAA) must the system comply with?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL",
+              "CONSTRAINTS"
+            ]
+          },
+          {
+            "gapId": "GAP-f179d4d0",
+            "area": "Data Privacy",
+            "severity": "high",
+            "explanation": "There are no requirements addressing data privacy, which is essential for protecting user information and maintaining trust, particularly if the system processes personal data.",
+            "clarificationQuestion": "What privacy measures are in place to protect user data from unauthorized access or breaches?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL",
+              "FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-f430380e",
+            "area": "Tenant Isolation",
+            "severity": "medium",
+            "explanation": "If the system is multi-tenant, tenant isolation is crucial to prevent data leakage between tenants and ensure security and privacy.",
+            "clarificationQuestion": "Is the system designed to support multiple tenants, and if so, how is tenant data isolated?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL",
+              "FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-ea325316",
+            "area": "Data Residency",
+            "severity": "medium",
+            "explanation": "Data residency requirements ensure that data is stored and processed within specific geographical boundaries, which can be critical for compliance and latency considerations.",
+            "clarificationQuestion": "Are there any data residency requirements that dictate where data must be stored or processed?",
+            "affectedCategories": [
+              "CONSTRAINTS"
+            ]
+          },
+          {
+            "gapId": "GAP-ef8c5e65",
+            "area": "Disaster Recovery Testing",
+            "severity": "medium",
+            "explanation": "Regular testing of disaster recovery plans is essential to ensure that recovery objectives can be met and that the system can recover from catastrophic events.",
+            "clarificationQuestion": "How frequently are disaster recovery plans tested to ensure they meet the RTO and RPO?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          }
+        ],
+        "conflicts": [
+          {
+            "conflictId": "37dcf1fd-d74a-48f4-b019-e7ec0a281311",
+            "requirementIds": [
+              "REQ-b48c46a3-007",
+              "REQ-b48c46a3-012"
+            ],
+            "description": "There is a contradiction between the requirement to retain audit logs for 7 years and the requirement to retain data for 5 years per regulatory requirement.",
+            "interpretations": [
+              "Audit logs are considered separate from other data and have a different retention policy.",
+              "The 5-year retention policy applies to all data, including audit logs, which contradicts the 7-year requirement."
+            ],
+            "clarificationQuestion": "Should audit logs be considered separate from other data retention policies, or should they adhere to the 5-year regulatory requirement?"
+          }
+        ],
+        "sourceDocuments": [
+          {
+            "filename": "document.txt",
+            "document_id": "b48c46a3-0d48-48f3-9296-8ab233f9dc6b",
+            "source_label": "test4 doc 1",
+            "document_type": "plain_text"
+          }
+        ],
+        "totalRequirements": 13,
+        "highConfidenceCount": 13,
+        "inferredCount": 0,
+        "duplicateCount": 0,
+        "gapCount": 6,
+        "conflictCount": 1
+      }
+    },
+    "test5": {
+      "title": "RERUN4 test5",
+      "docs": 1,
+      "session": "91457aa4-b216-4008-93cf-39d35aec1796",
+      "generateTrigger": "HTTP 503",
+      "status": "GENERATE_FAILED",
+      "elapsedPollSeconds": 0,
+      "wallMs": 32671,
+      "package": null,
+      "error": {
+        "type": "urn:specweaver:downstream-unavailable",
+        "title": "Service Unavailable",
+        "status": 503,
+        "detail": "Downstream service unavailable. Please retry shortly.",
+        "instance": "/api/v1/sessions/91457aa4-b216-4008-93cf-39d35aec1796/package/generate"
+      }
+    },
+    "test6": {
+      "title": "RERUN4 test6",
+      "docs": 1,
+      "session": "7d82bc8f-e4e5-47ca-8f33-fc4105197771",
+      "generateTrigger": "HTTP 202",
+      "status": "PACKAGE_READY",
+      "elapsedPollSeconds": 0,
+      "wallMs": 4,
+      "package": {
+        "packageId": "e7c7500f-93a3-4181-be73-ba04d9480975",
+        "sessionId": "7d82bc8f-e4e5-47ca-8f33-fc4105197771",
+        "createdAt": "2026-06-04T02:40:35.343912Z",
+        "readinessScore": 0.52,
+        "readinessLabel": "Partially ready \u2014 gaps present",
+        "systemDescription": "The system is designed to securely handle data by encrypting it both at rest and in transit, using AES-256 and TLS 1.3 respectively. It integrates with PostgreSQL for operational data, Redis for session caching, and S3-compatible storage for file blobs. The system ensures secure authentication for admins with MFA and for standard users with email and password, while maintaining performance with API responses under 200ms and allowing report generation up to 30 seconds.",
+        "requirements": [
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The system must encrypt data at rest with AES-256.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-aea6aa4d-001",
+            "sourceExcerpts": [
+              "The system must encrypt data at rest with AES-256."
+            ],
+            "sourceDocumentIds": [
+              "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The system must encrypt data in transit with TLS 1.3.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-aea6aa4d-002",
+            "sourceExcerpts": [
+              "The system must encrypt data in transit with TLS 1.3."
+            ],
+            "sourceDocumentIds": [
+              "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "INTEGRATION",
+            "category": "integrations",
+            "statement": "The system must use PostgreSQL for operational data.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-aea6aa4d-003",
+            "sourceExcerpts": [
+              "The system must use PostgreSQL for operational data."
+            ],
+            "sourceDocumentIds": [
+              "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "INTEGRATION",
+            "category": "integrations",
+            "statement": "The system must use Redis for session caching.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-aea6aa4d-004",
+            "sourceExcerpts": [
+              "The system must use Redis for session caching."
+            ],
+            "sourceDocumentIds": [
+              "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "INTEGRATION",
+            "category": "integrations",
+            "statement": "The system must use S3-compatible storage for file blobs.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-aea6aa4d-005",
+            "sourceExcerpts": [
+              "The system must use S3-compatible storage for file blobs."
+            ],
+            "sourceDocumentIds": [
+              "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Admins must authenticate with MFA.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-aea6aa4d-006",
+            "sourceExcerpts": [
+              "Admins must authenticate with MFA."
+            ],
+            "sourceDocumentIds": [
+              "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Standard users must authenticate with email and password.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-aea6aa4d-007",
+            "sourceExcerpts": [
+              "Standard users must authenticate with email and password."
+            ],
+            "sourceDocumentIds": [
+              "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "API responses must complete in under 200ms.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-aea6aa4d-008",
+            "sourceExcerpts": [
+              "API responses must complete in under 200ms."
+            ],
+            "sourceDocumentIds": [
+              "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Report generation may take up to 30 seconds.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-aea6aa4d-009",
+            "sourceExcerpts": [
+              "Report generation may take up to 30 seconds."
+            ],
+            "sourceDocumentIds": [
+              "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b"
+            ],
+            "inferenceReasoning": null
+          }
+        ],
+        "gaps": [
+          {
+            "gapId": "GAP-fd98daf1",
+            "area": "Performance requirements",
+            "severity": "high",
+            "explanation": "Without explicit performance targets, the architecture cannot make informed decisions about caching, database selection, or infrastructure sizing.",
+            "clarificationQuestion": "What are the expected response times under normal load? What is the peak concurrent user count or transaction volume?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-6e01a557",
+            "area": "Availability and uptime expectations",
+            "severity": "high",
+            "explanation": "Availability targets drive decisions about redundancy, deployment topology, and disaster recovery.",
+            "clarificationQuestion": "What is the required availability SLA? Is there a maintenance window? What is the acceptable recovery time objective?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-c2accd13",
+            "area": "Data retention and archival policy",
+            "severity": "high",
+            "explanation": "Data retention policy affects storage architecture, compliance posture, and database design.",
+            "clarificationQuestion": "How long must data be retained? Are there regulatory requirements driving the retention period? How should data be archived or purged?",
+            "affectedCategories": [
+              "data_considerations",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-2bc31efe",
+            "area": "Audit and compliance logging",
+            "severity": "medium",
+            "explanation": "Audit logging requirements affect database design and may require an append-only event store pattern.",
+            "clarificationQuestion": "What user actions must be audited? How long must audit logs be retained? Must audit logs be immutable?",
+            "affectedCategories": [
+              "non_functional",
+              "data_considerations"
+            ]
+          },
+          {
+            "gapId": "GAP-2a9595d0",
+            "area": "Failure handling and recovery",
+            "severity": "medium",
+            "explanation": "Failure handling requirements affect resilience patterns, error UX design, and monitoring strategy.",
+            "clarificationQuestion": "How should the system behave when a downstream dependency fails? What is acceptable degraded-mode behaviour?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-63500463",
+            "area": "Deployment and operational environment",
+            "severity": "medium",
+            "explanation": "Deployment constraints affect technology selection, cost, and operational model.",
+            "clarificationQuestion": "Where must the system be deployed? Are there cloud provider constraints? What is the target operational model?",
+            "affectedCategories": [
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-ca734c18",
+            "area": "Monitoring and observability",
+            "severity": "low",
+            "explanation": "Observability requirements affect the choice of monitoring stack and instrumentation approach.",
+            "clarificationQuestion": "What monitoring and alerting is required? Are there existing monitoring tools to integrate with?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-e355ddd4",
+            "area": "Integration error handling",
+            "severity": "medium",
+            "explanation": "When integrations are required, error handling for integration failures must be specified.",
+            "clarificationQuestion": "How should the system handle failures in external integrations? Is eventual consistency acceptable or must integration calls be synchronous and reliable?",
+            "affectedCategories": [
+              "integrations"
+            ]
+          },
+          {
+            "gapId": "GAP-02997cc8",
+            "area": "Data Privacy",
+            "severity": "critical",
+            "explanation": "If the system handles sensitive or personal data, there must be requirements ensuring compliance with data protection regulations such as GDPR or CCPA.",
+            "clarificationQuestion": "Does the system process or store any personal or sensitive data that would require compliance with data protection regulations?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-2f8c45f1",
+            "area": "Regulatory Compliance",
+            "severity": "high",
+            "explanation": "Depending on the domain, there may be specific regulatory requirements that must be adhered to, such as PCI DSS for financial systems or HIPAA for healthcare systems.",
+            "clarificationQuestion": "Are there any industry-specific regulations that the system must comply with?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-5c79f76b",
+            "area": "Tenant Isolation",
+            "severity": "high",
+            "explanation": "In multi-tenant systems, ensuring that data and resources are isolated between tenants is crucial for security and privacy.",
+            "clarificationQuestion": "Is the system designed to support multiple tenants, and if so, how is tenant data isolated?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL",
+              "INTEGRATIONS"
+            ]
+          },
+          {
+            "gapId": "GAP-56bb7cc3",
+            "area": "Data Integrity",
+            "severity": "medium",
+            "explanation": "Ensuring the integrity of data during processing and storage is critical to maintain trust and accuracy in the system's operations.",
+            "clarificationQuestion": "What mechanisms are in place to ensure data integrity during processing and storage?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-5cada726",
+            "area": "Localization and Internationalization",
+            "severity": "low",
+            "explanation": "If the system is intended for a global audience, it must support multiple languages and regional settings.",
+            "clarificationQuestion": "Is the system intended for use in multiple regions, and does it support localization and internationalization?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          }
+        ],
+        "conflicts": [],
+        "sourceDocuments": [
+          {
+            "filename": "document.txt",
+            "document_id": "aea6aa4d-bdfb-41f6-83e1-e6865ea1918b",
+            "source_label": "test6 doc 1",
+            "document_type": "plain_text"
+          }
+        ],
+        "totalRequirements": 9,
+        "highConfidenceCount": 9,
+        "inferredCount": 0,
+        "duplicateCount": 0,
+        "gapCount": 13,
+        "conflictCount": 0
+      }
+    },
+    "test7_sparse": {
+      "title": "RERUN4 test7_sparse",
+      "docs": 1,
+      "session": "cb8b5194-6836-4524-912c-7e2a982eca5c",
+      "generateTrigger": "HTTP 202",
+      "status": "PACKAGE_READY",
+      "elapsedPollSeconds": 0,
+      "wallMs": 4,
+      "package": {
+        "packageId": "57125ae1-8ba9-4420-96d0-332f2b3356b3",
+        "sessionId": "cb8b5194-6836-4524-912c-7e2a982eca5c",
+        "createdAt": "2026-06-04T02:40:46.474249Z",
+        "readinessScore": 0.17,
+        "readinessLabel": "Not ready \u2014 major gaps",
+        "systemDescription": "The system is a web application designed for business purposes. Its specific functionalities and the technologies or platforms to be used are not detailed in the requirement.",
+        "requirements": [
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Build a web application for the business.",
+            "confidence": "MEDIUM",
+            "isInferred": false,
+            "ambiguities": [
+              "The specific functionalities of the web application are not detailed.",
+              "No specific technologies or platforms are mentioned."
+            ],
+            "requirementId": "REQ-df644e85-001",
+            "sourceExcerpts": [
+              "Build us a web application for our business."
+            ],
+            "sourceDocumentIds": [
+              "df644e85-d071-455b-9e2f-6a890e9842d1"
+            ],
+            "inferenceReasoning": null
+          }
+        ],
+        "gaps": [
+          {
+            "gapId": "GAP-c0a148c1",
+            "area": "Performance requirements",
+            "severity": "high",
+            "explanation": "Without explicit performance targets, the architecture cannot make informed decisions about caching, database selection, or infrastructure sizing.",
+            "clarificationQuestion": "What are the expected response times under normal load? What is the peak concurrent user count or transaction volume?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-5b479f93",
+            "area": "Availability and uptime expectations",
+            "severity": "high",
+            "explanation": "Availability targets drive decisions about redundancy, deployment topology, and disaster recovery.",
+            "clarificationQuestion": "What is the required availability SLA? Is there a maintenance window? What is the acceptable recovery time objective?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-830650c0",
+            "area": "Data retention and archival policy",
+            "severity": "high",
+            "explanation": "Data retention policy affects storage architecture, compliance posture, and database design.",
+            "clarificationQuestion": "How long must data be retained? Are there regulatory requirements driving the retention period? How should data be archived or purged?",
+            "affectedCategories": [
+              "data_considerations",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-f0dee088",
+            "area": "Authentication and authorisation model",
+            "severity": "critical",
+            "explanation": "Authentication and authorisation are foundational security requirements. Their absence leaves the security architecture undefined.",
+            "clarificationQuestion": "How will users authenticate? Is SSO required? What is the role and permission model?",
+            "affectedCategories": [
+              "functional",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-f26437a8",
+            "area": "Audit and compliance logging",
+            "severity": "medium",
+            "explanation": "Audit logging requirements affect database design and may require an append-only event store pattern.",
+            "clarificationQuestion": "What user actions must be audited? How long must audit logs be retained? Must audit logs be immutable?",
+            "affectedCategories": [
+              "non_functional",
+              "data_considerations"
+            ]
+          },
+          {
+            "gapId": "GAP-05e907a7",
+            "area": "Scalability and growth expectations",
+            "severity": "medium",
+            "explanation": "Scalability expectations determine whether the architecture needs horizontal scaling capability or whether a single-server approach is acceptable.",
+            "clarificationQuestion": "What is the expected user/data growth over 12-24 months? Must the system scale horizontally or is vertical scaling acceptable?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-74e34611",
+            "area": "Failure handling and recovery",
+            "severity": "medium",
+            "explanation": "Failure handling requirements affect resilience patterns, error UX design, and monitoring strategy.",
+            "clarificationQuestion": "How should the system behave when a downstream dependency fails? What is acceptable degraded-mode behaviour?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-9e08eed5",
+            "area": "Deployment and operational environment",
+            "severity": "medium",
+            "explanation": "Deployment constraints affect technology selection, cost, and operational model.",
+            "clarificationQuestion": "Where must the system be deployed? Are there cloud provider constraints? What is the target operational model?",
+            "affectedCategories": [
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-fe425f92",
+            "area": "Monitoring and observability",
+            "severity": "low",
+            "explanation": "Observability requirements affect the choice of monitoring stack and instrumentation approach.",
+            "clarificationQuestion": "What monitoring and alerting is required? Are there existing monitoring tools to integrate with?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-e0f53135",
+            "area": "Regulatory Compliance",
+            "severity": "critical",
+            "explanation": "Without regulatory compliance requirements, the application may not adhere to industry standards, leading to legal and financial repercussions.",
+            "clarificationQuestion": "What regulatory standards must the application comply with?",
+            "affectedCategories": [
+              "Legal",
+              "Security"
+            ]
+          },
+          {
+            "gapId": "GAP-fc6acc70",
+            "area": "Data Privacy",
+            "severity": "high",
+            "explanation": "Ensuring data privacy is crucial to protect user information and maintain trust, especially if the application handles sensitive data.",
+            "clarificationQuestion": "What data privacy measures are required to protect user information?",
+            "affectedCategories": [
+              "Security",
+              "User Experience"
+            ]
+          },
+          {
+            "gapId": "GAP-785e761c",
+            "area": "Localization",
+            "severity": "medium",
+            "explanation": "If the application serves a global audience, localization is necessary to cater to different languages and cultural norms.",
+            "clarificationQuestion": "Will the application need to support multiple languages or regional settings?",
+            "affectedCategories": [
+              "User Experience",
+              "Functional"
+            ]
+          },
+          {
+            "gapId": "GAP-c6527ae9",
+            "area": "Integration with Existing Systems",
+            "severity": "high",
+            "explanation": "Integration with existing systems is vital for seamless operation and data consistency across platforms.",
+            "clarificationQuestion": "What existing systems does the application need to integrate with?",
+            "affectedCategories": [
+              "Functional",
+              "Technical"
+            ]
+          },
+          {
+            "gapId": "GAP-8bfae22b",
+            "area": "User Accessibility",
+            "severity": "medium",
+            "explanation": "Ensuring accessibility is important to make the application usable for people with disabilities, complying with accessibility standards.",
+            "clarificationQuestion": "What accessibility standards must the application adhere to?",
+            "affectedCategories": [
+              "User Experience",
+              "Legal"
+            ]
+          }
+        ],
+        "conflicts": [],
+        "sourceDocuments": [
+          {
+            "filename": "document.txt",
+            "document_id": "df644e85-d071-455b-9e2f-6a890e9842d1",
+            "source_label": "test7_sparse doc 1",
+            "document_type": "plain_text"
+          }
+        ],
+        "totalRequirements": 1,
+        "highConfidenceCount": 0,
+        "inferredCount": 0,
+        "duplicateCount": 0,
+        "gapCount": 14,
+        "conflictCount": 0
+      }
+    },
+    "test8": {
+      "title": "RERUN4 test8",
+      "docs": 1,
+      "session": "c4e3ec52-6fc0-44fc-9ac2-1005df7b5b3d",
+      "generateTrigger": "HTTP 202",
+      "status": "PACKAGE_READY",
+      "elapsedPollSeconds": 0,
+      "wallMs": 6,
+      "package": {
+        "packageId": "d66335b9-5dd4-4861-83e4-26bd991ac862",
+        "sessionId": "c4e3ec52-6fc0-44fc-9ac2-1005df7b5b3d",
+        "createdAt": "2026-06-04T02:41:15.950105Z",
+        "readinessScore": 0.52,
+        "readinessLabel": "Partially ready \u2014 gaps present",
+        "systemDescription": "The system is a collaborative project management tool that allows users to create projects and tasks, invite team members, and manage access through role-based permissions. It integrates with GitHub, Jira, and Slack, supports exporting reports as PDF and CSV, and provides email notifications for task assignments and deadlines. The system is designed to be highly available, support up to 10,000 concurrent users, be GDPR compliant, and offer a mobile-responsive web application experience.",
+        "requirements": [
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Users create projects, tasks, and invite team members.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-d600ebbc-001",
+            "sourceExcerpts": [
+              "Users create projects, tasks, and invite team members."
+            ],
+            "sourceDocumentIds": [
+              "d600ebbc-1fe9-4844-b0ad-6dcbbe987873"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "CONSTRAINT",
+            "category": "constraints",
+            "statement": "Role-based access: owner, editor, viewer.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-d600ebbc-002",
+            "sourceExcerpts": [
+              "Role-based access: owner, editor, viewer."
+            ],
+            "sourceDocumentIds": [
+              "d600ebbc-1fe9-4844-b0ad-6dcbbe987873"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "INTEGRATION",
+            "category": "integrations",
+            "statement": "Must integrate with GitHub, Jira, and Slack.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-d600ebbc-003",
+            "sourceExcerpts": [
+              "Must integrate with GitHub, Jira, and Slack."
+            ],
+            "sourceDocumentIds": [
+              "d600ebbc-1fe9-4844-b0ad-6dcbbe987873"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Available 99.9% uptime.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-d600ebbc-004",
+            "sourceExcerpts": [
+              "Available 99.9% uptime."
+            ],
+            "sourceDocumentIds": [
+              "d600ebbc-1fe9-4844-b0ad-6dcbbe987873"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "10000 concurrent users.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-d600ebbc-005",
+            "sourceExcerpts": [
+              "10000 concurrent users."
+            ],
+            "sourceDocumentIds": [
+              "d600ebbc-1fe9-4844-b0ad-6dcbbe987873"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "CONSTRAINT",
+            "category": "constraints",
+            "statement": "All data GDPR compliant.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-d600ebbc-006",
+            "sourceExcerpts": [
+              "All data GDPR compliant."
+            ],
+            "sourceDocumentIds": [
+              "d600ebbc-1fe9-4844-b0ad-6dcbbe987873"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Reports exportable as PDF and CSV.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-d600ebbc-007",
+            "sourceExcerpts": [
+              "Reports exportable as PDF and CSV."
+            ],
+            "sourceDocumentIds": [
+              "d600ebbc-1fe9-4844-b0ad-6dcbbe987873"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "Mobile responsive web application.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-d600ebbc-008",
+            "sourceExcerpts": [
+              "Mobile responsive web application."
+            ],
+            "sourceDocumentIds": [
+              "d600ebbc-1fe9-4844-b0ad-6dcbbe987873"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Email notifications for task assignments and deadlines.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-d600ebbc-009",
+            "sourceExcerpts": [
+              "Email notifications for task assignments and deadlines."
+            ],
+            "sourceDocumentIds": [
+              "d600ebbc-1fe9-4844-b0ad-6dcbbe987873"
+            ],
+            "inferenceReasoning": null
+          }
+        ],
+        "gaps": [
+          {
+            "gapId": "GAP-70693631",
+            "area": "Data retention and archival policy",
+            "severity": "high",
+            "explanation": "Data retention policy affects storage architecture, compliance posture, and database design.",
+            "clarificationQuestion": "How long must data be retained? Are there regulatory requirements driving the retention period? How should data be archived or purged?",
+            "affectedCategories": [
+              "data_considerations",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-77bfaa30",
+            "area": "Audit and compliance logging",
+            "severity": "medium",
+            "explanation": "Audit logging requirements affect database design and may require an append-only event store pattern.",
+            "clarificationQuestion": "What user actions must be audited? How long must audit logs be retained? Must audit logs be immutable?",
+            "affectedCategories": [
+              "non_functional",
+              "data_considerations"
+            ]
+          },
+          {
+            "gapId": "GAP-c25effc7",
+            "area": "Failure handling and recovery",
+            "severity": "medium",
+            "explanation": "Failure handling requirements affect resilience patterns, error UX design, and monitoring strategy.",
+            "clarificationQuestion": "How should the system behave when a downstream dependency fails? What is acceptable degraded-mode behaviour?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-6030470f",
+            "area": "Deployment and operational environment",
+            "severity": "medium",
+            "explanation": "Deployment constraints affect technology selection, cost, and operational model.",
+            "clarificationQuestion": "Where must the system be deployed? Are there cloud provider constraints? What is the target operational model?",
+            "affectedCategories": [
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-8c21829a",
+            "area": "Monitoring and observability",
+            "severity": "low",
+            "explanation": "Observability requirements affect the choice of monitoring stack and instrumentation approach.",
+            "clarificationQuestion": "What monitoring and alerting is required? Are there existing monitoring tools to integrate with?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-74cfc6f9",
+            "area": "Integration error handling",
+            "severity": "medium",
+            "explanation": "When integrations are required, error handling for integration failures must be specified.",
+            "clarificationQuestion": "How should the system handle failures in external integrations? Is eventual consistency acceptable or must integration calls be synchronous and reliable?",
+            "affectedCategories": [
+              "integrations"
+            ]
+          },
+          {
+            "gapId": "GAP-bff6e78f",
+            "area": "Data Encryption",
+            "severity": "critical",
+            "explanation": "Data encryption is essential to protect sensitive information from unauthorized access, especially when dealing with integrations and data exports.",
+            "clarificationQuestion": "What encryption standards will be used for data at rest and in transit?",
+            "affectedCategories": [
+              "CONSTRAINTS",
+              "INTEGRATIONS"
+            ]
+          },
+          {
+            "gapId": "GAP-fd70b3ff",
+            "area": "Integration Security",
+            "severity": "high",
+            "explanation": "Ensuring secure communication and data exchange with third-party services like GitHub, Jira, and Slack is crucial to prevent data breaches.",
+            "clarificationQuestion": "What security protocols will be implemented for third-party integrations?",
+            "affectedCategories": [
+              "INTEGRATIONS"
+            ]
+          },
+          {
+            "gapId": "GAP-e3d6a466",
+            "area": "Data Backup and Recovery",
+            "severity": "medium",
+            "explanation": "Having a robust data backup and recovery plan is vital to ensure data integrity and availability in case of system failures or data loss.",
+            "clarificationQuestion": "What are the data backup and recovery procedures in place?",
+            "affectedCategories": [
+              "NON_FUNCTIONAL"
+            ]
+          },
+          {
+            "gapId": "GAP-77709ce4",
+            "area": "User Activity Logging",
+            "severity": "high",
+            "explanation": "Tracking user activities is important for auditing purposes and to ensure accountability within the system.",
+            "clarificationQuestion": "What user activities will be logged and how will this data be stored?",
+            "affectedCategories": [
+              "FUNCTIONAL",
+              "CONSTRAINTS"
+            ]
+          },
+          {
+            "gapId": "GAP-73ca808f",
+            "area": "Localization and Internationalization",
+            "severity": "medium",
+            "explanation": "Supporting multiple languages and regional settings can be important for a global user base, impacting user experience and compliance.",
+            "clarificationQuestion": "What languages and regional settings will the system support?",
+            "affectedCategories": [
+              "FUNCTIONAL",
+              "NON_FUNCTIONAL"
+            ]
+          }
+        ],
+        "conflicts": [],
+        "sourceDocuments": [
+          {
+            "filename": "document.txt",
+            "document_id": "d600ebbc-1fe9-4844-b0ad-6dcbbe987873",
+            "source_label": "test8 doc 1",
+            "document_type": "plain_text"
+          }
+        ],
+        "totalRequirements": 9,
+        "highConfidenceCount": 9,
+        "inferredCount": 0,
+        "duplicateCount": 0,
+        "gapCount": 11,
+        "conflictCount": 0
+      }
+    },
+    "test9": {
+      "title": "RERUN4 test9",
+      "docs": 1,
+      "session": "d0471fe0-d063-4d63-ad0e-d9989c47e6a0",
+      "generateTrigger": "HTTP 202",
+      "status": "PACKAGE_READY",
+      "elapsedPollSeconds": 0,
+      "wallMs": 4,
+      "package": {
+        "packageId": "95dc0dcc-da23-4251-8cb8-4803b6d7b957",
+        "sessionId": "d0471fe0-d063-4d63-ad0e-d9989c47e6a0",
+        "createdAt": "2026-06-04T02:41:33.766745Z",
+        "readinessScore": 0.27,
+        "readinessLabel": "Not ready \u2014 major gaps",
+        "systemDescription": "The system is a web application designed for business use, focusing on being user-friendly and compatible with major web browsers.",
+        "requirements": [
+          {
+            "type": "FUNCTIONAL",
+            "category": "functional",
+            "statement": "Build a web application for the business.",
+            "confidence": "HIGH",
+            "isInferred": false,
+            "ambiguities": [],
+            "requirementId": "REQ-5c7d2987-001",
+            "sourceExcerpts": [
+              "Build us a web application for our business."
+            ],
+            "sourceDocumentIds": [
+              "5c7d2987-035f-45c3-9284-b8d5ae3a81dd"
+            ],
+            "inferenceReasoning": null
+          },
+          {
+            "type": "NON_FUNCTIONAL",
+            "category": "non_functional",
+            "statement": "The web application should be user-friendly.",
+            "confidence": "INFERRED",
+            "isInferred": true,
+            "ambiguities": [],
+            "requirementId": "REQ-5c7d2987-002",
+            "sourceExcerpts": [
+              "Build us a web application for our business."
+            ],
+            "sourceDocumentIds": [
+              "5c7d2987-035f-45c3-9284-b8d5ae3a81dd"
+            ],
+            "inferenceReasoning": "Inferred from the source text: 'Build us a web application for our business.'. The requirement is implied by this evidence but was not stated explicitly."
+          },
+          {
+            "type": "CONSTRAINT",
+            "category": "constraints",
+            "statement": "The web application must be compatible with major web browsers.",
+            "confidence": "INFERRED",
+            "isInferred": true,
+            "ambiguities": [],
+            "requirementId": "REQ-5c7d2987-003",
+            "sourceExcerpts": [
+              "Build us a web application for our business."
+            ],
+            "sourceDocumentIds": [
+              "5c7d2987-035f-45c3-9284-b8d5ae3a81dd"
+            ],
+            "inferenceReasoning": "Inferred from the source text: 'Build us a web application for our business.'. The requirement is implied by this evidence but was not stated explicitly."
+          }
+        ],
+        "gaps": [
+          {
+            "gapId": "GAP-0192ffdd",
+            "area": "Performance requirements",
+            "severity": "high",
+            "explanation": "Without explicit performance targets, the architecture cannot make informed decisions about caching, database selection, or infrastructure sizing.",
+            "clarificationQuestion": "What are the expected response times under normal load? What is the peak concurrent user count or transaction volume?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-063c4a69",
+            "area": "Availability and uptime expectations",
+            "severity": "high",
+            "explanation": "Availability targets drive decisions about redundancy, deployment topology, and disaster recovery.",
+            "clarificationQuestion": "What is the required availability SLA? Is there a maintenance window? What is the acceptable recovery time objective?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-02c92edd",
+            "area": "Data retention and archival policy",
+            "severity": "high",
+            "explanation": "Data retention policy affects storage architecture, compliance posture, and database design.",
+            "clarificationQuestion": "How long must data be retained? Are there regulatory requirements driving the retention period? How should data be archived or purged?",
+            "affectedCategories": [
+              "data_considerations",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-9ec05f15",
+            "area": "Authentication and authorisation model",
+            "severity": "critical",
+            "explanation": "Authentication and authorisation are foundational security requirements. Their absence leaves the security architecture undefined.",
+            "clarificationQuestion": "How will users authenticate? Is SSO required? What is the role and permission model?",
+            "affectedCategories": [
+              "functional",
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-9cc34f98",
+            "area": "Audit and compliance logging",
+            "severity": "medium",
+            "explanation": "Audit logging requirements affect database design and may require an append-only event store pattern.",
+            "clarificationQuestion": "What user actions must be audited? How long must audit logs be retained? Must audit logs be immutable?",
+            "affectedCategories": [
+              "non_functional",
+              "data_considerations"
+            ]
+          },
+          {
+            "gapId": "GAP-3b6ce308",
+            "area": "Scalability and growth expectations",
+            "severity": "medium",
+            "explanation": "Scalability expectations determine whether the architecture needs horizontal scaling capability or whether a single-server approach is acceptable.",
+            "clarificationQuestion": "What is the expected user/data growth over 12-24 months? Must the system scale horizontally or is vertical scaling acceptable?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-07054c07",
+            "area": "Failure handling and recovery",
+            "severity": "medium",
+            "explanation": "Failure handling requirements affect resilience patterns, error UX design, and monitoring strategy.",
+            "clarificationQuestion": "How should the system behave when a downstream dependency fails? What is acceptable degraded-mode behaviour?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-f4d0c592",
+            "area": "Deployment and operational environment",
+            "severity": "medium",
+            "explanation": "Deployment constraints affect technology selection, cost, and operational model.",
+            "clarificationQuestion": "Where must the system be deployed? Are there cloud provider constraints? What is the target operational model?",
+            "affectedCategories": [
+              "constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-fd6a622f",
+            "area": "Monitoring and observability",
+            "severity": "low",
+            "explanation": "Observability requirements affect the choice of monitoring stack and instrumentation approach.",
+            "clarificationQuestion": "What monitoring and alerting is required? Are there existing monitoring tools to integrate with?",
+            "affectedCategories": [
+              "non_functional"
+            ]
+          },
+          {
+            "gapId": "GAP-724dc93f",
+            "area": "Data Security",
+            "severity": "critical",
+            "explanation": "Without specific data security requirements, sensitive business data could be at risk of unauthorized access or breaches, impacting the integrity and trustworthiness of the application.",
+            "clarificationQuestion": "What specific data protection measures are required to safeguard sensitive business information?",
+            "affectedCategories": [
+              "Non_Functional",
+              "Constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-06427165",
+            "area": "Regulatory Compliance",
+            "severity": "high",
+            "explanation": "Depending on the business domain, there may be specific legal and regulatory requirements that the application must adhere to, which can significantly influence architectural decisions.",
+            "clarificationQuestion": "Are there any industry-specific regulations or standards that the application must comply with?",
+            "affectedCategories": [
+              "Non_Functional",
+              "Constraints"
+            ]
+          },
+          {
+            "gapId": "GAP-db8513f0",
+            "area": "Integration Capabilities",
+            "severity": "medium",
+            "explanation": "The ability to integrate with existing systems or third-party services can be crucial for the application's functionality and user experience.",
+            "clarificationQuestion": "What existing systems or external services does the application need to integrate with?",
+            "affectedCategories": [
+              "Functional",
+              "Non_Functional"
+            ]
+          },
+          {
+            "gapId": "GAP-ad06209d",
+            "area": "User Access Management",
+            "severity": "high",
+            "explanation": "Managing user roles and permissions is essential for ensuring that users have appropriate access levels, which affects both security and usability.",
+            "clarificationQuestion": "What are the requirements for user roles and access levels within the application?",
+            "affectedCategories": [
+              "Functional",
+              "Non_Functional"
+            ]
+          },
+          {
+            "gapId": "GAP-7b943ce5",
+            "area": "Localization and Internationalization",
+            "severity": "medium",
+            "explanation": "If the application is intended for a global audience, it must support multiple languages and cultural settings, impacting design and architecture.",
+            "clarificationQuestion": "Is there a need for the application to support multiple languages or regional settings?",
+            "affectedCategories": [
+              "Functional",
+              "Non_Functional"
+            ]
+          }
+        ],
+        "conflicts": [],
+        "sourceDocuments": [
+          {
+            "filename": "document.txt",
+            "document_id": "5c7d2987-035f-45c3-9284-b8d5ae3a81dd",
+            "source_label": "test9 doc 1",
+            "document_type": "plain_text"
+          }
+        ],
+        "totalRequirements": 3,
+        "highConfidenceCount": 1,
+        "inferredCount": 2,
+        "duplicateCount": 0,
+        "gapCount": 14,
+        "conflictCount": 0
+      },
+      "qdrantCollections": {
+        "beforeSpecweaver": [],
+        "afterSpecweaver": [],
+        "beforeCount": 0,
+        "afterCount": 0
+      }
+    },
+    "test10": {
+      "test5Session": "91457aa4-b216-4008-93cf-39d35aec1796",
+      "sendStatus": 404,
+      "sendResponse": {
+        "type": "urn:specweaver:package-not-found",
+        "title": "Not Found",
+        "status": 404,
+        "detail": "Package not generated",
+        "instance": "/api/v1/sessions/91457aa4-b216-4008-93cf-39d35aec1796/package/send-to-archon"
+      },
+      "conversation": null,
+      "conversationStatus": null
+    }
+  },
+  "regression": {
+    "sw010LogErrorLines": 0
+  }
+}

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: specweaver-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: specweaver-agent
+    chart: {{ .Chart.Name }}
+    release: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: specweaver-agent
+  ports:
+    - name: http
+      port: 8085
+      targetPort: 8085
+      protocol: TCP

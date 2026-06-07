@@ -125,7 +125,7 @@ and inter-service authentication — each has specific hardening requirements.
 ### 2.4 — Inter-service authentication
 
 - `AgentHttpClient` MUST set the `X-Internal-Secret` header on every
-  request to `ai-architect-agent`. A missing header MUST result in HTTP 401
+  request to `archon-agent`. A missing header MUST result in HTTP 401
   from the agent.
 - MUST NOT expose internal exceptions to API consumers. Catch
   `AgentCommunicationException` and map it to a safe, generic error
@@ -265,18 +265,18 @@ commit. A partial update breaks tests in a different layer.
 
 | File | What to update |
 |------|----------------|
-| `ai-architect-agent/app/pipeline/graph.py` | Add stage name to `ORDERED_STAGES` |
-| `ai-architect-agent/app/pipeline/nodes.py` | Implement the stage node function |
-| `ai-architect-agent/app/tools/registry.py` | Register the tool |
-| `ai-architect-ui/src/types/api.ts` | Add stage name to `PIPELINE_STAGES` |
-| `ai-architect-ui/src/components/StageProgress.tsx` | Add label to `STAGE_LABELS` |
-| `ai-architect-agent/app/llm/schemas.py` | Add output schema to `SCHEMAS` |
+| `archon-agent/app/pipeline/graph.py` | Add stage name to `ORDERED_STAGES` |
+| `archon-agent/app/pipeline/nodes.py` | Implement the stage node function |
+| `archon-agent/app/tools/registry.py` | Register the tool |
+| `axiom-ui/src/types/api.ts` | Add stage name to `PIPELINE_STAGES` |
+| `axiom-ui/src/components/StageProgress.tsx` | Add label to `STAGE_LABELS` |
+| `archon-agent/app/llm/schemas.py` | Add output schema to `SCHEMAS` |
 | `ARCHITECTURE.md` | Document the stage under PIPELINE DEFINITION |
 | `ADL.md` | Update service index if a new ADL rule is added |
 | `tests/unit/test_pipeline_reiteration.py` | Update `len(ORDERED_STAGES)` assertion |
 | `tests/unit/test_pipeline_nodes.py` | Add mock and test for the new node |
-| `ai-architect-ui/src/test/StageProgress.test.tsx` | Update stage count assertion |
-| `ai-architect-ui/src/test/useConversation.test.ts` | Update stage count assertion |
+| `axiom-ui/src/test/StageProgress.test.tsx` | Update stage count assertion |
+| `axiom-ui/src/test/useConversation.test.ts` | Update stage count assertion |
 
 The stage name MUST be identical (exact `snake_case`) in every location.
 
@@ -297,11 +297,11 @@ Archon's performance model depends on non-blocking I/O, async parallelism,
 and token-efficient LLM interactions. Never introduce blocking patterns on
 the SSE streaming path.
 
-### 5.1 — Non-blocking HTTP is mandatory in ai-architect-api
+### 5.1 — Non-blocking HTTP is mandatory in archon-api
 
 - `RestTemplate` is categorically prohibited (ADL-005, Hard). It is
   blocking and will deadlock the SSE response thread under load.
-- All HTTP calls from `ai-architect-api` to `ai-architect-agent` MUST use
+- All HTTP calls from `archon-api` to `archon-agent` MUST use
   `WebClient` with reactive operators (`Flux`, `Mono`).
 - Do not add `block()` calls on the streaming path. If a blocking call is
   genuinely required (e.g., during startup), document it with an inline

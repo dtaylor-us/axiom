@@ -10,7 +10,7 @@ Instead, explain which rule it would violate and suggest a compliant alternative
 Key rules to check on every generation:
 - ddl-auto must always be "validate" — never create, update, or create-drop
 - Never use RestTemplate — always WebClient
-- Never put LLM calls in ai-architect-api
+- Never put LLM calls in archon-api
 - Never set open-in-view to true
 - Never hardcode secrets
 - Always add default values to new ArchitectureContext fields
@@ -304,18 +304,18 @@ Run every command below and confirm it passes before declaring
 a phase complete. Do not move to the next phase with any
 failing command.
 
-#### Spring Boot (run if phase touches ai-architect-api)
+#### Spring Boot (run if phase touches archon-api)
   mvn test                          # unit tests
   mvn verify                        # integration tests + coverage
 
-#### Python (run if phase touches ai-architect-agent)
+#### Python (run if phase touches archon-agent)
   pytest tests/unit/ -v             # unit tests
   pytest tests/integration/ -v      # integration tests
   pytest --cov=app \
     --cov-report=term-missing \
     --cov-fail-under=80             # coverage gate
 
-#### TypeScript (run if phase touches ai-architect-ui)
+#### TypeScript (run if phase touches axiom-ui)
   npx vitest run                    # all tests
   npx vitest run --coverage         # coverage gate
 
@@ -373,12 +373,12 @@ Checklist for adding a pipeline stage:
 
 | File | What to update |
 |------|----------------|
-| `ai-architect-agent/app/pipeline/graph.py` | Add stage name to `ORDERED_STAGES` |
-| `ai-architect-agent/app/pipeline/nodes.py` | Implement the stage node function |
-| `ai-architect-agent/app/tools/registry.py` | Register the tool used by the stage |
-| `ai-architect-ui/src/types/api.ts` | Add stage name to `PIPELINE_STAGES` |
-| `ai-architect-ui/src/components/StageProgress.tsx` | Add label to `STAGE_LABELS` |
-| `ai-architect/ARCHITECTURE.md` | Add stage to PIPELINE DEFINITION STAGES list |
+| `archon-agent/app/pipeline/graph.py` | Add stage name to `ORDERED_STAGES` |
+| `archon-agent/app/pipeline/nodes.py` | Implement the stage node function |
+| `archon-agent/app/tools/registry.py` | Register the tool used by the stage |
+| `axiom-ui/src/types/api.ts` | Add stage name to `PIPELINE_STAGES` |
+| `axiom-ui/src/components/StageProgress.tsx` | Add label to `STAGE_LABELS` |
+| `axiom/ARCHITECTURE.md` | Add stage to PIPELINE DEFINITION STAGES list |
 | `tests/unit/test_pipeline_reiteration.py` | Update `len(ORDERED_STAGES)` assertion |
 | `tests/unit/test_pipeline_nodes.py` | Add mock and test for the new node |
 | `src/test/StageProgress.test.tsx` | Update stage count assertion |

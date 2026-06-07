@@ -1,6 +1,6 @@
 apiVersion: v2
-name: ai-architect
-description: Helm chart for the AI Architect Assistant (Archon) platform
+name: axiom
+description: Helm chart for the Axiom (Archon) platform
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

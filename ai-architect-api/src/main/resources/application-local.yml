@@ -1,7 +1,0 @@
-spring:
-  jpa:
-    show-sql: true
-logging:
-  level:
-    com.aiarchitect: DEBUG
-    org.springframework.web.reactive: DEBUG

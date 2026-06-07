@@ -1,0 +1,642 @@
+import { useArchitecture } from '../hooks/useArchitecture';
+import { useDiagrams } from '../hooks/useDiagrams';
+import { useTactics } from '../hooks/useTactics';
+import { useBuyVsBuild } from '../hooks/useBuyVsBuild';
+import { useStore } from '../store/useStore';
+import { MermaidDiagram } from '../components/MermaidDiagram';
+import { DiagramErrorBoundary } from '../components/DiagramErrorBoundary';
+import { CopyButton } from '../components/CopyButton';
+import { StructuredDataCard, StructuredExportBar, MarkdownExportActions } from '../components/StructuredData';
+import type { ArchitectureOutput, DiagramCollectionDto, DiagramDto, BuyVsBuildDecision } from '../types/api';
+
+/* ── Export helpers ─────────────────────────────── */
+
+function buildArchitectureMarkdown(
+  arch: ArchitectureOutput,
+  diagrams: DiagramCollectionDto | null,
+): string {
+  const lines: string[] = [];
+
+  lines.push('# Architecture Report', '');
+  lines.push('## Architecture Style', '', arch.style, '');
+
+  lines.push('## Components', '');
+  for (const c of arch.components) {
+    lines.push(`### ${c.name}`, c.responsibility, `*Technology: ${c.technology}*`, '');
+  }
+
+  lines.push('## Interactions', '');
+  lines.push('| From | To | Protocol | Purpose |');
+  lines.push('|------|-----|---------|---------|');
+  for (const i of arch.interactions) {
+    lines.push(`| ${i.from} | ${i.to} | \`${i.protocol}\` | ${i.purpose} |`);
+  }
+  lines.push('');
+
+  const diags = diagrams?.diagrams ?? [];
+  if (diags.length > 0) {
+    for (const d of diags) {
+      lines.push(`## ${d.title}`);
+      if (d.description) lines.push(d.description, '');
+      lines.push('```mermaid', d.mermaidSource, '```', '');
+      if (d.characteristicAddressed) lines.push(`*Addresses: ${d.characteristicAddressed}*`, '');
+    }
+  } else {
+    lines.push('## Component Diagram', '', '```mermaid', arch.componentDiagram, '```', '');
+    lines.push('## Sequence Diagram', '', '```mermaid', arch.sequenceDiagram, '```', '');
+  }
+
+  return lines.join('\n');
+}
+
+const VALID_MERMAID_OPENINGS = [
+  'graph',
+  'flowchart',
+  'sequencediagram',
+  'classdiagram',
+  'statediagram',
+  'statediagram-v2',
+  'erdiagram',
+  'gantt',
+  'pie',
+  'gitgraph',
+  'c4context',
+] as const;
+
+const ownershipStyles: Record<string, string> = {
+  'enterprise-built': 'ownership-enterprise',
+  'bought-saas': 'ownership-bought',
+  'adopted-platform': 'ownership-adopted',
+  'integration-adapter': 'ownership-adapter',
+  'governance-service': 'ownership-governance',
+};
+
+const ownershipLabels: Record<string, string> = {
+  'enterprise-built': 'Built',
+  'bought-saas': 'Bought',
+  'adopted-platform': 'Adopted',
+  'integration-adapter': 'Adapter',
+  'governance-service': 'Governance',
+};
+
+const OWNERSHIP_TO_RECOMMENDATION: Record<string, 'build' | 'buy' | 'adopt'> = {
+  'enterprise-built': 'build',
+  'bought-saas': 'buy',
+  'adopted-platform': 'adopt',
+  'integration-adapter': 'build',
+  'governance-service': 'build',
+};
+
+type SourcingDecisionView = BuyVsBuildDecision & {
+  inferredFromOwnership?: boolean;
+};
+
+function normalizeComponentKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function inferDecisionFromComponent(component: ArchitectureOutput['components'][number]): SourcingDecisionView | null {
+  if (!component.ownership) return null;
+  const recommendation = OWNERSHIP_TO_RECOMMENDATION[component.ownership];
+  if (!recommendation) return null;
+
+  return {
+    componentName: component.name,
+    recommendation,
+    rationale: 'Derived from component ownership metadata.',
+    alternativesConsidered: [],
+    recommendedSolution: component.technology || (recommendation === 'build' ? 'Custom build' : ''),
+    estimatedBuildCost: recommendation === 'build' ? 'TBD' : 'N/A',
+    vendorLockInRisk: recommendation === 'buy' ? 'medium' : 'low',
+    integrationEffort: recommendation === 'build' ? 'medium' : 'low',
+    conflictsWithUserPreference: false,
+    conflictExplanation: '',
+    isCoreeDifferentiator: false,
+    inferredFromOwnership: true,
+  };
+}
+
+function buildSourcingDecisionView(
+  components: ArchitectureOutput['components'],
+  decisions: BuyVsBuildDecision[],
+): SourcingDecisionView[] {
+  const merged = new Map<string, SourcingDecisionView>();
+
+  for (const decision of decisions) {
+    merged.set(normalizeComponentKey(decision.componentName), {
+      ...decision,
+      inferredFromOwnership: false,
+    });
+  }
+
+  for (const component of components) {
+    const key = normalizeComponentKey(component.name);
+    if (merged.has(key)) continue;
+    const inferred = inferDecisionFromComponent(component);
+    if (inferred) {
+      merged.set(key, inferred);
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
+/**
+ * Validates Mermaid source before invoking the renderer.
+ */
+export function validateMermaidSource(source: string): string | null {
+  if (!source || !source.trim()) {
+    return 'Empty diagram source';
+  }
+
+  const lines = source.trim().split('\n').filter((line) => line.trim());
+  if (lines.length < 3) {
+    return `Too few lines: ${lines.length}`;
+  }
+
+  if (/-->[^"]*undefined/.test(source) || /---[^"]*undefined/.test(source)) {
+    return 'Literal undefined in edge label';
+  }
+
+  const firstLine = lines[0].toLowerCase();
+  if (!VALID_MERMAID_OPENINGS.some((opening) => firstLine.startsWith(opening))) {
+    return `Unrecognised diagram type: ${lines[0]}`;
+  }
+
+  return null;
+}
+
+/**
+ * Shows degraded diagram states before attempting Mermaid rendering.
+ */
+export function DiagramDisplay({ diagram }: { diagram: DiagramDto }) {
+  if (diagram.hasSyntaxError) {
+    return (
+      <div
+        className="diagram-syntax-error border border-amber-200 bg-amber-50 rounded-lg p-3 min-h-[120px] max-w-full overflow-hidden [contain:layout_style]"
+        data-testid="diagram-error-state"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-amber-950">{diagram.title}</span>
+          <span className="text-xs font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-0.5">
+            Diagram syntax error
+          </span>
+        </div>
+        <p className="text-sm text-amber-900 mt-2">
+          This diagram could not be rendered due to a syntax error. The raw source is shown below for reference.
+        </p>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs text-amber-900">View raw source</summary>
+          <pre className="diagram-raw-source font-mono text-[11px] overflow-x-auto max-h-[200px] bg-white p-2 rounded mt-2 whitespace-pre">
+            {diagram.mermaidSource}
+          </pre>
+        </details>
+        <p className="text-xs text-amber-900 mt-2">
+          Error: {diagram.syntaxErrorDescription}
+        </p>
+      </div>
+    );
+  }
+
+  const validationError = validateMermaidSource(diagram.mermaidSource);
+  if (validationError) {
+    return (
+      <div
+        className="diagram-validation-error border border-amber-200 bg-amber-50 rounded-lg p-3 min-h-[120px] max-w-full overflow-hidden [contain:layout_style]"
+        data-testid="diagram-validation-error"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-amber-950">{diagram.title}</span>
+          <span className="text-xs font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-0.5">
+            Validation warning
+          </span>
+        </div>
+        <p className="text-sm text-amber-900 mt-2">{validationError}</p>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs text-amber-900">View raw source</summary>
+          <pre className="diagram-raw-source font-mono text-[11px] overflow-x-auto max-h-[200px] bg-white p-2 rounded mt-2 whitespace-pre">
+            {diagram.mermaidSource}
+          </pre>
+        </details>
+      </div>
+    );
+  }
+
+  return (
+    <MermaidDiagram
+      chart={diagram.mermaidSource}
+      id={`diagram-${diagram.diagramId}`}
+    />
+  );
+}
+
+/* ── Component ───────────────────────────────────── */
+
+export function ArchitectureView() {
+  const { architecture, loading, error } = useArchitecture();
+  const { collection: diagramCollection } = useDiagrams();
+  const {
+    tactics: criticalTactics,
+    loading: tacticsLoading,
+    error: tacticsError,
+  } = useTactics({ priority: 'critical', newOnly: true });
+  const overrideWarning = useStore((s) => s.overrideWarning);
+  const {
+    summary: buyVsBuild,
+    loading: buyVsBuildLoading,
+    error: buyVsBuildError,
+  } = useBuyVsBuild();
+
+  const sourcingDecisions = buildSourcingDecisionView(
+    architecture?.components ?? [],
+    buyVsBuild?.decisions ?? [],
+  );
+  const hasSourcingData = sourcingDecisions.length > 0;
+  const buildCount = sourcingDecisions.filter((d) => d.recommendation === 'build').length;
+  const buyCount = sourcingDecisions.filter((d) => d.recommendation === 'buy').length;
+  const adoptCount = sourcingDecisions.filter((d) => d.recommendation === 'adopt').length;
+  const conflictCount = sourcingDecisions.filter((d) => d.conflictsWithUserPreference).length;
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center gap-2 text-gray-500" data-testid="architecture-loading">
+        <svg className="w-4 h-4 animate-spin text-accent shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <circle cx="8" cy="8" r="6" strokeOpacity="0.25" />
+          <path d="M8 2a6 6 0 0 1 6 6" />
+        </svg>
+        Loading architecture…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6" data-testid="architecture-error">
+        <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+          <p className="text-sm font-semibold text-red-800">Unable to load architecture</p>
+          <p className="text-sm text-red-700 mt-1">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!architecture) {
+    return (
+      <div className="p-6 flex items-center gap-2 text-gray-400" data-testid="architecture-empty">
+        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+        </svg>
+        No architecture data yet. Run the pipeline first.
+      </div>
+    );
+  }
+
+  const markdown = buildArchitectureMarkdown(architecture, diagramCollection ?? null);
+
+  return (
+    <div className="p-6 space-y-8" data-testid="architecture-view">
+
+      {overrideWarning && overrideWarning.trim().length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3" data-testid="override-warning-banner">
+          <svg className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 2L1 14h14L8 2z" /><path d="M8 7v3M8 11.5v.5" />
+          </svg>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-amber-900">Architecture override warning</p>
+            <p className="text-sm text-amber-800 mt-1">{overrideWarning}</p>
+            <p className="text-xs text-amber-700 mt-1">
+              This warning was generated because the requested architecture style conflicts with the inferred system
+              characteristics. Review the Governance tab for details.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <StructuredExportBar
+        title="Architecture Report"
+        extraRight={
+          <MarkdownExportActions
+            markdown={markdown}
+            markdownFilename="architecture-report.md"
+            copyButtonTitle="Copy full report as Markdown"
+          />
+        }
+      />
+
+      {/* Critical tactics sidebar — top 5 unaddressed critical tactics */}
+      {(tacticsLoading || tacticsError || criticalTactics.length > 0) && (
+        <section data-testid="critical-tactics-sidebar">
+          <details className="group">
+            <summary className="flex items-center gap-1.5 cursor-pointer select-none list-none mb-2">
+              <svg className="w-3.5 h-3.5 shrink-0 text-red-600" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 2L1 14h14L8 2z" /><path d="M8 7v3M8 11.5v.5" />
+              </svg>
+              <h2 className="text-sm font-semibold text-red-700 uppercase tracking-wide flex items-center gap-2">
+                Critical unaddressed tactics
+                {!tacticsLoading && criticalTactics.length > 0 && (
+                  <span className="text-[11px] font-bold bg-red-100 text-red-700 rounded-full px-1.5 py-0.5">
+                    {criticalTactics.length}
+                  </span>
+                )}
+              </h2>
+              <svg className="w-3.5 h-3.5 text-red-400 ml-auto transition-transform group-open:rotate-180 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 6l4 4 4-4" />
+              </svg>
+            </summary>
+            <div className="bg-red-50 border border-red-100 rounded-xl p-3 space-y-2">
+              {tacticsLoading && (
+                <div className="text-sm text-gray-600 flex items-center gap-2">
+                  <svg className="w-4 h-4 animate-spin text-accent shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <circle cx="8" cy="8" r="6" strokeOpacity="0.25" />
+                    <path d="M8 2a6 6 0 0 1 6 6" />
+                  </svg>
+                  Loading tactics…
+                </div>
+              )}
+
+              {tacticsError && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-xs font-semibold text-amber-900">Unable to load tactics</p>
+                  <p className="text-sm text-amber-800 mt-1">{tacticsError}</p>
+                </div>
+              )}
+
+              {!tacticsLoading && !tacticsError && criticalTactics.length === 0 && (
+                <p className="text-sm text-gray-600 italic">No critical tactics available yet.</p>
+              )}
+
+              {criticalTactics.slice(0, 5).map((t) => (
+                <div key={t.id} className="flex items-start gap-2">
+                  <span className="text-red-400 mt-0.5 text-xs shrink-0">▸</span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{t.tacticName}</p>
+                    <p className="text-xs text-gray-500">{t.characteristicName} — {t.effort} effort</p>
+                  </div>
+                </div>
+              ))}
+
+              <p className="text-xs text-red-500 italic pt-1">
+                See Governance → Tactics for full details.
+              </p>
+            </div>
+          </details>
+        </section>
+      )}
+
+      {/* Summary */}
+      <StructuredDataCard
+        title="Architecture Style"
+        subtitle="Primary chosen architecture style"
+        fields={[
+          { label: 'Conversation ID', value: architecture.conversationId, fieldKey: 'conversationId' },
+          { label: 'Style', value: architecture.style, fieldKey: 'style' },
+        ]}
+        copyValue={JSON.stringify({ conversationId: architecture.conversationId, style: architecture.style }, null, 2)}
+        data-testid="architecture-style-card"
+      />
+
+      {/* Components */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-gray-800">Components</h2>
+          <CopyButton
+            text={architecture.components.map((c) => `${c.name}: ${c.responsibility} (${c.technology})`).join('\n')}
+            label="Copy all"
+            title="Copy all components as text"
+          />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-structured-section="components">
+          {architecture.components.map((c) => (
+            <div
+              key={c.name}
+              className="group relative border border-gray-200 rounded-lg p-3 bg-white hover:border-gray-300 hover:shadow-sm transition-all"
+              data-component-name={c.name}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm">{c.name}</h3>
+                  {c.ownership && (
+                    <span className={`ownership-badge ${ownershipStyles[c.ownership] ?? ''}`}>
+                      {ownershipLabels[c.ownership] ?? c.ownership}
+                    </span>
+                  )}
+                </div>
+                <CopyButton
+                  text={`${c.name}: ${c.responsibility} (${c.technology})`}
+                  className="opacity-0 group-hover:opacity-100"
+                  title={`Copy ${c.name}`}
+                />
+              </div>
+              <p className="text-xs text-gray-600 mt-1">{c.responsibility}</p>
+              <span className="inline-block mt-1.5 text-xs bg-emerald-50 text-emerald-700 rounded px-2 py-0.5">
+                {c.technology}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Buy vs Build */}
+      <section data-testid="buy-vs-build-section">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div>
+            <h2 className="text-lg font-bold text-gray-800">Component sourcing decisions</h2>
+            <p className="text-sm text-gray-500">Build vs buy vs adopt recommendations per component.</p>
+          </div>
+        </div>
+
+        {buyVsBuildLoading && (
+          <div className="text-sm text-gray-500 flex items-center gap-2">
+            <svg className="w-4 h-4 animate-spin text-accent shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="8" cy="8" r="6" strokeOpacity="0.25" />
+              <path d="M8 2a6 6 0 0 1 6 6" />
+            </svg>
+            Loading sourcing decisions…
+          </div>
+        )}
+
+        {buyVsBuildError && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <p className="text-sm font-semibold text-amber-900">Unable to load sourcing decisions</p>
+            <p className="text-sm text-amber-800 mt-1">{buyVsBuildError}</p>
+            <p className="text-xs text-amber-700 mt-1">
+              This usually means the endpoint `GET /api/v1/sessions/{'{id}'}/build-analysis` returned an error.
+            </p>
+          </div>
+        )}
+
+        {!buyVsBuildLoading && !buyVsBuildError && !hasSourcingData && (
+          <p className="text-sm text-gray-400 italic">
+            No sourcing decisions available yet.
+          </p>
+        )}
+
+        {hasSourcingData && (
+          <>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <span className="text-xs font-semibold rounded-full bg-blue-50 text-blue-700 px-3 py-1">Build {buildCount}</span>
+              <span className="text-xs font-semibold rounded-full bg-purple-50 text-purple-700 px-3 py-1">Buy {buyCount}</span>
+              <span className="text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 px-3 py-1">Adopt {adoptCount}</span>
+              {conflictCount > 0 && (
+                <span className="text-xs font-semibold rounded-full bg-amber-50 text-amber-800 px-3 py-1">
+                  {conflictCount} preference conflicts
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {sourcingDecisions.map((d: SourcingDecisionView) => (
+                <details key={d.componentName} className="border border-gray-200 rounded-lg p-3 bg-white">
+                  <summary className="cursor-pointer list-none flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-gray-900 truncate">{d.componentName}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">
+                        {d.recommendedSolution ? d.recommendedSolution : 'Custom build'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[11px] font-semibold rounded px-2 py-0.5 ${
+                        d.recommendation === 'build' ? 'bg-blue-50 text-blue-700' :
+                        d.recommendation === 'buy' ? 'bg-purple-50 text-purple-700' :
+                        'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        {d.recommendation.toUpperCase()}
+                      </span>
+                      <span className="text-[11px] rounded px-2 py-0.5 bg-gray-100 text-gray-700">
+                        Lock-in: {d.vendorLockInRisk}
+                      </span>
+                      {d.conflictsWithUserPreference && (
+                        <span className="text-[11px] font-semibold rounded px-2 py-0.5 bg-amber-50 text-amber-800">
+                          Preference conflict
+                        </span>
+                      )}
+                    </div>
+                  </summary>
+
+                  <div className="mt-3 text-sm text-gray-700 space-y-2">
+                    <p><span className="font-semibold">Estimated cost:</span> {d.estimatedBuildCost}</p>
+                    <p className="text-sm text-gray-700">{d.rationale}</p>
+                    {d.inferredFromOwnership && (
+                      <p className="text-xs text-gray-500">
+                        Decision inferred from component ownership metadata.
+                      </p>
+                    )}
+                    {d.conflictsWithUserPreference && d.conflictExplanation && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-900">
+                        <p className="text-xs font-semibold">Preference conflict</p>
+                        <p className="text-sm mt-1">{d.conflictExplanation}</p>
+                      </div>
+                    )}
+                  </div>
+                </details>
+              ))}
+            </div>
+
+            {buyVsBuild?.summaryText && (
+              <p className="text-sm text-gray-600 mt-4">{buyVsBuild.summaryText}</p>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* Interactions */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-gray-800">Interactions</h2>
+          <CopyButton
+            text={['| From | To | Protocol | Purpose |', '|------|-----|---------|---------|',
+              ...architecture.interactions.map((i) => `| ${i.from} | ${i.to} | ${i.protocol} | ${i.purpose} |`)
+            ].join('\n')}
+            label="Copy table"
+            title="Copy as Markdown table"
+          />
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <table className="text-sm w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">From</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">To</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Protocol</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Purpose</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100" data-structured-section="interactions">
+              {architecture.interactions.map((i, idx) => (
+                <tr
+                  key={idx}
+                  className="hover:bg-gray-50 transition-colors"
+                  data-interaction-index={idx}
+                  data-from={i.from}
+                  data-to={i.to}
+                  data-protocol={i.protocol}
+                >
+                  <td className="px-3 py-2 font-medium text-gray-800">{i.from}</td>
+                  <td className="px-3 py-2 text-gray-700">{i.to}</td>
+                  <td className="px-3 py-2"><code className="text-xs bg-gray-100 rounded px-1.5 py-0.5 font-mono">{i.protocol}</code></td>
+                  <td className="px-3 py-2 text-gray-600">{i.purpose}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Diagrams */}
+      {diagramCollection && diagramCollection.diagrams.length > 0 ? (
+        diagramCollection.diagrams.map((diagram) => (
+          <section key={diagram.diagramId}>
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <h2 className="text-lg font-bold text-gray-800">{diagram.title}</h2>
+              <CopyButton
+                text={diagram.mermaidSource}
+                label="Copy source"
+                title="Copy Mermaid source"
+                className="shrink-0 mt-0.5"
+              />
+            </div>
+            {diagram.description && (
+              <p className="text-xs text-gray-500 mb-2">{diagram.description}</p>
+            )}
+            <DiagramErrorBoundary
+              diagramId={diagram.diagramId}
+              diagramType={diagram.type}
+              source={diagram.mermaidSource}
+            >
+              <DiagramDisplay diagram={diagram} />
+            </DiagramErrorBoundary>
+            {diagram.characteristicAddressed && (
+              <p className="text-xs text-gray-400 mt-1 italic">
+                Addresses: {diagram.characteristicAddressed}
+              </p>
+            )}
+          </section>
+        ))
+      ) : (
+        <>
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-gray-800">Component Diagram</h2>
+              <CopyButton text={architecture.componentDiagram} label="Copy source" title="Copy Mermaid source" />
+            </div>
+            <MermaidDiagram
+              chart={architecture.componentDiagram}
+              id="component-diagram"
+            />
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-gray-800">Sequence Diagram</h2>
+              <CopyButton text={architecture.sequenceDiagram} label="Copy source" title="Copy Mermaid source" />
+            </div>
+            <MermaidDiagram
+              chart={architecture.sequenceDiagram}
+              id="sequence-diagram"
+            />
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
