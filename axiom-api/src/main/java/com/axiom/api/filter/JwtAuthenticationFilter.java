@@ -96,6 +96,7 @@ public class JwtAuthenticationFilter implements WebFilter {
         String path = request.getPath().value();
         HttpMethod method = request.getMethod();
 
+        // Allow the root health endpoint and nested probe groups, but not sibling paths such as /actuator/healthcheck.
         if (HttpMethod.GET.equals(method)
                 && ("/actuator/health".equals(path) || path.startsWith("/actuator/health/"))) {
             return true;
