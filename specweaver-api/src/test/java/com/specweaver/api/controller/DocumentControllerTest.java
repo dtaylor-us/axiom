@@ -28,6 +28,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -43,6 +44,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "security.jwt.secret=super-secret-dev-key-change-in-prod-must-be-at-least-32-bytes"
 })
 class DocumentControllerTest {
+
+    private static final int MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
     @Autowired private MockMvc mockMvc;
     @MockBean private DocumentIngestionService documentIngestionService;
@@ -90,6 +93,57 @@ class DocumentControllerTest {
                         .header("X-Axiom-User-Id", userId.toString()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.documentType").value("DOCX"));
+    }
+
+    @Test
+    void uploadDocumentReturns413WhenFileTooLarge() throws Exception {
+        UUID userId = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "large.pdf",
+                "application/pdf",
+                new byte[MAX_FILE_SIZE_BYTES + 1]);
+
+        mockMvc.perform(multipart("/api/v1/sessions/{sessionId}/documents", UUID.randomUUID())
+                        .file(file)
+                        .param("documentType", "PDF")
+                        .header("X-Axiom-User-Id", userId.toString()))
+                .andExpect(status().isPayloadTooLarge());
+
+        verifyNoInteractions(documentIngestionService);
+    }
+
+    @Test
+    void uploadDocumentReturns413WhenTextTooLong() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String oversizedText = "a".repeat(500_001);
+
+        mockMvc.perform(multipart("/api/v1/sessions/{sessionId}/documents", UUID.randomUUID())
+                        .param("text", oversizedText)
+                        .param("documentType", "PLAIN_TEXT")
+                        .header("X-Axiom-User-Id", userId.toString()))
+                .andExpect(status().isPayloadTooLarge());
+
+        verifyNoInteractions(documentIngestionService);
+    }
+
+    @Test
+    void uploadDocumentAcceptsFileAtExactLimit() throws Exception {
+        UUID userId = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "boundary.pdf",
+                "application/pdf",
+                new byte[MAX_FILE_SIZE_BYTES]);
+        when(documentIngestionService.ingestDocument(any(), any(), any(), any(), any(), any()))
+                .thenReturn(document(DocumentType.PDF));
+
+        mockMvc.perform(multipart("/api/v1/sessions/{sessionId}/documents", UUID.randomUUID())
+                        .file(file)
+                        .param("documentType", "PDF")
+                        .header("X-Axiom-User-Id", userId.toString()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.documentType").value("PDF"));
     }
 
     @Test

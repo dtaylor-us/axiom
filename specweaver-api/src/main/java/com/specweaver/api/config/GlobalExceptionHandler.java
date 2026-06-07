@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -56,6 +57,16 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST, "Malformed request body. Check JSON syntax and field values.");
         problem.setTitle("Bad Request");
         problem.setType(URI.create("urn:specweaver:validation-error"));
+        return problem;
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "Maximum upload size is 20MB. Split large documents before submitting.");
+        problem.setTitle("File Too Large");
+        problem.setType(URI.create("urn:specweaver:file-too-large"));
         return problem;
     }
 

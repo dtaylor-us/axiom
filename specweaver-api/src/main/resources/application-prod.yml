@@ -1,3 +1,9 @@
+spring:
+  servlet:
+    multipart:
+      max-file-size: ${SPECWEAVER_MAX_FILE_SIZE:20MB}
+      max-request-size: ${SPECWEAVER_MAX_REQUEST_SIZE:22MB}
+
 axiom:
   gateway:
     bypass: false

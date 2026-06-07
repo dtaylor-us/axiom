@@ -14,6 +14,7 @@ import com.axiom.api.AxiomApiApplication;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -109,14 +110,48 @@ class SecurityConfigTest {
     }
 
     /**
-     * Login endpoint is public and bypasses JWT checks.
+     * Auth endpoints must route without a gateway JWT challenge.
      */
     @Test
-    void loginEndpointBypassesJwtCheck() {
+    void authEndpointsAreAccessibleWithoutJwt() throws InterruptedException {
+        archonServer.enqueue(new MockResponse().setResponseCode(401));
+
         webTestClient.post()
                 .uri("http://localhost:" + localPort + "/api/v1/auth/login")
+                .header("Content-Type", "application/json")
+                .bodyValue("{\"email\":\"test@test.com\",\"password\":\"wrong\"}")
                 .exchange()
-                .expectStatus().isNotFound();
+                .expectStatus().isUnauthorized();
+
+        RecordedRequest forwardedRequest = archonServer.takeRequest();
+        assertEquals("/api/v1/auth/login", forwardedRequest.getPath());
+    }
+
+    /**
+     * Auth login must be forwarded to archon-api without path rewriting.
+     */
+    @Test
+    void authLoginRoutesToArchonApi() throws InterruptedException {
+        archonServer.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .addHeader("Content-Type", "application/json")
+                .setBody("{\"token\":\"gateway-token\",\"email\":\"user@example.com\"}"));
+
+        String requestBody = "{\"email\":\"user@example.com\",\"password\":\"secret\"}";
+
+        webTestClient.post()
+                .uri("http://localhost:" + localPort + "/api/v1/auth/login")
+                .header("Content-Type", "application/json")
+                .bodyValue(requestBody)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.token").isEqualTo("gateway-token");
+
+        RecordedRequest forwardedRequest = archonServer.takeRequest();
+        assertEquals("POST", forwardedRequest.getMethod());
+        assertEquals("/api/v1/auth/login", forwardedRequest.getPath());
+        assertEquals(requestBody, forwardedRequest.getBody().readString(StandardCharsets.UTF_8));
     }
 
     /**

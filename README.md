@@ -67,16 +67,11 @@ cp .env.example .env
 Edit `.env` and add your LLM credentials:
 
 ```dotenv
-# Choose provider: "openai" or "azure"
+# Choose provider: "openai" or "ollama"
 LLM_PROVIDER=openai
 
 # OpenAI
 OPENAI_API_KEY=sk-...
-
-# Azure OpenAI (if LLM_PROVIDER=azure)
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_KEY=...
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
 ```
 
 ### 2. Start all services
@@ -120,16 +115,8 @@ The response streams back as Server-Sent Events with stage progress and architec
 
 | Variable | Description |
 |---|---|
-| `LLM_PROVIDER` | `openai` or `azure` |
+| `LLM_PROVIDER` | `openai` or `ollama` |
 | `OPENAI_API_KEY` | OpenAI API key (when `LLM_PROVIDER=openai`) |
-
-### Azure OpenAI (when `LLM_PROVIDER=azure`)
-
-| Variable | Description |
-|---|---|
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource endpoint |
-| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key |
-| `AZURE_OPENAI_DEPLOYMENT` | Deployment name (default: `gpt-4o`) |
 
 ### Optional
 
