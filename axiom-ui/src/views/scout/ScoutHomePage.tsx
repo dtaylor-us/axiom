@@ -1,50 +1,69 @@
 import { Link } from 'react-router-dom';
 
 import { PillarBadge } from '../../components/PillarBadge';
+import { FeatureCard } from '../../components/landing/FeatureCard';
+import { SectionHeading } from '../../components/landing/SectionHeading';
+
+const SCOUT_FEATURES = [
+  {
+    icon: '🔍',
+    iconBg: '#f0fdfa',
+    title: 'Repository scanning',
+    description: 'JavaParser, Tree-sitter, and Semgrep analyse your codebase across Java, Python, and TypeScript.',
+  },
+  {
+    icon: '🗺',
+    iconBg: '#f0fdfa',
+    title: 'System modelling',
+    description: 'Components, dependencies, and domain boundaries extracted into a typed SystemModel.',
+  },
+  {
+    icon: '📐',
+    iconBg: '#fefce8',
+    title: 'Drift detection',
+    description: "Compare your SystemModel against Archon's architecture decisions. Drift surfaces before it compounds.",
+  },
+  {
+    icon: '🛡',
+    iconBg: '#f0fdfa',
+    title: 'ADL enforcement',
+    description: 'Run your Archon ADL rules against the actual codebase. Violations surface as CI failures.',
+  },
+];
 
 /**
  * Planned Scout pillar landing page.
  */
 export function ScoutHomePage() {
   return (
-    <div className="h-full overflow-y-auto bg-gray-50" data-testid="scout-home-page">
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <header className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="flex items-center gap-3">
+    <div className="landing-page h-full overflow-y-auto bg-gray-50" data-testid="scout-home-page">
+      <div className="landing-inner">
+        <section className="pillar-hero">
+          <div className="planned-notice">
+            Coming soon
+            <span className="sr-only">Planned Pillar</span>
+          </div>
+          <div className="pillar-hero-badge">
             <PillarBadge pillar="scout" />
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Scout</h1>
-              <p className="text-sm font-medium text-gray-500">Repository Intelligence</p>
-            </div>
           </div>
-          <div className="mt-4">
-            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600">
-              Planned Pillar
-            </span>
-          </div>
-        </header>
-
-        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-700 leading-relaxed">
+          <h1>Your codebase, understood.</h1>
           <p>
-            Scout is a planned pillar of the Axiom platform.
+            Scout analyses your repository using static analysis and produces a structured system model: components,
+            dependencies, domain boundaries. Then it compares what you built against what Archon designed, and tells you
+            where they diverge.
           </p>
-          <p className="mt-3">
-            It will analyse your existing codebase and produce a structured model of your system as it actually is — identifying domain boundaries, detecting drift from architecture decisions, and surfacing technical debt.
-          </p>
-
-          <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <h2 className="text-sm font-semibold text-gray-900">What Scout will do</h2>
-            <ul className="mt-3 space-y-2">
-              <li>○ Parse your repository using static analysis (JavaParser, Tree-sitter, Semgrep)</li>
-              <li>○ Produce a SystemModel — components, dependencies, domain boundaries</li>
-              <li>○ Detect drift between your architecture decisions (from Archon) and your actual codebase</li>
-              <li>○ Surface technical debt and violated architecture rules</li>
-            </ul>
-          </div>
-
-          <Link to="/" className="mt-5 inline-flex text-sm font-medium text-[var(--color-pillar-scout)]">
-            {'<-'} Back to Axiom
+          <Link to="/" className="btn btn-secondary">
+            &lt;- Back to Axiom
           </Link>
+        </section>
+
+        <section className="landing-section">
+          <SectionHeading title="Planned capabilities" accent="var(--color-pillar-scout)" />
+          <div className="feature-cards-grid">
+            {SCOUT_FEATURES.map((card) => (
+              <FeatureCard key={card.title} {...card} />
+            ))}
+          </div>
         </section>
       </div>
     </div>
