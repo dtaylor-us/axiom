@@ -139,7 +139,8 @@ class SecurityConfigTest {
                 .exchange()
                 .expectStatus().isUnauthorized();
 
-        RecordedRequest forwardedRequest = archonServer.takeRequest();
+        RecordedRequest forwardedRequest = archonServer.takeRequest(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.jupiter.api.Assertions.assertNotNull(forwardedRequest, "Expected request to be forwarded to archon-api");
         assertEquals("/api/v1/auth/login", forwardedRequest.getPath());
     }
 
