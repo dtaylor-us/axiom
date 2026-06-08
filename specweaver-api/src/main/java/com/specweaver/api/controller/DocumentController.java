@@ -82,8 +82,9 @@ public class DocumentController {
     }
 
     private void validateUploadSize(MultipartFile file, String text) {
-        if (file != null && file.getSize() > DataSize.parse(maxFileSize).toBytes()) {
+        if (file != null && file.getSize() > maxFileSize.toBytes()) {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, fileTooLargeMessage());
+        }
         }
 
         if (text != null && text.length() > MAX_TEXT_LENGTH) {
