@@ -206,6 +206,26 @@ class JwtAuthenticationFilterTest {
         assertEquals(null, exchange.getResponse().getStatusCode());
     }
 
+    /**
+     * Any auth route handled by the gateway bypasses JWT checks.
+     */
+    @Test
+    void authWildcardEndpoints_bypassJwtValidation() {
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(JWT_SECRET);
+
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.method(HttpMethod.GET, "/api/v1/auth/reset-password/validate").build());
+
+        AtomicBoolean chainInvoked = new AtomicBoolean(false);
+        filter.filter(exchange, ignored -> {
+            chainInvoked.set(true);
+            return Mono.empty();
+        }).block();
+
+        assertTrue(chainInvoked.get());
+        assertEquals(null, exchange.getResponse().getStatusCode());
+    }
+
     private static String createToken(String subject, String email, long validForSeconds) {
         long now = Instant.now().getEpochSecond();
         long expiration = now + validForSeconds;

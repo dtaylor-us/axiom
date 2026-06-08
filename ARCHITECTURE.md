@@ -1,29 +1,45 @@
 # Axiom — Architecture Intelligence Platform
 ## Architecture Reference
 
-### Platform overview
+## Deployed Services
 
-Axiom is a four-pillar enterprise architecture intelligence
-platform. Each pillar owns a distinct domain of the
-architecture lifecycle.
+### Platform
 
-| Pillar | Domain | API port | Agent port | Status |
-|--------|--------|----------|------------|--------|
-| axiom-api | Platform gateway | 8080 | — | Phase 1 |
-| Archon | Architecture reasoning | 8081 | 8001 | Production |
-| SpecWeaver | Requirements intelligence | 8082 | 8085 | Phase 1 |
-| Scout | Repository intelligence | 8083 | 8086 | Phase 3 |
-| Forge | Prototype generation | 8084 | 8087 | Phase 5 |
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| axiom-ui | React 18 + TypeScript + Vite | 3000 | Unified UI shell |
+| axiom-api | Spring Boot 3.x / Java 21 | 8080 | Platform gateway — auth routing, JWT validation, pillar routing, health aggregation |
+
+### Archon — Architecture Reasoning
+
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| archon-api | Spring Boot 3.x / Java 21 | 8081 | Conversation management, session storage, ADL governance |
+| archon-agent | FastAPI + LangGraph / Python 3.11 | 8001 | 13-stage architecture reasoning pipeline |
+
+### SpecWeaver — Requirements Intelligence
+
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| specweaver-api | Spring Boot 3.x / Java 21 | 8082 | Session management, document ingestion, package generation |
+| specweaver-agent | FastAPI + LangGraph / Python 3.11 | 8085 | Extraction, consolidation, classification, gap analysis, conflict detection |
+
+### Planned Pillars
+
+| Pillar | API Port | Agent Port | Status |
+|--------|----------|------------|--------|
+| Scout — Repository Intelligence | 8083 | 8086 | Planned |
+| Forge — Architecture Enforcement | 8084 | 8087 | Planned |
 
 ### Service topology
 
 ```text
 Browser
-  → axiom-api:8080 (platform gateway — auth + routing)
-    → archon-api:8081 (Pillar 2 API)
-      → archon-agent:8001 (Pillar 2 AI reasoning)
-    → specweaver-api:8082 (Pillar 1 API) [Phase 1]
-      → specweaver-agent:8085 (Pillar 1 AI extraction) [Phase 1]
+  → axiom-api:8080 (platform gateway — auth + JWT validation + routing)
+    → archon-api:8081 (Archon pillar API)
+      → archon-agent:8001 (Archon reasoning pipeline)
+    → specweaver-api:8082 (SpecWeaver pillar API)
+      → specweaver-agent:8085 (SpecWeaver extraction pipeline)
 ```
 
 ### Two-service rule
@@ -77,10 +93,10 @@ ASSERT platform-boundaries {
 ## SYSTEM DEFINITION
 
 DEFINE system ArchonAssistant {
-  RESPONSIBILITY: "AI-powered architecture governance and design assistant"
-  SERVICES: [archon-api, archon-agent, axiom-ui]
-  DATABASES: [PostgreSQL, Qdrant]
-  COMMUNICATION: [HTTP/SSE between client and api, HTTP/NDJSON between api and agent]
+  RESPONSIBILITY: "AI-powered architecture and requirements intelligence platform"
+  SERVICES: [axiom-api, archon-api, archon-agent, specweaver-api, specweaver-agent, axiom-ui]
+  DATABASES: [PostgreSQL, Qdrant, object storage]
+  COMMUNICATION: [HTTP from client to axiom-api, HTTP/SSE between axiom-api and pillar APIs, HTTP/NDJSON between pillar APIs and agents]
   DEPLOYMENT: Docker Compose (local), AKS (production)
 }
 
@@ -92,7 +108,7 @@ DEFINE system ArchonAssistant {
 DEFINE service archon-api {
   LANGUAGE: Java 21
   FRAMEWORK: Spring Boot 3.3.4
-  RESPONSIBILITY: "API gateway — auth, session management, SSE streaming, agent bridge"
+  RESPONSIBILITY: "Archon pillar API — auth, session management, SSE streaming, agent bridge"
   OWNS: [Conversation, Message, ConversationStatus, MessageRole, ArchitectureOutput]
   DOES_NOT_OWN: [ArchitectureContext, pipeline logic, LLM calls, tool execution]
   EXPOSES: [

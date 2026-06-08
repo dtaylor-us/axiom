@@ -50,7 +50,7 @@ public class JwtAuthenticationFilter implements WebFilter {
     }
 
     /**
-     * Authenticates protected routes while bypassing known public endpoints.
+     * Authenticates protected routes while bypassing gateway public endpoints.
      *
      * @param exchange current HTTP exchange
      * @param chain remaining web filter chain
@@ -96,6 +96,7 @@ public class JwtAuthenticationFilter implements WebFilter {
         String path = request.getPath().value();
         HttpMethod method = request.getMethod();
 
+        // Allow the root health endpoint and nested probe groups, but not sibling paths such as /actuator/healthcheck.
         if (HttpMethod.GET.equals(method)
                 && ("/actuator/health".equals(path) || path.startsWith("/actuator/health/"))) {
             return true;
@@ -103,16 +104,7 @@ public class JwtAuthenticationFilter implements WebFilter {
         if ("/actuator/info".equals(path) && HttpMethod.GET.equals(method)) {
             return true;
         }
-        if ("/api/v1/auth/login".equals(path) && HttpMethod.POST.equals(method)) {
-            return true;
-        }
-        if ("/api/v1/auth/register".equals(path) && HttpMethod.POST.equals(method)) {
-            return true;
-        }
-        if ("/api/v1/auth/forgot-password".equals(path) && HttpMethod.POST.equals(method)) {
-            return true;
-        }
-        return "/api/v1/auth/reset-password".equals(path) && HttpMethod.POST.equals(method);
+        return path.startsWith("/api/v1/auth/");
     }
 
     private JwtPrincipal parseAndValidateToken(String token) {

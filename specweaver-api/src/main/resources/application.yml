@@ -5,6 +5,13 @@ server:
 spring:
   application:
     name: specweaver-api
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${SPECWEAVER_MAX_FILE_SIZE:20MB}
+      max-request-size: ${SPECWEAVER_MAX_REQUEST_SIZE:22MB}
+      # 20MB file limit. Larger documents should be split before submission.
+      # This protects the specweaver-api pod from large in-memory uploads.
   datasource:
     url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/specweaver}
     username: ${POSTGRES_USERNAME:postgres}

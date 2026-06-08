@@ -7,6 +7,7 @@ prompt render call.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -54,7 +55,6 @@ class TestNeedsMeasureInPromptContext:
 
         with patch("app.workshop.nodes.load_prompt", side_effect=fake_load_prompt):
             from app.workshop.nodes import generate_response_node
-            import asyncio
 
             config = {
                 "configurable": {
@@ -75,7 +75,7 @@ class TestNeedsMeasureInPromptContext:
             # Drive the node — ignore errors from missing consolidator logic,
             # we only care that load_prompt was called with workshop_scenarios.
             try:
-                asyncio.get_event_loop().run_until_complete(generate_response_node(ctx, config))
+                asyncio.run(generate_response_node(ctx, config))
             except Exception:
                 pass  # ignore downstream errors
 
@@ -98,7 +98,6 @@ class TestNeedsMeasureInPromptContext:
 
         with patch("app.workshop.nodes.load_prompt", side_effect=fake_load_prompt):
             from app.workshop.nodes import generate_response_node
-            import asyncio
 
             config = {
                 "configurable": {
@@ -116,7 +115,7 @@ class TestNeedsMeasureInPromptContext:
                 }
             }
             try:
-                asyncio.get_event_loop().run_until_complete(generate_response_node(ctx, config))
+                asyncio.run(generate_response_node(ctx, config))
             except Exception:
                 pass
 
@@ -136,7 +135,6 @@ class TestNeedsMeasureInPromptContext:
 
         with patch("app.workshop.nodes.load_prompt", side_effect=fake_load_prompt):
             from app.workshop.nodes import generate_response_node
-            import asyncio
 
             config = {
                 "configurable": {
@@ -154,7 +152,7 @@ class TestNeedsMeasureInPromptContext:
                 }
             }
             try:
-                asyncio.get_event_loop().run_until_complete(generate_response_node(ctx, config))
+                asyncio.run(generate_response_node(ctx, config))
             except Exception:
                 pass
 

@@ -6,6 +6,7 @@ import com.specweaver.api.exception.PackageNotFoundException;
 import com.specweaver.api.exception.SessionNotFoundException;
 import com.specweaver.api.exception.StorageException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -28,6 +30,9 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @Value("${spring.servlet.multipart.max-file-size:20MB}")
+    private String maxFileSize;
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
     public ProblemDetail handleNotFound(Exception ex) {
@@ -56,6 +61,20 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST, "Malformed request body. Check JSON syntax and field values.");
         problem.setTitle("Bad Request");
         problem.setType(URI.create("urn:specweaver:validation-error"));
+        return problem;
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        long maxUploadSize = ex.getMaxUploadSize();
+        String maxUploadSizeText = maxUploadSize > 0
+                ? org.springframework.util.unit.DataSize.ofBytes(maxUploadSize).toString()
+                : maxFileSize;
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "Maximum upload size is %s. Split large documents before submitting.".formatted(maxUploadSizeText));
+        problem.setTitle("File Too Large");
+        problem.setType(URI.create("urn:specweaver:file-too-large"));
         return problem;
     }
 

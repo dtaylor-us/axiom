@@ -1,6 +1,6 @@
 # Architecture Definition Language — Archon
 
-This file defines the complete Architecture Definition Language (ADL) specification for the Axiom system. Each ADL block encodes a structural constraint derived from the architecture governance rules in `ARCHITECTURE.md`. Blocks are machine-readable pseudo-code designed to be converted into executable fitness functions by an LLM, enabling continuous architectural conformance checking across the API Gateway, Agent Orchestration, and UI services.
+This file defines the complete Architecture Definition Language (ADL) specification for the Axiom system. Each ADL block encodes a structural constraint derived from the architecture governance rules in `ARCHITECTURE.md`. Blocks are machine-readable pseudo-code designed to be converted into executable fitness functions by an LLM, enabling continuous architectural conformance checking across the platform gateway, pillar services, and UI services.
 
 ## Specification reference
 
@@ -74,20 +74,47 @@ Each ADL block is self-contained and can be independently converted into an exec
 ADL-001: SYSTEM AND SERVICE BOUNDARIES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIRES Custom fitness function via grep
-DESCRIPTION Ensures the three deployed services have no compile-time dependencies on each other.
-PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that verifies no source file in any of the three services imports from another service's root namespace or module path. Exit with code 1 if a cross-service import is found.
+DESCRIPTION Ensures deployed platform services have no compile-time dependencies across service boundaries and that external traffic enters through axiom-api rather than a pillar service.
+PROMPT Based on this pseudo-code, write a bash script suitable for use in a GitHub Actions step that verifies no source file in any deployed service imports from another service's root namespace or module path. The script must also fail if documentation or configuration claims archon-api is the external entry point, because axiom-api is the sole gateway and JWT validation point. Exit with code 1 if a cross-service dependency or incorrect entry-point claim is found.
 
-DEFINE SYSTEM Axiom AS com.archon
-  DEFINE SERVICE API Gateway Service AS com.archon.api
-  DEFINE SERVICE Agent Orchestration Service AS app
+DEFINE SYSTEM Axiom AS platform root directory
+  DEFINE SERVICE Platform Gateway Service AS axiom-api/src
+  DEFINE SERVICE Archon API Service AS archon-api/src
+  DEFINE SERVICE Archon Agent Service AS archon-agent/app
+  DEFINE SERVICE SpecWeaver API Service AS specweaver-api/src
+  DEFINE SERVICE SpecWeaver Agent Service AS specweaver-agent/app
   DEFINE SERVICE UI Service AS axiom-ui/src
 
-ASSERT(API Gateway Service has NO DEPENDENCY ON Agent Orchestration Service)
-ASSERT(API Gateway Service has NO DEPENDENCY ON UI Service)
-ASSERT(Agent Orchestration Service has NO DEPENDENCY ON API Gateway Service)
-ASSERT(Agent Orchestration Service has NO DEPENDENCY ON UI Service)
-ASSERT(UI Service has NO DEPENDENCY ON API Gateway Service)
-ASSERT(UI Service has NO DEPENDENCY ON Agent Orchestration Service)
+ASSERT(Platform Gateway Service has NO DEPENDENCY ON Archon API Service)
+ASSERT(Platform Gateway Service has NO DEPENDENCY ON Archon Agent Service)
+ASSERT(Platform Gateway Service has NO DEPENDENCY ON SpecWeaver API Service)
+ASSERT(Platform Gateway Service has NO DEPENDENCY ON SpecWeaver Agent Service)
+ASSERT(Platform Gateway Service has NO DEPENDENCY ON UI Service)
+ASSERT(Archon API Service has NO DEPENDENCY ON Platform Gateway Service)
+ASSERT(Archon API Service has NO DEPENDENCY ON Archon Agent Service)
+ASSERT(Archon API Service has NO DEPENDENCY ON SpecWeaver API Service)
+ASSERT(Archon API Service has NO DEPENDENCY ON SpecWeaver Agent Service)
+ASSERT(Archon API Service has NO DEPENDENCY ON UI Service)
+ASSERT(Archon Agent Service has NO DEPENDENCY ON Platform Gateway Service)
+ASSERT(Archon Agent Service has NO DEPENDENCY ON Archon API Service)
+ASSERT(Archon Agent Service has NO DEPENDENCY ON SpecWeaver API Service)
+ASSERT(Archon Agent Service has NO DEPENDENCY ON SpecWeaver Agent Service)
+ASSERT(Archon Agent Service has NO DEPENDENCY ON UI Service)
+ASSERT(SpecWeaver API Service has NO DEPENDENCY ON Platform Gateway Service)
+ASSERT(SpecWeaver API Service has NO DEPENDENCY ON Archon API Service)
+ASSERT(SpecWeaver API Service has NO DEPENDENCY ON Archon Agent Service)
+ASSERT(SpecWeaver API Service has NO DEPENDENCY ON SpecWeaver Agent Service)
+ASSERT(SpecWeaver API Service has NO DEPENDENCY ON UI Service)
+ASSERT(SpecWeaver Agent Service has NO DEPENDENCY ON Platform Gateway Service)
+ASSERT(SpecWeaver Agent Service has NO DEPENDENCY ON Archon API Service)
+ASSERT(SpecWeaver Agent Service has NO DEPENDENCY ON Archon Agent Service)
+ASSERT(SpecWeaver Agent Service has NO DEPENDENCY ON SpecWeaver API Service)
+ASSERT(SpecWeaver Agent Service has NO DEPENDENCY ON UI Service)
+ASSERT(UI Service has NO DEPENDENCY ON Platform Gateway Service)
+ASSERT(UI Service has NO DEPENDENCY ON Archon API Service)
+ASSERT(UI Service has NO DEPENDENCY ON Archon Agent Service)
+ASSERT(UI Service has NO DEPENDENCY ON SpecWeaver API Service)
+ASSERT(UI Service has NO DEPENDENCY ON SpecWeaver Agent Service)
 ```
 
 ```text
