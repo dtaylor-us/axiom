@@ -66,9 +66,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ProblemDetail handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        long maxUploadSize = ex.getMaxUploadSize();
+        String maxUploadSizeText = maxUploadSize > 0
+                ? org.springframework.util.unit.DataSize.ofBytes(maxUploadSize).toString()
+                : maxFileSize;
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.PAYLOAD_TOO_LARGE,
-                "Maximum upload size is %s. Split large documents before submitting.".formatted(maxFileSize));
+                "Maximum upload size is %s. Split large documents before submitting.".formatted(maxUploadSizeText));
         problem.setTitle("File Too Large");
         problem.setType(URI.create("urn:specweaver:file-too-large"));
         return problem;
