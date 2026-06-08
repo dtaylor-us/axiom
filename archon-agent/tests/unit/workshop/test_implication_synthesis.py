@@ -6,6 +6,7 @@ guard conditions, and ArchitectureImplication model constraints.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from unittest.mock import AsyncMock
@@ -130,8 +131,7 @@ class TestSynthesiseReturnsEmptyWhenNoTree:
         synthesiser = ImplicationSynthesiser(llm)
         ctx = _ctx(utility_tree=None, scenario_ids=[])
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(synthesiser.synthesise(ctx))
+        result = asyncio.run(synthesiser.synthesise(ctx))
 
         assert result == []
         llm.complete.assert_not_called()
@@ -148,8 +148,7 @@ class TestSynthesiseExtractsDriverScenarios:
         # Provide matching scenarios so driver lookup succeeds
         ctx = _ctx(utility_tree=tree, scenario_ids=["sc-1", "sc-2"])
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(synthesiser.synthesise(ctx))
+        result = asyncio.run(synthesiser.synthesise(ctx))
 
         llm.complete.assert_called_once()
         assert len(result) == 2
@@ -180,8 +179,7 @@ class TestSynthesiseExtractsDriverScenarios:
         ctx = _ctx(utility_tree=tree, scenario_ids=["sc-0"])
         ctx = ctx.model_copy(update={"architecture_implications": existing})
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(synthesiser.synthesise(ctx))
+        result = asyncio.run(synthesiser.synthesise(ctx))
 
         assert result == existing
 
@@ -200,8 +198,7 @@ class TestImplicationMaxGuard:
         tree = _tree([f"sc-{i}" for i in range(5)])
         ctx = _ctx(utility_tree=tree, scenario_ids=[f"sc-{i}" for i in range(5)])
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(synthesiser.synthesise(ctx))
+        result = asyncio.run(synthesiser.synthesise(ctx))
 
         assert len(result) <= MAX_IMPLICATIONS
 
@@ -290,16 +287,12 @@ class TestMechanismProhibition:
     def _synthesise_from_response(
         self, response: str
     ) -> list[ArchitectureImplication]:
-        import asyncio
-
         llm = AsyncMock()
         llm.complete = AsyncMock(return_value=response)
         synthesiser = ImplicationSynthesiser(llm)
         ctx = _ctx(utility_tree=_tree(["sc-1"]), scenario_ids=["sc-1"])
 
-        return asyncio.get_event_loop().run_until_complete(
-            synthesiser.synthesise(ctx)
-        )
+        return asyncio.run(synthesiser.synthesise(ctx))
 
     def _implication_with_text(self, text: str) -> ArchitectureImplication:
         return ArchitectureImplication(
@@ -368,7 +361,6 @@ class TestSynthesiseImplicationsNodeStaleness:
         Node must not call LLM when the tree was generated in a prior turn
         and there are already implications.
         """
-        import asyncio
         from app.workshop.nodes import synthesise_implications_node
 
         # Tree was generated in turn 4; current turn is 5 → tree not regenerated this turn.
@@ -400,7 +392,7 @@ class TestSynthesiseImplicationsNodeStaleness:
         })
 
         synthesiser = AsyncMock()
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             synthesise_implications_node(ctx, self._make_config(synthesiser))
         )
 
@@ -413,7 +405,6 @@ class TestSynthesiseImplicationsNodeStaleness:
         Node must call LLM when the tree was regenerated in the current turn,
         even if implications already exist from the previous tree.
         """
-        import asyncio
         from app.workshop.nodes import synthesise_implications_node
 
         # Tree was just regenerated this turn (turn 5).
@@ -430,7 +421,7 @@ class TestSynthesiseImplicationsNodeStaleness:
         synthesiser = AsyncMock()
         synthesiser.synthesise = AsyncMock(return_value=[])
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             synthesise_implications_node(ctx, self._make_config(synthesiser))
         )
 
@@ -441,7 +432,6 @@ class TestSynthesiseImplicationsNodeStaleness:
         Node must call LLM when there are no implications yet, even if the
         tree was generated in a prior turn.
         """
-        import asyncio
         from app.workshop.nodes import synthesise_implications_node
 
         # Tree was generated in turn 3; current turn is 6 — but no implications yet.
@@ -458,7 +448,7 @@ class TestSynthesiseImplicationsNodeStaleness:
         synthesiser = AsyncMock()
         synthesiser.synthesise = AsyncMock(return_value=[])
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             synthesise_implications_node(ctx, self._make_config(synthesiser))
         )
 

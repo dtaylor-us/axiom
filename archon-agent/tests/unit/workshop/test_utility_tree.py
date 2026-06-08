@@ -6,6 +6,7 @@ LLM call behaviour, and UtilityTree model validation.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
@@ -132,8 +133,7 @@ class TestUtilityTreeGenerator:
 
         ctx = _ctx([_scenario("sc-1", "complete", ["perf"])])  # only 1 scenario
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(gen.generate(ctx))
+        result = asyncio.run(gen.generate(ctx))
 
         assert result is None
         llm.complete.assert_not_called()
@@ -153,8 +153,7 @@ class TestUtilityTreeGenerator:
         ]
         ctx = _ctx(scenarios)
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(gen.generate(ctx))
+        result = asyncio.run(gen.generate(ctx))
 
         llm.complete.assert_called_once()
         assert result is not None
@@ -183,8 +182,7 @@ class TestUtilityTreeGenerator:
         ctx = _ctx(scenarios)
         ctx = ctx.model_copy(update={"utility_tree": existing_tree})
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(gen.generate(ctx))
+        result = asyncio.run(gen.generate(ctx))
 
         assert result is existing_tree
 
@@ -247,7 +245,6 @@ class TestGenerateUtilityTreeNodeStaleness:
 
     def test_skips_llm_when_tree_is_current(self):
         """Node must not call LLM when tree total_scenarios matches eligible count."""
-        import asyncio
         from app.workshop.nodes import generate_utility_tree_node
 
         existing_tree = UtilityTree(
@@ -265,7 +262,7 @@ class TestGenerateUtilityTreeNodeStaleness:
         ctx = ctx.model_copy(update={"utility_tree": existing_tree})
 
         generator = AsyncMock()
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             generate_utility_tree_node(ctx, self._make_config(generator))
         )
 
@@ -275,7 +272,6 @@ class TestGenerateUtilityTreeNodeStaleness:
 
     def test_calls_llm_when_new_scenario_added(self):
         """Node must call the generator when eligible count exceeds tree total_scenarios."""
-        import asyncio
         from app.workshop.nodes import generate_utility_tree_node
 
         existing_tree = UtilityTree(
@@ -303,7 +299,7 @@ class TestGenerateUtilityTreeNodeStaleness:
         generator = AsyncMock()
         generator.generate = AsyncMock(return_value=new_tree)
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             generate_utility_tree_node(ctx, self._make_config(generator))
         )
 
