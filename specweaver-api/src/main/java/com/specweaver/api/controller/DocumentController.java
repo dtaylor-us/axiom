@@ -41,7 +41,7 @@ public class DocumentController {
     private final AuthenticationUserResolver userResolver;
 
     @Value("${spring.servlet.multipart.max-file-size:20MB}")
-    private String maxFileSize;
+    private DataSize maxFileSize;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
