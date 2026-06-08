@@ -85,7 +85,6 @@ public class DocumentController {
         if (file != null && file.getSize() > maxFileSize.toBytes()) {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, fileTooLargeMessage());
         }
-        }
 
         if (text != null && text.length() > MAX_TEXT_LENGTH) {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, textTooLargeMessage());
