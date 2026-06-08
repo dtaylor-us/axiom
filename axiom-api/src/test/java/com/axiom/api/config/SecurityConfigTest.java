@@ -167,7 +167,8 @@ class SecurityConfigTest {
                 .expectBody()
                 .jsonPath("$.token").isEqualTo("gateway-token");
 
-        RecordedRequest forwardedRequest = archonServer.takeRequest();
+        RecordedRequest forwardedRequest = archonServer.takeRequest(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.jupiter.api.Assertions.assertNotNull(forwardedRequest, "Expected request to be forwarded to archon-api");
         assertEquals("POST", forwardedRequest.getMethod());
         assertEquals("/api/v1/auth/login", forwardedRequest.getPath());
         assertEquals(requestBody, forwardedRequest.getBody().readString(StandardCharsets.UTF_8));
