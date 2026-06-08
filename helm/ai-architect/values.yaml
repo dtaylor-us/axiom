@@ -72,7 +72,7 @@ api:
     tag: latest
     pullPolicy: IfNotPresent
   service:
-    port: 8080
+    port: 8081
   resources:
     requests:
       cpu: 500m

@@ -37,9 +37,9 @@ spec:
             - name: SPRING_PROFILES_ACTIVE
               value: "prod"
             - name: ARCHON_API_BASE_URL
-              value: "http://archon-api:8081"
+              value: "http://{{ .Release.Name }}-api:{{ .Values.api.service.port }}"
             - name: SPECWEAVER_API_BASE_URL
-              value: "http://specweaver-api:8082"
+              value: "http://specweaver-api:{{ .Values.specweaverApi.service.port }}"
             - name: AXIOM_GATEWAY_BYPASS
               value: "false"
             - name: JWT_SECRET

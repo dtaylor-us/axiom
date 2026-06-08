@@ -70,7 +70,7 @@ spec:
             - name: SPECWEAVER_AGENT_BASE_URL
               value: "http://specweaver-agent:8085"
             - name: ARCHON_API_BASE_URL
-              value: "http://archon-api:8081"
+              value: "http://{{ .Release.Name }}-api:{{ .Values.api.service.port }}"
           resources:
             {{- toYaml .Values.specweaverApi.resources | nindent 12 }}
           readinessProbe:
