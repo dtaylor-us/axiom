@@ -130,6 +130,7 @@ class GatewayRoutingConfigTest {
                 .expectStatus().isUnauthorized();
 
         RecordedRequest request = archonServer.takeRequest(1, TimeUnit.SECONDS);
+        org.junit.jupiter.api.Assertions.assertNotNull(request, "Expected auth request to be forwarded to archon-api");
         assertEquals("/api/v1/auth/login", request.getPath());
     }
 
