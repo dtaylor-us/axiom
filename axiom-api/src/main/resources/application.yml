@@ -40,6 +40,8 @@ axiom:
   platform:
     name: Axiom
     version: 1.0.0
+  cors:
+    allowed-origins: ${AXIOM_ALLOWED_ORIGINS:http://localhost:3000,https://axiom-dev.eastus2.cloudapp.azure.com}
   internal:
     secret: ${AXIOM_INTERNAL_SECRET:}
   pillars:

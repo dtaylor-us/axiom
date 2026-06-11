@@ -24,6 +24,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -172,6 +173,22 @@ class SecurityConfigTest {
         assertEquals("POST", forwardedRequest.getMethod());
         assertEquals("/api/v1/auth/login", forwardedRequest.getPath());
         assertEquals(requestBody, forwardedRequest.getBody().readString(StandardCharsets.UTF_8));
+    }
+
+    /**
+         * Browser preflight checks for auth token must pass CORS validation.
+     */
+    @Test
+        void authTokenPreflightWithOriginHeaderPassesCorsValidation() {
+        webTestClient.options()
+                .uri("http://localhost:" + localPort + "/api/v1/auth/token")
+                .header(HttpHeaders.ORIGIN, "https://axiom-dev.eastus2.cloudapp.azure.com")
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type")
+                .exchange()
+            .expectStatus().isOk()
+            .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN,
+                "https://axiom-dev.eastus2.cloudapp.azure.com");
     }
 
     /**
