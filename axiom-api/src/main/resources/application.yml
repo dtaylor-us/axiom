@@ -6,6 +6,18 @@ spring:
     name: axiom-api
   cloud:
     gateway:
+      globalcors:
+        # Gateway route handlers apply their own CORS checks on actual requests.
+        # Configure route-level CORS so POST /api/v1/auth/token is not rejected
+        # after successful preflight.
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowed-origin-patterns: ${AXIOM_ALLOWED_ORIGIN_PATTERNS:http://localhost:3000,https://axiom-dev.eastus2.cloudapp.azure.com}
+            allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+            allowed-headers: '*'
+            exposed-headers: Authorization
+            allow-credentials: true
       routes:
         - id: archon
           uri: ${ARCHON_API_BASE_URL:http://archon-api:8081}
