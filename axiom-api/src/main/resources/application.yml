@@ -43,6 +43,12 @@ spring:
             - StripPrefix=0
             # Auth routes are NOT stripped — archon-api serves /api/v1/auth/**
             # at those exact paths. No X-Axiom-Pillar header is required.
+            # Strip the browser Origin header before forwarding to archon-api.
+            # archon-api is an internal service with no CORS config; if it
+            # receives an Origin header, its Spring Security CORS processor
+            # rejects the request with 403 Invalid CORS request. CORS for
+            # browser clients is handled entirely by axiom-api gateway.
+            - RemoveRequestHeader=Origin
 
       default-filters:
         - name: UserContextForwarding
