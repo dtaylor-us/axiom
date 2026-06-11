@@ -13,7 +13,9 @@ spring:
         add-to-simple-url-handler-mapping: true
         cors-configurations:
           '[/**]':
-            allowed-origin-patterns: ${AXIOM_ALLOWED_ORIGIN_PATTERNS:http://localhost:3000,https://axiom-dev.eastus2.cloudapp.azure.com}
+            allowed-origin-patterns:
+              - ${AXIOM_ALLOWED_ORIGIN_1:http://localhost:3000}
+              - ${AXIOM_ALLOWED_ORIGIN_2:https://axiom-dev.eastus2.cloudapp.azure.com}
             allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
             allowed-headers: '*'
             exposed-headers: Authorization
@@ -52,8 +54,6 @@ axiom:
   platform:
     name: Axiom
     version: 1.0.0
-  cors:
-    allowed-origins: ${AXIOM_ALLOWED_ORIGINS:http://localhost:3000,https://axiom-dev.eastus2.cloudapp.azure.com}
   internal:
     secret: ${AXIOM_INTERNAL_SECRET:}
   pillars:
