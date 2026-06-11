@@ -43,15 +43,17 @@ spring:
             - StripPrefix=0
             # Auth routes are NOT stripped — archon-api serves /api/v1/auth/**
             # at those exact paths. No X-Axiom-Pillar header is required.
-            # Strip the browser Origin header before forwarding to archon-api.
-            # archon-api is an internal service with no CORS config; if it
-            # receives an Origin header, its Spring Security CORS processor
-            # rejects the request with 403 Invalid CORS request. CORS for
-            # browser clients is handled entirely by axiom-api gateway.
-            - RemoveRequestHeader=Origin
+            # RemoveRequestHeader=Origin is applied via default-filters.
 
       default-filters:
         - name: UserContextForwarding
+        # Strip the browser Origin header before forwarding to any internal
+        # pillar service. Pillar services (archon-api, specweaver-api) are
+        # Spring Boot MVC apps with no CORS configuration. If they receive an
+        # Origin header, DefaultCorsProcessor rejects the request with
+        # 403 Invalid CORS request. CORS for browser clients is the sole
+        # responsibility of this gateway.
+        - RemoveRequestHeader=Origin
       httpclient:
         response-timeout: 600s
         connect-timeout: 10000
