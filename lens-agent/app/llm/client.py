@@ -1,1 +1,229 @@
+"""Provider-abstracted LLM client for Lens review pipeline inference.
+
+Mirrors the specweaver-agent LLM client pattern. Supports OpenAI and Ollama.
+All pipeline tools must call complete() through this module — never import
+openai directly.
+"""
 from __future__ import annotations
+
+import logging
+import os
+import time
+from enum import Enum
+from typing import Any
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_OPENAI_MODEL = "gpt-4o"
+DEFAULT_OPENAI_TEMPERATURE = 0.2
+DEFAULT_OLLAMA_BASE_URL = "http://host.docker.internal:11434"
+DEFAULT_OLLAMA_MODEL = "qwen3:14b"
+DEFAULT_OLLAMA_TEMPERATURE = 0.1
+OPENAI_TIMEOUT_SECONDS = 120
+OLLAMA_TIMEOUT_SECONDS = 300
+
+
+class LLMProvider(str, Enum):
+    """Supported LLM providers."""
+
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+
+
+class LLMCallException(Exception):
+    """Raised when an LLM provider call fails after all retries."""
+
+
+class LLMClient:
+    """
+    Provider-abstracted LLM client for the Lens agent.
+
+    Supports OpenAI and Ollama. All tools call complete() through this
+    class — never import openai or httpx directly in tool modules.
+    """
+
+    def __init__(self) -> None:
+        provider_name = os.getenv("LLM_PROVIDER", LLMProvider.OPENAI.value).lower()
+        self._provider = LLMProvider(provider_name)
+        self._setup_provider()
+
+    def _setup_provider(self) -> None:
+        """Load provider-specific configuration from environment variables."""
+        if self._provider == LLMProvider.OLLAMA:
+            self._base_url = os.getenv("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL)
+            self._model = os.getenv("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
+            self._temperature = float(os.getenv("OLLAMA_TEMPERATURE", str(DEFAULT_OLLAMA_TEMPERATURE)))
+            self.model_name = self._model
+            logger.info("LLMClient: provider=ollama model=%s base_url=%s", self._model, self._base_url)
+            return
+
+        import openai
+        self._openai_client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self._model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
+        self._temperature = float(os.getenv("OPENAI_TEMPERATURE", str(DEFAULT_OPENAI_TEMPERATURE)))
+        self.model_name = self._model
+        logger.info("LLMClient: provider=openai model=%s", self._model)
+
+    async def complete(
+        self,
+        prompt: str,
+        response_format: str = "json",
+        output_schema: dict | None = None,
+        schema_name: str = "tool_output",
+        stage_name: str = "",
+    ) -> str:
+        """
+        Call the configured LLM and return raw response content.
+
+        Args:
+            prompt: Rendered prompt text.
+            response_format: 'json' or 'text'.
+            output_schema: Optional JSON schema for structured output.
+            schema_name: Schema name used in provider logs.
+            stage_name: Pipeline stage name for logging.
+
+        Returns:
+            Raw response text from the model.
+
+        Raises:
+            LLMCallException: If the provider call fails.
+        """
+        if response_format == "json":
+            prompt = (
+                prompt
+                + "\n\nIMPORTANT: Return valid JSON only. "
+                "No markdown fences, no preamble, no explanation. "
+                "Just the raw JSON object."
+            )
+
+        start = time.monotonic()
+        try:
+            if self._provider == LLMProvider.OLLAMA:
+                result = await self._complete_ollama(prompt, response_format, output_schema)
+            else:
+                result = await self._complete_openai(prompt, response_format, output_schema, schema_name)
+        except Exception as exc:
+            logger.error(
+                "LLM call failed. provider=%s stage=%s error=%s",
+                self._provider.value,
+                stage_name or "unknown",
+                str(exc)[:300],
+            )
+            raise LLMCallException(f"LLM call failed: {exc}") from exc
+
+        if response_format == "json":
+            result = self._strip_markdown_fences(result)
+
+        duration = time.monotonic() - start
+        logger.info(
+            "LLMClient.complete: provider=%s stage=%s duration_ms=%d response_len=%d",
+            self._provider.value,
+            stage_name or "unknown",
+            int(duration * 1000),
+            len(result),
+        )
+        return result
+
+    async def _complete_ollama(
+        self,
+        prompt: str,
+        response_format: str,
+        output_schema: dict | None,
+    ) -> str:
+        """Call Ollama's /api/generate endpoint."""
+        payload: dict[str, Any] = {
+            "model": self._model,
+            "prompt": prompt,
+            "stream": False,
+            "think": False,
+            "options": {"temperature": self._temperature},
+        }
+        if output_schema is not None and response_format == "json":
+            payload["format"] = output_schema
+        elif response_format == "json":
+            payload["format"] = "json"
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(OLLAMA_TIMEOUT_SECONDS)) as client:
+            response = await client.post(f"{self._base_url}/api/generate", json=payload)
+            response.raise_for_status()
+            data = response.json()
+            content = str(data.get("response", ""))
+            if not content.strip():
+                raise ValueError(f"Ollama returned empty response for stage={self._model}")
+            return content
+
+    async def _complete_openai(
+        self,
+        prompt: str,
+        response_format: str,
+        output_schema: dict | None,
+        schema_name: str,
+    ) -> str:
+        """Call OpenAI Chat Completions with optional structured output."""
+        response_format_param: Any = None
+        if response_format == "json" and output_schema is not None:
+            response_format_param = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "strict": True,
+                    "schema": output_schema,
+                },
+            }
+        elif response_format == "json":
+            response_format_param = {"type": "json_object"}
+
+        try:
+            response = await self._openai_client.chat.completions.create(
+                model=self._model,
+                temperature=self._temperature,
+                response_format=response_format_param,
+                messages=[{"role": "user", "content": prompt}],
+                timeout=OPENAI_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            # Retry without strict schema if OpenAI rejects it
+            if output_schema is not None and "Invalid schema" in str(exc):
+                logger.warning(
+                    "OpenAI rejected json_schema for %s; retrying with json_object. error=%s",
+                    schema_name,
+                    str(exc)[:300],
+                )
+                response = await self._openai_client.chat.completions.create(
+                    model=self._model,
+                    temperature=self._temperature,
+                    response_format={"type": "json_object"},
+                    messages=[{"role": "user", "content": prompt}],
+                    timeout=OPENAI_TIMEOUT_SECONDS,
+                )
+            else:
+                raise
+        return response.choices[0].message.content or ""
+
+    @staticmethod
+    def _strip_markdown_fences(text: str) -> str:
+        """Remove Markdown code fences from JSON responses."""
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            first_newline = stripped.find("\n")
+            if first_newline == -1:
+                return stripped.strip("`")
+            stripped = stripped[first_newline + 1:]
+            if stripped.rstrip().endswith("```"):
+                stripped = stripped.rstrip()[:-3].rstrip()
+        return stripped
+
+
+def get_llm_client() -> LLMClient:
+    """
+    Return the process-wide LLM client singleton.
+
+    Returns:
+        Shared LLMClient instance.
+    """
+    return _llm_client_instance
+
+
+_llm_client_instance = LLMClient()
