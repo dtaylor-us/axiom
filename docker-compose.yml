@@ -9,6 +9,7 @@ services:
     ports: ["5432:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U archon"]
       interval: 10s
@@ -76,6 +77,11 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Archon pillar ─────────────────────────────────────────────────────────
+  # Always starts. No profile required.
+  # AXIOM_GATEWAY_BYPASS=true in local mode so the UI can hit archon-api
+  # directly without requiring axiom-api to be running.
+
   agent:
     build:
       context: ./archon-agent
@@ -142,6 +148,9 @@ services:
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       OTEL_SERVICE_NAME: archon-api
       MANAGEMENT_TRACING_ENABLED: "true"
+      # Gateway bypass: true in local dev so the UI hits archon-api directly.
+      # Set to false only when running with axiom-api (--profile platform).
+      AXIOM_GATEWAY_BYPASS: "true"
     ports: ["8081:8081"]
     depends_on:
       postgres:
@@ -157,6 +166,20 @@ services:
       retries: 5
       start_period: 60s
 
+  ui:
+    build:
+      context: ./axiom-ui
+      dockerfile: Dockerfile
+    container_name: archon-ui
+    ports: ["3000:80"]
+    depends_on:
+      api:
+        condition: service_started
+
+  # ── SpecWeaver pillar ─────────────────────────────────────────────────────
+  # Profile: specweaver
+  # Start with: docker compose --profile specweaver up
+
   specweaver-api:
     build:
       context: ./specweaver-api
@@ -164,6 +187,7 @@ services:
     container_name: specweaver-api
     profiles:
       - specweaver
+      - platform
     ports:
       - "8082:8082"
     environment:
@@ -178,6 +202,7 @@ services:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_BUCKET=specweaver-documents
+      - AXIOM_GATEWAY_BYPASS=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
       - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
     depends_on:
@@ -202,6 +227,7 @@ services:
     container_name: specweaver-agent
     profiles:
       - specweaver
+      - platform
     ports:
       - "8085:8085"
     environment:
@@ -237,6 +263,85 @@ services:
       - default
     restart: unless-stopped
 
+  # ── Lens pillar ───────────────────────────────────────────────────────────
+  # Profile: lens, platform
+  # Start with: docker compose --profile lens up
+
+  lens-agent:
+    build:
+      context: ./lens-agent
+      dockerfile: Dockerfile
+    container_name: lens-agent
+    profiles:
+      - lens
+      - platform
+    ports:
+      - "8086:8086"
+    environment:
+      - LENS_AGENT_PORT=8086
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${LENS_AGENT_OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
+      - OTEL_SERVICE_NAME=lens-agent
+      - OTEL_TRACES_SAMPLER=always_on
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8086/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks:
+      - default
+    restart: unless-stopped
+
+  lens-api:
+    build:
+      context: ./lens-api
+      dockerfile: Dockerfile
+    container_name: lens-api
+    profiles:
+      - lens
+      - platform
+    ports:
+      - "8083:8083"
+    environment:
+      - LENS_API_PORT=8083
+      - SPRING_PROFILES_ACTIVE=local
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/lens
+      - POSTGRES_USERNAME=archon
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-localdev}
+      - LENS_AGENT_BASE_URL=http://lens-agent:8086
+      - AXIOM_GATEWAY_BYPASS=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
+      - OTEL_SERVICE_NAME=lens-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      lens-agent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - default
+    restart: unless-stopped
+
+  # ── Platform gateway ──────────────────────────────────────────────────────
+  # Profile: platform
+  # Requires all three pillars. Starts with:
+  #   docker compose --profile platform up
+  # axiom-api routes /api/v1/archon/**, /api/v1/specweaver/**,
+  # /api/v1/lens/**, and /api/v1/auth/** through the gateway.
+  # AXIOM_GATEWAY_BYPASS must be false for pillar services when
+  # running under the platform profile.
+
   axiom-api:
     build:
       context: ./axiom-api
@@ -248,8 +353,9 @@ services:
       - "8080:8080"
     environment:
       - AXIOM_API_PORT=8080
-      - ARCHON_API_BASE_URL=http://archon-api:8081
+      - ARCHON_API_BASE_URL=http://api:8081
       - SPECWEAVER_API_BASE_URL=http://specweaver-api:8082
+      - LENS_API_BASE_URL=http://lens-api:8083
       - AXIOM_GATEWAY_BYPASS=false
       - SPRING_PROFILES_ACTIVE=local
       - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-minimum-32-chars-here}
@@ -259,6 +365,8 @@ services:
       api:
         condition: service_healthy
       specweaver-api:
+        condition: service_healthy
+      lens-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
@@ -270,15 +378,7 @@ services:
       - default
     restart: unless-stopped
 
-  ui:
-    build:
-      context: ./axiom-ui
-      dockerfile: Dockerfile
-    container_name: archon-ui
-    ports: ["3000:80"]
-    depends_on:
-      api:
-        condition: service_started
+  # ── Observability ─────────────────────────────────────────────────────────
 
   prometheus:
     image: prom/prometheus:v2.51.2

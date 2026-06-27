@@ -14,6 +14,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SynchronousSink;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -137,7 +138,7 @@ public class ChatService {
                                     try {
                                         structuredOutput.set(
                                                 objectMapper.writeValueAsString(chunk.getPayload()));
-                                        // Capture full COMPLETE payload for token_usage extraction
+                                        // Capture full COMPLETE payload for gap/token extraction
                                         if (chunk.getPayload() instanceof Map<?, ?> payloadMap) {
                                             @SuppressWarnings("unchecked")
                                             Map<String, Object> pm = (Map<String, Object>) payloadMap;
@@ -200,7 +201,7 @@ public class ChatService {
                                                 governanceService.saveFmeaRisks(conversation.getId(), fmeaRisks);
                                             }
                                         }
-                                        // Persist tactics if present (stage 4b)
+                                        // Persist tactics if present (stage 5)
                                         if (so != null && so.containsKey("tactics")) {
                                             try {
                                                 @SuppressWarnings("unchecked")
@@ -214,7 +215,7 @@ public class ChatService {
                                                         conversation.getId(), e);
                                             }
                                         }
-                                        // Persist buy-vs-build decisions if present (stage 6b)
+                                        // Persist buy-vs-build decisions if present (stage 8)
                                         if (so != null && so.containsKey("buy_vs_build_analysis")) {
                                             try {
                                                 @SuppressWarnings("unchecked")
@@ -232,13 +233,14 @@ public class ChatService {
                                         if (so != null && so.containsKey("governance_score")) {
                                             governanceService.saveGovernanceReport(conversation.getId(), so);
                                         }
-                                        // Persist token usage — lives at the COMPLETE payload level,
-                                        // not inside structured_output.
+                                        // Persist token usage — lives at the COMPLETE payload level
                                         Map<String, Object> cp = completePayload.get();
                                         if (cp != null) {
                                             persistTokenUsage(conversation.getId(), cp);
                                         }
-                                        // Mark pipeline run complete
+                                        // Mark pipeline run complete — persist has_gaps and
+                                        // pipeline_gaps from the COMPLETE payload so degraded
+                                        // runs are not reported as clean successful runs.
                                         UUID runId = runIdRef.get();
                                         if (runId != null && so != null) {
                                             try {
@@ -247,30 +249,72 @@ public class ChatService {
                                                 String confidence = so.get("governance_score_confidence") != null
                                                         ? so.get("governance_score_confidence").toString()
                                                         : null;
+
+                                                // Extract gap state from COMPLETE payload (not structured_output)
+                                                Map<String, Object> cp2 = completePayload.get();
+                                                boolean hasGaps = false;
+                                                String gapSummary = null;
+                                                Integer totalTokens = null;
+                                                BigDecimal estimatedCost = null;
+
+                                                if (cp2 != null) {
+                                                    hasGaps = Boolean.TRUE.equals(cp2.get("has_gaps"));
+                                                    Object gaps = cp2.get("pipeline_gaps");
+                                                    if (gaps instanceof java.util.List<?> gapList
+                                                            && !gapList.isEmpty()) {
+                                                        gapSummary = objectMapper.writeValueAsString(gapList);
+                                                    }
+                                                    // Extract token usage totals for run record
+                                                    Object tu = cp2.get("token_usage");
+                                                    if (tu instanceof Map<?, ?> tuMap) {
+                                                        @SuppressWarnings("unchecked")
+                                                        Map<String, Object> tokenMap =
+                                                                (Map<String, Object>) tuMap;
+                                                        Object total = tokenMap.get("total_tokens");
+                                                        if (total instanceof Number n) {
+                                                            totalTokens = n.intValue();
+                                                        }
+                                                        Object cost = tokenMap.get("estimated_cost_usd");
+                                                        if (cost instanceof Number n) {
+                                                            estimatedCost = BigDecimal.valueOf(
+                                                                    n.doubleValue());
+                                                        }
+                                                    }
+                                                }
+
                                                 pipelineRunService.completeRun(
-                                                        runId, govScore, confidence, false, null, null, null);
+                                                        runId,
+                                                        govScore,
+                                                        confidence,
+                                                        hasGaps,
+                                                        gapSummary,
+                                                        totalTokens,
+                                                        estimatedCost);
                                                 pipelineRunBroadcaster.complete(runId);
                                             } catch (Exception e) {
                                                 log.warn("Failed to complete pipeline run. runId={}", runId, e);
                                             }
-                                            } else if (runId != null && !sawCompleteEvent.get()) {
-                                                String incompleteMessage = "Agent stream ended without COMPLETE event";
-                                                pipelineRunService.failRun(
-                                                    runId,
-                                                    lastStageRef.get(),
-                                                    incompleteMessage
-                                                );
-                                                pipelineRunBroadcaster.complete(runId);
-                                                log.warn(
-                                                    "Pipeline run marked failed because stream completed without COMPLETE. "
-                                                        + "runId={} stage={}",
-                                                    runId,
-                                                    lastStageRef.get()
-                                                );
+                                        } else if (runId != null && !sawCompleteEvent.get()) {
+                                            String incompleteMessage =
+                                                    "Agent stream ended without COMPLETE event";
+                                            pipelineRunService.failRun(
+                                                runId,
+                                                lastStageRef.get(),
+                                                incompleteMessage
+                                            );
+                                            pipelineRunBroadcaster.complete(runId);
+                                            log.warn(
+                                                "Pipeline run marked failed because stream completed "
+                                                    + "without COMPLETE. runId={} stage={}",
+                                                runId,
+                                                lastStageRef.get()
+                                            );
                                         }
-                                        log.info("Stream complete conversation={}", conversation.getId());
+                                        log.info("Stream complete conversation={}",
+                                                conversation.getId());
                                     } catch (Exception e) {
-                                        log.warn("Post-stream persistence failed for conversation={}",
+                                        log.warn(
+                                                "Post-stream persistence failed for conversation={}",
                                                 conversation.getId(), e);
                                     }
                                 });
