@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type PillarId = 'axiom' | 'archon' | 'specweaver' | 'scout' | 'forge';
+export type PillarId = 'axiom' | 'archon' | 'specweaver' | 'lens';
 
 interface PillarIconProps {
   pillar: PillarId;
@@ -32,19 +32,12 @@ const SpecWeaverIcon = (
   </>
 );
 
-const ScoutIcon = (
+const LensIcon = (
   <>
-    <circle cx="10" cy="10" r="5" />
-    <path d="M13.8 13.8L20 20" />
-    <circle cx="9" cy="9" r="1.2" />
-    <path d="M9 7v4M7 9h4" />
-  </>
-);
-
-const ForgeIcon = (
-  <>
-    <path d="M4 6l3-3 2 2-3 3 10 10-2 2L4 10 2 8l2-2z" />
-    <path d="M14 3l2-2m0 0l2 2m-2-2v4" />
+    <circle cx="10.5" cy="10.5" r="5.5" />
+    <path d="M14.8 14.8L20 20" />
+    <path d="M10.5 8.5v4m-2-2h4" />
+    <path d="M7.2 4.8l1.2 1.2M15.8 4.8l-1.2 1.2" />
   </>
 );
 
@@ -52,8 +45,7 @@ const ICONS: Record<PillarId, ReactNode> = {
   axiom: AxiomIcon,
   archon: ArchonIcon,
   specweaver: SpecWeaverIcon,
-  scout: ScoutIcon,
-  forge: ForgeIcon,
+  lens: LensIcon,
 };
 
 /**

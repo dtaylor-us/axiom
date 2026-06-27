@@ -35,6 +35,13 @@ spring:
           filters:
             - RewritePath=/api/v1/specweaver/(?<segment>.*), /api/v1/${segment}
             - AddRequestHeader=X-Axiom-Pillar, specweaver
+        - id: lens
+          uri: ${LENS_API_BASE_URL:http://lens-api:8083}
+          predicates:
+            - Path=/api/v1/lens/**
+          filters:
+            - RewritePath=/api/v1/lens/(?<segment>.*), /api/v1/${segment}
+            - AddRequestHeader=X-Axiom-Pillar, lens
         - id: auth
           uri: ${ARCHON_API_BASE_URL:http://archon-api:8081}
           predicates:
@@ -73,13 +80,9 @@ axiom:
       base-url: ${SPECWEAVER_API_BASE_URL:http://specweaver-api:8082}
       enabled: true
       health-path: /actuator/health
-    scout:
-      base-url: ${SCOUT_API_BASE_URL:http://scout-api:8083}
-      enabled: false
-      health-path: /actuator/health
-    forge:
-      base-url: ${FORGE_API_BASE_URL:http://forge-api:8084}
-      enabled: false
+    lens:
+      base-url: ${LENS_API_BASE_URL:http://lens-api:8083}
+      enabled: true
       health-path: /actuator/health
 
 jwt:

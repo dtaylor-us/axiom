@@ -10,6 +10,7 @@ export const ARCHON_API_BASE = USE_GATEWAY ? '/api/v1/archon' : '/api/v1';
 // In local mode, SpecWeaver runs as its own service and is exposed through a
 // dedicated reverse-proxy prefix to avoid clashing with archon-api /api/v1.
 export const SPECWEAVER_API_BASE = USE_GATEWAY ? '/api/v1/specweaver' : '/specweaver-api/api/v1';
+export const LENS_API_BASE = USE_GATEWAY ? '/api/v1/lens' : '/api/v1';
 
 export const AUTH_BASE = '/api/v1/auth';
 export const CHAT_BASE = `${ARCHON_API_BASE}/chat`;

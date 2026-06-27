@@ -30,20 +30,12 @@ const PILLARS: Pillar[] = [
     color: 'var(--color-pillar-archon)',
   },
   {
-    id: 'scout',
-    name: 'Scout',
-    description: 'Repository Intelligence',
-    path: '/scout',
+    id: 'lens',
+    name: 'Lens',
+    description: 'Architecture Review Intelligence',
+    path: '/lens',
     enabled: true,
-    color: 'var(--color-pillar-scout)',
-  },
-  {
-    id: 'forge',
-    name: 'Forge',
-    description: 'Prototype Generation',
-    path: '/forge',
-    enabled: true,
-    color: 'var(--color-pillar-forge)',
+    color: 'var(--color-pillar-lens)',
   },
 ];
 

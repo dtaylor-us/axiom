@@ -40,6 +40,8 @@ spec:
               value: "http://{{ .Release.Name }}-api:{{ .Values.api.service.port }}"
             - name: SPECWEAVER_API_BASE_URL
               value: "http://specweaver-api:{{ .Values.specweaverApi.service.port }}"
+            - name: LENS_API_BASE_URL
+              value: "http://lens-api:{{ .Values.lensApi.service.port }}"
             - name: AXIOM_GATEWAY_BYPASS
               value: "false"
             - name: JWT_SECRET

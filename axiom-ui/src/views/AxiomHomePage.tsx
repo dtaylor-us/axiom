@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { PillarBadge } from '../components/PillarBadge';
 import { PillarIcon, type PillarId } from '../components/PillarIcon';
 import { SectionHeading } from '../components/landing/SectionHeading';
+import { useStore } from '../store/useStore';
 
 interface PillarLandingCard {
   id: Exclude<PillarId, 'axiom'>;
@@ -35,22 +36,13 @@ const PILLARS: PillarLandingCard[] = [
     iconBg: 'var(--color-pillar-archon-bg)',
   },
   {
-    id: 'scout',
-    name: 'Scout',
-    tagline: 'Repository Intelligence',
-    description: 'Analyse your existing codebase and produce a system model.',
-    path: '/scout',
-    available: false,
-    iconBg: 'var(--color-pillar-scout-bg)',
-  },
-  {
-    id: 'forge',
-    name: 'Forge',
-    tagline: 'Prototype Generation',
-    description: 'Generate working code scaffolds grounded in your actual architecture.',
-    path: '/forge',
-    available: false,
-    iconBg: 'var(--color-pillar-forge-bg)',
+    id: 'lens',
+    name: 'Lens',
+    tagline: 'Architecture Review Intelligence',
+    description: 'Evaluate existing architecture decisions against established review frameworks.',
+    path: '/lens',
+    available: true,
+    iconBg: 'var(--color-pillar-lens-bg)',
   },
 ];
 
@@ -69,9 +61,9 @@ const WORKFLOW_STEPS = [
   },
   {
     num: '3',
-    title: 'Scout + Forge',
-    body: 'Analyse your codebase. Enforce your architecture as it evolves.',
-    color: 'var(--color-pillar-scout)',
+    title: 'Lens',
+    body: 'Review architectures against evidence. Gaps become findings, never blockers.',
+    color: 'var(--color-pillar-lens)',
   },
 ];
 
@@ -80,18 +72,50 @@ const WORKFLOW_STEPS = [
  */
 export function AxiomHomePage() {
   const navigate = useNavigate();
+  const token = useStore((s) => s.token);
 
   return (
     <div className="landing-page h-full overflow-y-auto bg-gray-50" data-testid="axiom-home-page">
+      {/* Top navigation — visible when the app shell sidebar is not rendered (unauthenticated) */}
+      {!token && (
+        <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-3">
+            <div className="flex items-center gap-2">
+              <PillarIcon pillar="axiom" size={20} />
+              <span className="text-[15px] font-bold tracking-tight text-gray-900">Axiom</span>
+            </div>
+            <nav className="hidden items-center gap-1 sm:flex">
+              {PILLARS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => navigate(p.path)}
+                  className="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                >
+                  {p.name}
+                </button>
+              ))}
+            </nav>
+            <button
+              type="button"
+              className="rounded-lg bg-gray-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-gray-700 transition-colors"
+              onClick={() => navigate('/login')}
+            >
+              Sign in
+            </button>
+          </div>
+        </header>
+      )}
       <div className="landing-inner">
         <section className="pillar-hero">
           <div className="pillar-hero-badge">
             <PillarBadge pillar="axiom" />
           </div>
-          <h1>From requirements to architecture, every step augmented by AI.</h1>
+          <h1>From requirements to review, every step augmented by AI.</h1>
           <p>
             Axiom is a four-pillar platform that transforms messy stakeholder input into governed, traceable architecture
-            decisions. Start with requirements. Design your architecture. Enforce it as your codebase evolves.
+            decisions. Start with requirements. Design your architecture. Review it against evidence. Enforce it as your
+            codebase evolves.
           </p>
           <div className="hero-actions">
             <button

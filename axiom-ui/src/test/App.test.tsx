@@ -61,11 +61,11 @@ vi.mock('../views/archon/ArchonHomePage', () => ({
 vi.mock('../views/specweaver/SpecWeaverHomePage', () => ({
   SpecWeaverHomePage: () => <div data-testid="specweaver-home-page">SpecWeaver Home Mock</div>,
 }));
-vi.mock('../views/scout/ScoutHomePage', () => ({
-  ScoutHomePage: () => <div data-testid="scout-home-page">Scout Home Mock</div>,
+vi.mock('../views/lens/LensHomePage', () => ({
+  LensHomePage: () => <div data-testid="lens-home-page">Lens Home Mock</div>,
 }));
-vi.mock('../views/forge/ForgeHomePage', () => ({
-  ForgeHomePage: () => <div data-testid="forge-home-page">Forge Home Mock</div>,
+vi.mock('../views/lens/LensReviewPage', () => ({
+  LensReviewPage: () => <div data-testid="lens-review-page">Lens Review Mock</div>,
 }));
 vi.mock('../views/ChatView', () => ({
   ChatView: () => <div data-testid="chat-view">Chat Mock</div>,
