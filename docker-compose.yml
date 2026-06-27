@@ -263,45 +263,9 @@ services:
       - default
     restart: unless-stopped
 
-<<<<<<< HEAD
   # ── Lens pillar ───────────────────────────────────────────────────────────
   # Profile: lens, platform
   # Start with: docker compose --profile lens up
-=======
-  lens-api:
-    build:
-      context: ./lens-api
-      dockerfile: Dockerfile
-    container_name: lens-api
-    profiles:
-      - platform
-    ports:
-      - "8083:8083"
-    environment:
-      - LENS_API_PORT=8083
-      - SPRING_PROFILES_ACTIVE=local
-      - POSTGRES_URL=jdbc:postgresql://postgres:5432/lens
-      - POSTGRES_USERNAME=archon
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-localdev}
-      - LENS_AGENT_BASE_URL=http://lens-agent:8086
-      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
-      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
-      - OTEL_SERVICE_NAME=lens-api
-    depends_on:
-      postgres:
-        condition: service_healthy
-      lens-agent:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    networks:
-      - default
-    restart: unless-stopped
->>>>>>> origin/lens
 
   lens-agent:
     build:
@@ -309,10 +273,7 @@ services:
       dockerfile: Dockerfile
     container_name: lens-agent
     profiles:
-<<<<<<< HEAD
       - lens
-=======
->>>>>>> origin/lens
       - platform
     ports:
       - "8086:8086"
@@ -336,7 +297,6 @@ services:
       - default
     restart: unless-stopped
 
-<<<<<<< HEAD
   lens-api:
     build:
       context: ./lens-api
@@ -354,7 +314,9 @@ services:
       - POSTGRES_USERNAME=archon
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-localdev}
       - LENS_AGENT_BASE_URL=http://lens-agent:8086
-      - AXIOM_GATEWAY_BYPASS=true
+      # Gateway bypass: true in standalone lens mode (no axiom-api).
+      # Set AXIOM_GATEWAY_BYPASS=false when running --profile platform.
+      - AXIOM_GATEWAY_BYPASS=${AXIOM_GATEWAY_BYPASS:-true}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
       - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
       - OTEL_SERVICE_NAME=lens-api
@@ -379,11 +341,9 @@ services:
   #   docker compose --profile platform up
   # axiom-api routes /api/v1/archon/**, /api/v1/specweaver/**,
   # /api/v1/lens/**, and /api/v1/auth/** through the gateway.
-  # AXIOM_GATEWAY_BYPASS must be false for pillar services when
+  # Set AXIOM_GATEWAY_BYPASS=false for all pillar services when
   # running under the platform profile.
 
-=======
->>>>>>> origin/lens
   axiom-api:
     build:
       context: ./axiom-api
