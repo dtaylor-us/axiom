@@ -17,7 +17,7 @@ describe('PillarBadge', () => {
   });
 
   it('applies correct CSS class for each pillar', () => {
-    const pillars = ['axiom', 'archon', 'specweaver', 'scout', 'forge'] as const;
+    const pillars = ['axiom', 'archon', 'specweaver', 'lens'] as const;
 
     pillars.forEach((pillar) => {
       const { unmount } = render(<PillarBadge pillar={pillar} />);

@@ -93,15 +93,17 @@ function rowTextColor(status: string): string {
 
 interface StageProgressProps {
   stages: StageState[];
+  stageNames?: readonly string[];
 }
 
-export function StageProgress({ stages }: StageProgressProps) {
-  const stageMap = new Map(stages.map((s) => [s.name, s]));
+export function StageProgress({ stages, stageNames }: StageProgressProps) {
+  const stageMap = new Map<string, StageState>(stages.map((s) => [s.name, s]));
+  const names = stageNames ?? PIPELINE_STAGES;
 
   return (
     <div className="space-y-0.5" data-testid="stage-progress">
-      {PIPELINE_STAGES.map((name) => {
-        const stage = stageMap.get(name);
+      {names.map((name) => {
+        const stage = stageMap.get(name as string);
         const status = stage?.status ?? 'pending';
         return (
           <div

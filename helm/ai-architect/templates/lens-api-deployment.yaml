@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lens-api
+  labels:
+    {{- include "ai-architect.labels" . | nindent 4 }}
+    app.kubernetes.io/component: lens-api
+spec:
+  replicas: {{ .Values.lensApi.replicaCount }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: lens-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: lens-api
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: lens-api
+          image: {{ include "ai-architect.image" (dict "global" .Values.global "image" .Values.lensApi.image) }}
+          imagePullPolicy: {{ .Values.lensApi.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.lensApi.service.port }}
+              protocol: TCP
+          env:
+            - name: LENS_API_PORT
+              value: "8083"
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: POSTGRES_URL
+              value: "jdbc:postgresql://{{ .Values.database.host }}:5432/lens?sslmode=require"
+            - name: POSTGRES_USERNAME
+              value: "axiom"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: db-password
+            - name: LENS_AGENT_BASE_URL
+              value: "http://lens-agent:8086"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: ""
+          resources:
+            {{- toYaml .Values.lensApi.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{ .Values.lensApi.service.port }}
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{ .Values.lensApi.service.port }}
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          {{- if .Values.keyVault.enabled }}
+          volumeMounts:
+            - name: secrets-store
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+          {{- end }}
+      {{- if .Values.keyVault.enabled }}
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ .Release.Name }}-secrets
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lens-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: lens-api
+    chart: {{ .Chart.Name }}
+    release: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: lens-api
+  ports:
+    - name: http
+      port: {{ .Values.lensApi.service.port }}
+      targetPort: {{ .Values.lensApi.service.port }}
+      protocol: TCP

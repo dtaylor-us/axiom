@@ -24,12 +24,19 @@
 | specweaver-api | Spring Boot 3.x / Java 21 | 8082 | Session management, document ingestion, package generation |
 | specweaver-agent | FastAPI + LangGraph / Python 3.11 | 8085 | Extraction, consolidation, classification, gap analysis, conflict detection |
 
-### Planned Pillars
+### Lens — Architecture Review Intelligence
+
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| lens-api | Spring Boot 3.x / Java 21 | 8083 | Review sessions, evidence storage, gap elicitation, review reports |
+| lens-agent | FastAPI + LangGraph / Python 3.11 | 8086 | Evidence parsing, framework analysis, risk synthesis, report generation |
+
+### Future pillars
 
 | Pillar | API Port | Agent Port | Status |
 |--------|----------|------------|--------|
-| Scout — Repository Intelligence | 8083 | 8086 | Planned |
-| Forge — Architecture Enforcement | 8084 | 8087 | Planned |
+| Scout — Repository Intelligence | 8083 | 8086 | Not on roadmap |
+| Forge — Architecture Enforcement | 8084 | 8087 | Not on roadmap |
 
 ### Service topology
 
@@ -40,6 +47,8 @@ Browser
       → archon-agent:8001 (Archon reasoning pipeline)
     → specweaver-api:8082 (SpecWeaver pillar API)
       → specweaver-agent:8085 (SpecWeaver extraction pipeline)
+    → lens-api:8083 (Lens pillar API)
+      → lens-agent:8086 (Lens review pipeline)
 ```
 
 ### Two-service rule
@@ -61,8 +70,7 @@ libraries containing business logic between pillars.
 |--------|--------|-------|
 | Archon | Production-capable | Full 13-stage pipeline + QAW |
 | SpecWeaver | Phase 1 active | Extraction + classification |
-| Scout | Not started | Planned Phase 3 |
-| Forge | Not started | Planned Phase 5 |
+| Lens | Active | Architecture reviews and gap elicitation |
 
 ### Platform service boundaries
 

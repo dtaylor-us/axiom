@@ -187,6 +187,40 @@ specweaverAgent:
     maxReplicas: 3
     targetCPU: 70
 
+# ── Lens API ─────────────────────────────────────────────────────
+lensApi:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8083
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── Lens Agent ───────────────────────────────────────────────────
+lensAgent:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8086
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
 # ── External database host (prod) ──────────────────────────────
 database:
   host: ai-architect-postgres

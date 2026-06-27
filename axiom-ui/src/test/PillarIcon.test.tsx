@@ -16,16 +16,10 @@ describe('PillarIcon', () => {
     expect(screen.getByTestId('pillar-icon-archon')).toBeInTheDocument();
   });
 
-  it('renders scout icon without crashing', () => {
-    render(<PillarIcon pillar="scout" />);
+  it('renders lens icon without crashing', () => {
+    render(<PillarIcon pillar="lens" />);
 
-    expect(screen.getByTestId('pillar-icon-scout')).toBeInTheDocument();
-  });
-
-  it('renders forge icon without crashing', () => {
-    render(<PillarIcon pillar="forge" />);
-
-    expect(screen.getByTestId('pillar-icon-forge')).toBeInTheDocument();
+    expect(screen.getByTestId('pillar-icon-lens')).toBeInTheDocument();
   });
 
   it('renders axiom icon without crashing', () => {

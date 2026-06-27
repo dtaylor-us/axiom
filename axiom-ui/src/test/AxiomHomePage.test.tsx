@@ -15,8 +15,7 @@ describe('AxiomHomePage', () => {
     expect(screen.getByTestId('axiom-home-page')).toBeInTheDocument();
     expect(screen.getByTestId('axiom-pillar-card-specweaver')).toBeInTheDocument();
     expect(screen.getByTestId('axiom-pillar-card-archon')).toBeInTheDocument();
-    expect(screen.getByTestId('axiom-pillar-card-scout')).toBeInTheDocument();
-    expect(screen.getByTestId('axiom-pillar-card-forge')).toBeInTheDocument();
+    expect(screen.getByTestId('axiom-pillar-card-lens')).toBeInTheDocument();
     expect(screen.getByText('The Workflow')).toBeInTheDocument();
   });
 });

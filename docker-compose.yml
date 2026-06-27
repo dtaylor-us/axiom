@@ -9,6 +9,7 @@ services:
     ports: ["5432:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U archon"]
       interval: 10s
@@ -237,6 +238,69 @@ services:
       - default
     restart: unless-stopped
 
+  lens-api:
+    build:
+      context: ./lens-api
+      dockerfile: Dockerfile
+    container_name: lens-api
+    profiles:
+      - platform
+    ports:
+      - "8083:8083"
+    environment:
+      - LENS_API_PORT=8083
+      - SPRING_PROFILES_ACTIVE=local
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/lens
+      - POSTGRES_USERNAME=archon
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-localdev}
+      - LENS_AGENT_BASE_URL=http://lens-agent:8086
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
+      - OTEL_SERVICE_NAME=lens-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      lens-agent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - default
+    restart: unless-stopped
+
+  lens-agent:
+    build:
+      context: ./lens-agent
+      dockerfile: Dockerfile
+    container_name: lens-agent
+    profiles:
+      - platform
+    ports:
+      - "8086:8086"
+    environment:
+      - LENS_AGENT_PORT=8086
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${LENS_AGENT_OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
+      - OTEL_SERVICE_NAME=lens-agent
+      - OTEL_TRACES_SAMPLER=always_on
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8086/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks:
+      - default
+    restart: unless-stopped
+
   axiom-api:
     build:
       context: ./axiom-api
@@ -250,6 +314,7 @@ services:
       - AXIOM_API_PORT=8080
       - ARCHON_API_BASE_URL=http://archon-api:8081
       - SPECWEAVER_API_BASE_URL=http://specweaver-api:8082
+      - LENS_API_BASE_URL=http://lens-api:8083
       - AXIOM_GATEWAY_BYPASS=false
       - SPRING_PROFILES_ACTIVE=local
       - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-minimum-32-chars-here}
@@ -259,6 +324,8 @@ services:
       api:
         condition: service_healthy
       specweaver-api:
+        condition: service_healthy
+      lens-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
