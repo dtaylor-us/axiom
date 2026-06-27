@@ -25,9 +25,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Minimum combined characters of evidence content required to proceed.
-# Below this threshold the pipeline cannot produce a meaningful review
-# and will return a 400 with a clear message.
+# Below this threshold the pipeline cannot produce a meaningful review.
 MIN_EVIDENCE_CHARS = 50
+
+# Minimum number of populated analysis sections for a report to be
+# considered substantive. If fewer than this many core sections have
+# content, the response signals an incomplete report rather than HTTP 200.
+MIN_POPULATED_SECTIONS = 2
 
 
 def _validate_review_request(request: dict) -> str | None:
@@ -47,7 +51,6 @@ def _validate_review_request(request: dict) -> str | None:
     evidence = request.get("evidence", [])
     system_description = request.get("system_description", "").strip()
 
-    # Calculate total evidence content length
     total_content = len(system_description)
     for item in evidence:
         total_content += len(item.get("content", ""))
@@ -61,6 +64,31 @@ def _validate_review_request(request: dict) -> str | None:
         )
 
     return None
+
+
+def _report_is_substantive(report: dict) -> bool:
+    """
+    Check whether a report has enough populated sections to be useful.
+
+    A report where most LLM stages failed silently should not be returned
+    as HTTP 200 — it would mislead the caller into treating an empty
+    shell as a successful review.
+
+    Args:
+        report: Assembled review report dict.
+
+    Returns:
+        True if the report meets minimum substantiveness threshold.
+    """
+    core_sections = [
+        report.get("azureWafScorecard"),
+        report.get("atamAnalysis"),
+        report.get("seiAnalysis"),
+        report.get("risks"),
+        report.get("recommendations"),
+    ]
+    populated = sum(1 for s in core_sections if s)
+    return populated >= MIN_POPULATED_SECTIONS
 
 
 @router.post("/gaps/generate")
@@ -81,7 +109,6 @@ async def gaps_generate(request: dict):
         answers=request.get("answers", []),
         round=request.get("round", 1),
     )
-    # Attach stable IDs so /gaps/assess and /review can correlate answers
     for q in questions:
         if not q.get("id"):
             q["id"] = str(uuid.uuid4())
@@ -93,9 +120,6 @@ async def gaps_assess(request: dict):
     """
     Assess whether the gathered evidence and answers are sufficient
     to proceed with a review.
-
-    Accepts evidence alongside questions and answers so the assessor
-    has the full architecture context when evaluating minimum coverage.
 
     Returns:
         GapAssessmentResult with resolved, canProceed, remainingCount,
@@ -117,8 +141,10 @@ async def review(request: dict):
     Run the full 10-stage Lens review pipeline.
 
     Validates that sufficient evidence has been provided before running.
-    Returns 400 with a structured error if evidence is insufficient.
-    Returns 500 with a structured error if the pipeline fails.
+    Returns 400 if evidence is insufficient.
+    Returns 503 with a structured error if the pipeline completes but
+    produces an empty/unsubstantive report due to LLM stage failures.
+    Returns 500 with a structured error if the pipeline itself crashes.
 
     Returns:
         JSON review report with executiveSummary, overallRating,
@@ -126,7 +152,6 @@ async def review(request: dict):
         structuralAnalysis, risks, recommendations,
         insufficientInfoFindings, completedStages.
     """
-    # Validate input before running the expensive pipeline
     validation_error = _validate_review_request(request)
     if validation_error:
         return JSONResponse(
@@ -164,7 +189,35 @@ async def review(request: dict):
         graph = build_graph()
         final_state = await graph.ainvoke(initial_state)
         report = final_state.get("review_report", {})
+
+        # Guard against empty reports caused by widespread LLM stage failures.
+        # A caller receiving HTTP 200 with an empty report would have no signal
+        # that the review was not actually performed.
+        if not _report_is_substantive(report):
+            pipeline_gaps = final_state.get("pipeline_gaps", [])
+            logger.error(
+                "review: pipeline produced unsubstantive report. "
+                "session=%s pipeline_gaps=%s",
+                request.get("session_id"),
+                pipeline_gaps,
+            )
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "Review incomplete",
+                    "detail": (
+                        "The review pipeline completed but most analysis stages "
+                        "failed. This is usually caused by LLM timeouts or rate "
+                        "limits. Please retry the request."
+                    ),
+                    "session_id": request.get("session_id"),
+                    "pipeline_gaps": pipeline_gaps,
+                    "completed_stages": final_state.get("completed_stages", []),
+                },
+            )
+
         return JSONResponse(content=report)
+
     except Exception as exc:
         logger.exception(
             "review: pipeline failed session=%s error=%s",

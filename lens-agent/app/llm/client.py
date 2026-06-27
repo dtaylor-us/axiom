@@ -3,9 +3,14 @@
 Mirrors the specweaver-agent LLM client pattern. Supports OpenAI and Ollama.
 All pipeline tools must call complete() through this module — never import
 openai directly.
+
+Includes retry logic with exponential backoff for transient failures.
+Long prompts (rich evidence + CRITICAL RULES) can occasionally trigger
+timeouts or rate limits; retrying recovers most of these.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -21,8 +26,29 @@ DEFAULT_OPENAI_TEMPERATURE = 0.2
 DEFAULT_OLLAMA_BASE_URL = "http://host.docker.internal:11434"
 DEFAULT_OLLAMA_MODEL = "qwen3:14b"
 DEFAULT_OLLAMA_TEMPERATURE = 0.1
+
+# OpenAI timeout per attempt. Total wall time with retries is
+# OPENAI_TIMEOUT_SECONDS * MAX_RETRIES + backoff time.
 OPENAI_TIMEOUT_SECONDS = 120
 OLLAMA_TIMEOUT_SECONDS = 300
+
+# Retry configuration for transient LLM failures (timeouts, 429, 5xx).
+# 3 attempts with exponential backoff: 2s, 4s, 8s.
+MAX_RETRIES = 3
+RETRY_BASE_DELAY_SECONDS = 2.0
+
+# Error substrings that are transient and worth retrying.
+_RETRYABLE_ERRORS = (
+    "timeout",
+    "timed out",
+    "rate limit",
+    "429",
+    "500",
+    "502",
+    "503",
+    "connection",
+    "read error",
+)
 
 
 class LLMProvider(str, Enum):
@@ -42,6 +68,8 @@ class LLMClient:
 
     Supports OpenAI and Ollama. All tools call complete() through this
     class — never import openai or httpx directly in tool modules.
+
+    Includes retry with exponential backoff for transient failures.
     """
 
     def __init__(self) -> None:
@@ -54,15 +82,24 @@ class LLMClient:
         if self._provider == LLMProvider.OLLAMA:
             self._base_url = os.getenv("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL)
             self._model = os.getenv("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
-            self._temperature = float(os.getenv("OLLAMA_TEMPERATURE", str(DEFAULT_OLLAMA_TEMPERATURE)))
+            self._temperature = float(
+                os.getenv("OLLAMA_TEMPERATURE", str(DEFAULT_OLLAMA_TEMPERATURE))
+            )
             self.model_name = self._model
-            logger.info("LLMClient: provider=ollama model=%s base_url=%s", self._model, self._base_url)
+            logger.info(
+                "LLMClient: provider=ollama model=%s base_url=%s",
+                self._model,
+                self._base_url,
+            )
             return
 
         import openai
+
         self._openai_client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self._model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
-        self._temperature = float(os.getenv("OPENAI_TEMPERATURE", str(DEFAULT_OPENAI_TEMPERATURE)))
+        self._temperature = float(
+            os.getenv("OPENAI_TEMPERATURE", str(DEFAULT_OPENAI_TEMPERATURE))
+        )
         self.model_name = self._model
         logger.info("LLMClient: provider=openai model=%s", self._model)
 
@@ -77,6 +114,9 @@ class LLMClient:
         """
         Call the configured LLM and return raw response content.
 
+        Retries up to MAX_RETRIES times with exponential backoff on
+        transient failures (timeouts, rate limits, 5xx errors).
+
         Args:
             prompt: Rendered prompt text.
             response_format: 'json' or 'text'.
@@ -88,7 +128,7 @@ class LLMClient:
             Raw response text from the model.
 
         Raises:
-            LLMCallException: If the provider call fails.
+            LLMCallException: If the provider call fails after all retries.
         """
         if response_format == "json":
             prompt = (
@@ -99,32 +139,65 @@ class LLMClient:
             )
 
         start = time.monotonic()
-        try:
-            if self._provider == LLMProvider.OLLAMA:
-                result = await self._complete_ollama(prompt, response_format, output_schema)
-            else:
-                result = await self._complete_openai(prompt, response_format, output_schema, schema_name)
-        except Exception as exc:
-            logger.error(
-                "LLM call failed. provider=%s stage=%s error=%s",
-                self._provider.value,
-                stage_name or "unknown",
-                str(exc)[:300],
-            )
-            raise LLMCallException(f"LLM call failed: {exc}") from exc
+        last_exc: Exception | None = None
 
-        if response_format == "json":
-            result = self._strip_markdown_fences(result)
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                if self._provider == LLMProvider.OLLAMA:
+                    result = await self._complete_ollama(
+                        prompt, response_format, output_schema
+                    )
+                else:
+                    result = await self._complete_openai(
+                        prompt, response_format, output_schema, schema_name
+                    )
 
-        duration = time.monotonic() - start
-        logger.info(
-            "LLMClient.complete: provider=%s stage=%s duration_ms=%d response_len=%d",
-            self._provider.value,
-            stage_name or "unknown",
-            int(duration * 1000),
-            len(result),
-        )
-        return result
+                if response_format == "json":
+                    result = self._strip_markdown_fences(result)
+
+                duration = time.monotonic() - start
+                logger.info(
+                    "LLMClient.complete: provider=%s stage=%s attempt=%d "
+                    "duration_ms=%d response_len=%d",
+                    self._provider.value,
+                    stage_name or "unknown",
+                    attempt,
+                    int(duration * 1000),
+                    len(result),
+                )
+                return result
+
+            except Exception as exc:
+                last_exc = exc
+                error_str = str(exc).lower()
+                is_retryable = any(e in error_str for e in _RETRYABLE_ERRORS)
+
+                if not is_retryable or attempt == MAX_RETRIES:
+                    logger.error(
+                        "LLM call failed permanently. provider=%s stage=%s "
+                        "attempt=%d error=%s",
+                        self._provider.value,
+                        stage_name or "unknown",
+                        attempt,
+                        str(exc)[:300],
+                    )
+                    raise LLMCallException(f"LLM call failed: {exc}") from exc
+
+                delay = RETRY_BASE_DELAY_SECONDS * (2 ** (attempt - 1))
+                logger.warning(
+                    "LLM call failed, retrying. provider=%s stage=%s "
+                    "attempt=%d/%d delay=%.1fs error=%s",
+                    self._provider.value,
+                    stage_name or "unknown",
+                    attempt,
+                    MAX_RETRIES,
+                    delay,
+                    str(exc)[:200],
+                )
+                await asyncio.sleep(delay)
+
+        # Should not reach here but satisfies type checker
+        raise LLMCallException(f"LLM call failed after {MAX_RETRIES} attempts") from last_exc
 
     async def _complete_ollama(
         self,
@@ -145,13 +218,19 @@ class LLMClient:
         elif response_format == "json":
             payload["format"] = "json"
 
-        async with httpx.AsyncClient(timeout=httpx.Timeout(OLLAMA_TIMEOUT_SECONDS)) as client:
-            response = await client.post(f"{self._base_url}/api/generate", json=payload)
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(OLLAMA_TIMEOUT_SECONDS)
+        ) as client:
+            response = await client.post(
+                f"{self._base_url}/api/generate", json=payload
+            )
             response.raise_for_status()
             data = response.json()
             content = str(data.get("response", ""))
             if not content.strip():
-                raise ValueError(f"Ollama returned empty response for stage={self._model}")
+                raise ValueError(
+                    f"Ollama returned empty response for stage={self._model}"
+                )
             return content
 
     async def _complete_openai(
@@ -184,10 +263,11 @@ class LLMClient:
                 timeout=OPENAI_TIMEOUT_SECONDS,
             )
         except Exception as exc:
-            # Retry without strict schema if OpenAI rejects it
+            # Retry without strict schema if OpenAI rejects it as invalid
             if output_schema is not None and "Invalid schema" in str(exc):
                 logger.warning(
-                    "OpenAI rejected json_schema for %s; retrying with json_object. error=%s",
+                    "OpenAI rejected json_schema for %s; retrying with "
+                    "json_object. error=%s",
                     schema_name,
                     str(exc)[:300],
                 )
@@ -210,7 +290,7 @@ class LLMClient:
             first_newline = stripped.find("\n")
             if first_newline == -1:
                 return stripped.strip("`")
-            stripped = stripped[first_newline + 1:]
+            stripped = stripped[first_newline + 1 :]
             if stripped.rstrip().endswith("```"):
                 stripped = stripped.rstrip()[:-3].rstrip()
         return stripped
