@@ -40,7 +40,7 @@ spring:
           predicates:
             - Path=/api/v1/lens/**
           filters:
-            - RewritePath=/api/v1/lens/(?<segment>.*), /api/v1/${segment}
+            - StripPrefix=0
             - AddRequestHeader=X-Axiom-Pillar, lens
         - id: auth
           uri: ${ARCHON_API_BASE_URL:http://archon-api:8081}

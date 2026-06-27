@@ -30,6 +30,7 @@ import { PillarIcon } from './components/PillarIcon';
 import { ToastProvider, emitToast } from './components/Toast';
 import { getToken } from './api/auth';
 import { getPipelineStatus, getRunStatus, reattachStream } from './api/chat';
+import { listReviewSessions, type ReviewSession as LensReviewSession } from './api/lens';
 import { getSessionMessages, listSessions } from './api/sessions';
 import { listWorkshopSessions } from './api/workshop';
 import type { Session as SpecWeaverSession } from './api/specweaver';
@@ -219,6 +220,14 @@ function getSpecWeaverSessionTitle(session: SpecWeaverSession): string {
   return session.title?.trim() ? session.title : 'Untitled session';
 }
 
+function getLensSessionId(pathname: string): string | null {
+  const pathParts = pathname.split('/').filter(Boolean);
+  if (pathParts[0] !== 'lens') return null;
+  if (pathParts[1] !== 'sessions') return null;
+  if (!pathParts[2]) return null;
+  return pathParts[2];
+}
+
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -251,6 +260,9 @@ function AppContent() {
   const [workshopSessions, setWorkshopSessions] = useState<WorkshopSessionSummary[]>([]);
   const [workshopSessionsLoading, setWorkshopSessionsLoading] = useState(false);
   const [workshopSessionsError, setWorkshopSessionsError] = useState<string | null>(null);
+  const [lensSessions, setLensSessions] = useState<LensReviewSession[]>([]);
+  const [lensSessionsLoading, setLensSessionsLoading] = useState(false);
+  const [lensSessionsError, setLensSessionsError] = useState<string | null>(null);
   const [selectedWorkshopSessionId, setSelectedWorkshopSessionId] = useState<string | null>(null);
   const [workshopRefreshKey, setWorkshopRefreshKey] = useState(0);
   const [newWorkshopKey, setNewWorkshopKey] = useState(0);
@@ -283,6 +295,7 @@ function AppContent() {
   const activeSpecWeaverSessionId = isSpecWeaverRoute
     ? getSpecWeaverSessionId(location.pathname)
     : null;
+  const activeLensSessionId = isLensRoute ? getLensSessionId(location.pathname) : null;
 
   useEffect(() => {
     document.title = getPillarTitle(location.pathname);
@@ -328,6 +341,16 @@ function AppContent() {
 
   const handleOpenSpecWeaverSession = (sessionId: string) => {
     navigate(`/specweaver/sessions/${sessionId}`);
+    setMobileDrawerOpen(false);
+  };
+
+  const handleCreateLensSession = () => {
+    navigate('/lens/new');
+    setMobileDrawerOpen(false);
+  };
+
+  const handleOpenLensSession = (sessionId: string) => {
+    navigate(`/lens/sessions/${sessionId}`);
     setMobileDrawerOpen(false);
   };
 
@@ -393,6 +416,29 @@ function AppContent() {
     void loadSpecWeaverSessionHistory();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, isSpecWeaverRoute]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!token) return;
+    if (!isLensRoute) return;
+
+    setLensSessionsLoading(true);
+    setLensSessionsError(null);
+    listReviewSessions(token)
+      .then((items) => {
+        if (!cancelled) setLensSessions(items);
+      })
+      .catch((error) => {
+        if (!cancelled) setLensSessionsError((error as Error).message ?? 'Failed to load Lens reviews');
+      })
+      .finally(() => {
+        if (!cancelled) setLensSessionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, isLensRoute, location.pathname]);
 
   // Conversation and chat URLs should render the chat shell immediately, even
   // while message hydration is still in-flight.
@@ -771,6 +817,17 @@ function AppContent() {
                 </svg>
                 {isCreatingSpecWeaverSession ? 'Creating session...' : 'New session'}
               </button>
+            ) : isLensRoute ? (
+              <button
+                onClick={handleCreateLensSession}
+                className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors"
+                data-testid="new-lens-review"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M8 3v10M3 8h10" />
+                </svg>
+                New architecture review
+              </button>
             ) : (
               <>
                 <button
@@ -814,6 +871,20 @@ function AppContent() {
                   <path d="M4 6h16M4 12h16M4 18h10" />
                 </svg>
                 Sessions
+              </button>
+            ) : isLensRoute ? (
+              <button
+                onClick={() => {
+                  navigate('/lens');
+                  setMobileDrawerOpen(false);
+                }}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors bg-sidebar-hover text-white"
+                data-testid="nav-lens-reviews"
+              >
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.5 5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11m4.3 9.3L20 20M9 10.5h3m-1.5-1.5v3" />
+                </svg>
+                Reviews
               </button>
             ) : (
               NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
@@ -883,7 +954,7 @@ function AppContent() {
             </div>
           )}
 
-          {!isSpecWeaverRoute && hasConversation && (
+          {!isSpecWeaverRoute && !isLensRoute && hasConversation && (
             <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
               <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
@@ -915,7 +986,7 @@ function AppContent() {
 
           <div className="mt-3 px-2">
             <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
-              {isSpecWeaverRoute ? 'Sessions' : activeView === 'workshop' ? 'Workshops' : 'History'}
+              {isSpecWeaverRoute ? 'Sessions' : isLensRoute ? 'Reviews' : activeView === 'workshop' ? 'Workshops' : 'History'}
             </h3>
             {isSpecWeaverRoute ? (
               specWeaverSessionsLoading ? (
@@ -946,6 +1017,41 @@ function AppContent() {
                         </div>
                         <div className="text-[10px] text-gray-500 mt-0.5 truncate">
                           {SPECWEAVER_STATUS_LABELS[session.status]}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )
+            ) : isLensRoute ? (
+              lensSessionsLoading ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">Loading...</div>
+              ) : lensSessionsError ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">{lensSessionsError}</div>
+              ) : lensSessions.length === 0 ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">No Lens reviews yet</div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {lensSessions.map((session) => {
+                    const active = session.id === activeLensSessionId;
+                    return (
+                      <button
+                        key={session.id}
+                        onClick={() => handleOpenLensSession(session.id)}
+                        className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
+                          active
+                            ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                            : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                        }`}
+                        title={session.title}
+                        data-testid={`lens-history-${session.id}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                          <span className={`truncate ${active ? 'font-medium' : ''}`}>{session.title || 'Untitled review'}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                          {session.status.replace(/_/g, ' ')}
                         </div>
                       </button>
                     );
@@ -1117,6 +1223,17 @@ function AppContent() {
                     </svg>
                     {isCreatingSpecWeaverSession ? 'Creating session...' : 'New session'}
                   </button>
+                ) : isLensRoute ? (
+                  <button
+                    onClick={handleCreateLensSession}
+                    className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-3 text-[14px] text-gray-100 hover:bg-sidebar-hover transition-colors"
+                    data-testid="mobile-new-lens-review"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M8 3v10M3 8h10" />
+                    </svg>
+                    New architecture review
+                  </button>
                 ) : (
                   <>
                     <button
@@ -1164,6 +1281,20 @@ function AppContent() {
                         <path d="M4 6h16M4 12h16M4 18h10" />
                       </svg>
                       Sessions
+                    </button>
+                  ) : isLensRoute ? (
+                    <button
+                      onClick={() => {
+                        navigate('/lens');
+                        setMobileDrawerOpen(false);
+                      }}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors bg-sidebar-hover text-white"
+                      data-testid="mobile-drawer-nav-lens-reviews"
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.5 5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11m4.3 9.3L20 20M9 10.5h3m-1.5-1.5v3" />
+                      </svg>
+                      Reviews
                     </button>
                   ) : (
                     NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
@@ -1237,7 +1368,7 @@ function AppContent() {
                 </section>
               )}
 
-              {!isSpecWeaverRoute && hasConversation && (
+              {!isSpecWeaverRoute && !isLensRoute && hasConversation && (
                 <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
                   <div className="px-2 pt-1 pb-1 flex items-center gap-1.5">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
@@ -1272,7 +1403,7 @@ function AppContent() {
 
               <details className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/20" open>
                 <summary className="list-none cursor-pointer px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest flex items-center justify-between">
-                  <span>{isSpecWeaverRoute ? 'Sessions' : activeView === 'workshop' ? 'Workshops' : 'History'}</span>
+                  <span>{isSpecWeaverRoute ? 'Sessions' : isLensRoute ? 'Reviews' : activeView === 'workshop' ? 'Workshops' : 'History'}</span>
                   <span className="text-gray-400 text-[11px] normal-case">Toggle</span>
                 </summary>
                 <div className="px-2 pb-3">
@@ -1305,6 +1436,41 @@ function AppContent() {
                               </div>
                               <div className="text-[10px] text-gray-500 mt-0.5 truncate">
                                 {SPECWEAVER_STATUS_LABELS[session.status]}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )
+                  ) : isLensRoute ? (
+                    lensSessionsLoading ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">Loading...</div>
+                    ) : lensSessionsError ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">{lensSessionsError}</div>
+                    ) : lensSessions.length === 0 ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">No Lens reviews yet</div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {lensSessions.map((session) => {
+                          const active = session.id === activeLensSessionId;
+                          return (
+                            <button
+                              key={session.id}
+                              onClick={() => handleOpenLensSession(session.id)}
+                              className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors ${
+                                active
+                                  ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                  : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                              }`}
+                              title={session.title}
+                              data-testid={`mobile-lens-history-${session.id}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                                <span className={`truncate ${active ? 'font-medium' : ''}`}>{session.title || 'Untitled review'}</span>
+                              </div>
+                              <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                                {session.status.replace(/_/g, ' ')}
                               </div>
                             </button>
                           );
@@ -1445,12 +1611,16 @@ function AppContent() {
                   void handleCreateSpecWeaverSession();
                   return;
                 }
+                if (isLensRoute) {
+                  handleCreateLensSession();
+                  return;
+                }
                 handleStartNewChat();
               }}
-              disabled={isSpecWeaverRoute ? isCreatingSpecWeaverSession : isStreaming}
+              disabled={isSpecWeaverRoute ? isCreatingSpecWeaverSession : isLensRoute ? false : isStreaming}
               className="text-xs font-medium rounded-lg px-2.5 py-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
             >
-              {isSpecWeaverRoute ? 'New session' : 'New'}
+              {isSpecWeaverRoute ? 'New session' : isLensRoute ? 'New review' : 'New'}
             </button>
           </div>
         </div>

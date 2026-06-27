@@ -16,6 +16,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/specweaver-api/, ''),
       },
+      '/lens-api': {
+        target: process.env.LENS_API_PROXY_TARGET || 'http://localhost:8083',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/lens-api/, ''),
+      },
     },
   },
   test: {

@@ -1,0 +1,56 @@
+- generic [ref=e30]:
+  - complementary [ref=e31]:
+    - generic [ref=e33]:
+      - img [ref=e35]
+      - generic [ref=e38]:
+        - generic [ref=e39]: Axiom
+        - generic [ref=e40]: Architecture Intelligence
+    - generic [ref=e41]:
+      - navigation "Platform pillars" [ref=e42]:
+        - paragraph [ref=e44]: Platform pillars
+        - generic [ref=e45]:
+          - link "SpecWeaver Requirements Intelligence" [ref=e46] [cursor=pointer]:
+            - /url: /specweaver
+            - generic [ref=e47]:
+              - img [ref=e49]
+              - generic [ref=e53]:
+                - generic [ref=e54]: SpecWeaver
+                - generic [ref=e55]: Requirements Intelligence
+          - link "Archon Architecture Reasoning" [ref=e56] [cursor=pointer]:
+            - /url: /archon
+            - generic [ref=e57]:
+              - img [ref=e59]
+              - generic [ref=e64]:
+                - generic [ref=e65]: Archon
+                - generic [ref=e66]: Architecture Reasoning
+          - link "Lens Architecture Review Intelligence" [ref=e67] [cursor=pointer]:
+            - /url: /lens
+            - generic [ref=e68]:
+              - img [ref=e70]
+              - generic [ref=e75]:
+                - generic [ref=e76]: Lens
+                - generic [ref=e77]: Architecture Review Intelligence
+      - button "New chat" [ref=e79]:
+        - img [ref=e80]
+        - text: New chat
+      - navigation [ref=e82]:
+        - button "Home" [ref=e83]:
+          - img [ref=e84]
+          - text: Home
+        - button "Chat" [ref=e86]:
+          - img [ref=e87]
+          - text: Chat
+        - button "Workshop" [ref=e89]:
+          - img [ref=e90]
+          - text: Workshop
+      - generic [ref=e92]:
+        - heading "History" [level=3] [ref=e93]
+        - generic [ref=e94]: No chats yet
+    - generic [ref=e95]:
+      - generic [ref=e96]:
+        - generic [ref=e98]: G
+        - generic [ref=e99]: Guest
+      - button "Sign out" [ref=e100]:
+        - img [ref=e101]
+        - text: Sign out
+  - main [ref=e103]

@@ -7,47 +7,37 @@ import { FeatureCard } from '../../components/landing/FeatureCard';
 import { SectionHeading } from '../../components/landing/SectionHeading';
 import { useStore } from '../../store/useStore';
 
-const FEATURES = [
+const STEPS = [
   {
-    icon: '🧭',
+    icon: '1',
     iconBg: '#fff7ed',
-    title: 'Evidence-grounded reviews',
-    description: 'Lens evaluates submitted architecture evidence against structured review frameworks and records what is actually supported.',
+    title: 'Submit evidence',
+    description: 'Capture architecture facts, diagrams, decisions, and requirements evidence.',
   },
   {
-    icon: '❓',
+    icon: '2',
     iconBg: '#fff7ed',
-    title: 'Gap elicitation',
-    description: 'Targeted questions close the most important unknowns. Skipped answers are preserved and unresolved gaps become findings.',
+    title: 'Fill the gaps',
+    description: 'Answer targeted Lens questions or proceed with unresolved gaps captured as findings.',
   },
   {
-    icon: '🛡',
+    icon: '3',
     iconBg: '#fff7ed',
-    title: 'Risk register',
-    description: 'Produces a prioritized register of architecture risks with severity, likelihood, area, and mitigation strategy.',
-  },
-  {
-    icon: '📊',
-    iconBg: '#fff7ed',
-    title: 'Framework scorecards',
-    description: 'Covers Azure WAF, SEI ATAM, ISO/IEC 25010, and TOGAF principles with a structured review report.',
-  },
-  {
-    icon: '🧱',
-    iconBg: '#fff7ed',
-    title: 'Structural analysis',
-    description: 'Scores coupling, cohesion, dependency direction, and boundary clarity from the evidence you provide.',
-  },
-  {
-    icon: '🧾',
-    iconBg: '#fff7ed',
-    title: 'Actionable roadmap',
-    description: 'Recommendation output stays specific and bounded so the user always has a next step, never a dead end.',
+    title: 'Receive report',
+    description: 'Get a full architecture review with findings, risk register, and prioritized recommendations.',
   },
 ];
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
+}
+
+function statusBadge(status: ReviewSession['status']): string {
+  if (status === 'COMPLETE') return 'bg-emerald-100 text-emerald-800';
+  if (status === 'IN_REVIEW') return 'bg-amber-100 text-amber-800';
+  if (status === 'READY_FOR_REVIEW') return 'bg-sky-100 text-sky-800';
+  if (status === 'GAP_ELICITATION') return 'bg-orange-100 text-orange-800';
+  return 'bg-gray-100 text-gray-700';
 }
 
 export function LensHomePage() {
@@ -85,9 +75,9 @@ export function LensHomePage() {
         </section>
 
         <section className="landing-section--compact">
-          <SectionHeading title="How it works" accent="var(--color-pillar-lens)" />
+          <SectionHeading title="Three-step review flow" accent="var(--color-pillar-lens)" />
           <div className="feature-cards-grid">
-            {FEATURES.map((card) => <FeatureCard key={card.title} {...card} />)}
+            {STEPS.map((card) => <FeatureCard key={card.title} {...card} />)}
           </div>
         </section>
 
@@ -106,7 +96,12 @@ export function LensHomePage() {
                   data-testid={`lens-home-session-${session.id}`}
                 >
                   <span className="min-w-0 truncate font-medium text-gray-800">{session.title}</span>
-                  <span className="shrink-0 text-xs text-gray-500">{formatDate(session.createdAt)}</span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusBadge(session.status)}`}>
+                      {session.status}
+                    </span>
+                    <span className="text-xs text-gray-500">{formatDate(session.createdAt)}</span>
+                  </span>
                 </button>
               ))
             )}
@@ -114,7 +109,7 @@ export function LensHomePage() {
         </section>
 
         <section className="landing-section--compact">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-500">Azure Well-Architected · SEI ATAM · ISO/IEC 25010 · TOGAF</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-500">Azure Well-Architected · SEI ATAM · ISO/IEC 25010</p>
         </section>
       </div>
     </div>

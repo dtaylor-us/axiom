@@ -16,6 +16,16 @@ const STAGE_LABELS: Record<string, string> = {
   weakness_analysis: 'Weakness Analysis',
   fmea_analysis: 'FMEA Analysis',
   architecture_review: 'Architecture Review',
+  evidence_parsing: 'Evidence Parsing',
+  azure_waf_analysis: 'Azure WAF Analysis',
+  atam_analysis: 'ATAM Analysis',
+  sei_analysis: 'SEI Analysis',
+  structural_analysis: 'Structural Analysis',
+  risk_identification: 'Risk Identification',
+  recommendation_generation: 'Recommendation Generation',
+  executive_summary: 'Executive Summary',
+  report_assembly: 'Report Assembly',
+  review_complete: 'Review Complete',
 };
 
 function StatusIcon({ status }: { status: string }) {

@@ -50,6 +50,11 @@ export interface GapAssessmentResult {
   summary: string;
 }
 
+export interface ForceProceedResult {
+  status: ReviewStatus;
+  insufficientInfoGaps: string[];
+}
+
 export interface ReviewReportFinding {
   findingType: string;
   category: string | null;
@@ -81,9 +86,63 @@ export interface ReviewReport {
   insufficientInfoGaps: Record<string, unknown>;
   findings: ReviewReportFinding[];
   risks: ReviewRisk[];
-  recommendationRoadmap: string;
+  recommendationRoadmap: unknown;
   overallRating: OverallRating;
   generatedAt: string;
+}
+
+interface ProblemDetail {
+  detail?: string;
+  title?: string;
+}
+
+function decodeJwtIdentity(token: string): string | null {
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  try {
+    const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const payload = JSON.parse(atob(padded)) as { sub?: unknown; email?: unknown; username?: unknown };
+    if (typeof payload.sub === 'string' && payload.sub.trim().length > 0) return payload.sub;
+    if (typeof payload.email === 'string' && payload.email.trim().length > 0) return payload.email;
+    if (typeof payload.username === 'string' && payload.username.trim().length > 0) return payload.username;
+  } catch {
+    // Ignore malformed token payloads and fall back to persisted identity.
+  }
+  return null;
+}
+
+function resolveUserIdentity(token?: string): string {
+  if (token && token.length > 0) {
+    const jwtIdentity = decodeJwtIdentity(token);
+    if (jwtIdentity) return jwtIdentity;
+  }
+  if (typeof window === 'undefined') return 'guest';
+  try {
+    const raw = window.localStorage.getItem('archon.auth');
+    if (!raw) return 'guest';
+    const parsed = JSON.parse(raw) as { username?: unknown };
+    if (typeof parsed.username === 'string' && parsed.username.trim().length > 0) {
+      return parsed.username;
+    }
+  } catch {
+    // Fall back to guest identity when local storage is unavailable or malformed.
+  }
+  return 'guest';
+}
+
+function buildAuthHeaders(token: string, includeJson = false): Record<string, string> {
+  const headers: Record<string, string> = {
+    'X-Axiom-User-Id': resolveUserIdentity(token),
+  };
+  const trimmedToken = token.trim();
+  if (trimmedToken.length > 0 && trimmedToken !== 'null' && trimmedToken !== 'undefined') {
+    headers.Authorization = `Bearer ${trimmedToken}`;
+  }
+  if (includeJson) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return headers;
 }
 
 async function authPostJson<T>(url: string, token: string, body?: unknown): Promise<T> {
@@ -91,10 +150,7 @@ async function authPostJson<T>(url: string, token: string, body?: unknown): Prom
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: buildAuthHeaders(token, true),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
@@ -106,7 +162,13 @@ async function authPostJson<T>(url: string, token: string, body?: unknown): Prom
     return response.json() as Promise<T>;
   }
 
-  throw new ApiError(response.status, `Request failed (${response.status})`);
+  let problem: ProblemDetail | undefined;
+  try {
+    problem = (await response.json()) as ProblemDetail;
+  } catch {
+    problem = undefined;
+  }
+  throw new ApiError(response.status, problem?.detail ?? problem?.title ?? `Request failed (${response.status})`, problem);
 }
 
 async function authDelete(url: string, token: string): Promise<void> {
@@ -114,14 +176,20 @@ async function authDelete(url: string, token: string): Promise<void> {
   try {
     response = await fetch(url, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: buildAuthHeaders(token),
     });
   } catch {
     throw new ApiError(0, 'Network error — check your connection and try again.');
   }
 
   if (response.ok || response.status === 204) return;
-  throw new ApiError(response.status, `Request failed (${response.status})`);
+  let problem: ProblemDetail | undefined;
+  try {
+    problem = (await response.json()) as ProblemDetail;
+  } catch {
+    problem = undefined;
+  }
+  throw new ApiError(response.status, problem?.detail ?? problem?.title ?? `Request failed (${response.status})`, problem);
 }
 
 export async function createReviewSession(token: string, title: string, systemDescription: string): Promise<ReviewSession> {
@@ -134,6 +202,39 @@ export async function listReviewSessions(token: string): Promise<ReviewSession[]
 
 export async function getReviewSession(token: string, sessionId: string): Promise<ReviewSession> {
   return authFetchJson<ReviewSession>(`${BASE}/${sessionId}`, token);
+}
+
+async function authPutJson<T>(url: string, token: string, body: unknown): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'PUT',
+      headers: buildAuthHeaders(token, true),
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(0, 'Network error - check your connection and try again.');
+  }
+
+  if (response.ok) {
+    return response.json() as Promise<T>;
+  }
+
+  let problem: ProblemDetail | undefined;
+  try {
+    problem = (await response.json()) as ProblemDetail;
+  } catch {
+    problem = undefined;
+  }
+  throw new ApiError(response.status, problem?.detail ?? problem?.title ?? `Request failed (${response.status})`, problem);
+}
+
+export async function updateReviewSession(
+  token: string,
+  sessionId: string,
+  payload: Pick<ReviewSession, 'title' | 'systemDescription'>,
+): Promise<ReviewSession> {
+  return authPutJson<ReviewSession>(`${BASE}/${sessionId}`, token, payload);
 }
 
 export async function deleteReviewSession(token: string, sessionId: string): Promise<void> {
@@ -156,16 +257,30 @@ export async function generateGapQuestions(token: string, sessionId: string): Pr
   return authPostJson<GapQuestion[]>(`${BASE}/${sessionId}/gaps/generate`, token);
 }
 
-export async function answerGapQuestion(token: string, sessionId: string, questionId: string, answer: string): Promise<GapQuestion> {
-  return authPostJson<GapQuestion>(`${BASE}/${sessionId}/gaps/${questionId}/answer`, token, { answer });
+export async function listGapQuestions(token: string, sessionId: string): Promise<GapQuestion[]> {
+  return authFetchJson<GapQuestion[]>(`${BASE}/${sessionId}/gaps`, token);
+}
+
+export async function answerGapQuestion(
+  token: string,
+  sessionId: string,
+  questionId: string,
+  answer: string,
+  skipped = false,
+): Promise<GapQuestion> {
+  return authPostJson<GapQuestion>(`${BASE}/${sessionId}/gaps/${questionId}/answer`, token, { answer, skipped });
 }
 
 export async function assessGaps(token: string, sessionId: string): Promise<GapAssessmentResult> {
   return authPostJson<GapAssessmentResult>(`${BASE}/${sessionId}/gaps/assess`, token);
 }
 
-export async function forceProceed(token: string, sessionId: string): Promise<ReviewSession> {
-  return authPostJson<ReviewSession>(`${BASE}/${sessionId}/proceed`, token);
+export async function forceProceed(token: string, sessionId: string): Promise<ForceProceedResult> {
+  return authPostJson<ForceProceedResult>(`${BASE}/${sessionId}/proceed`, token);
+}
+
+export async function startReview(token: string, sessionId: string): Promise<ReviewReport> {
+  return authPostJson<ReviewReport>(`${BASE}/${sessionId}/review`, token);
 }
 
 export async function getReviewReport(token: string, sessionId: string): Promise<ReviewReport> {

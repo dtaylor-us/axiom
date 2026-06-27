@@ -1,50 +1,90 @@
 package com.lens.api.controller;
 
 import com.lens.api.domain.model.GapQuestion;
+import com.lens.api.service.AuthenticationUserResolver;
 import com.lens.api.service.GapElicitationService;
+import com.lens.api.service.ReviewSessionService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/lens/sessions/{sessionId}/gaps")
+@RequestMapping("/api/v1/lens/sessions/{sessionId}")
+@RequiredArgsConstructor
 public class GapController {
 
-    private final GapElicitationService gapElicitationService = new GapElicitationService(new com.lens.api.client.LensAgentClient(org.springframework.web.reactive.function.client.WebClient.builder().build()));
+    private final GapElicitationService gapElicitationService;
+    private final ReviewSessionService reviewSessionService;
+    private final AuthenticationUserResolver userResolver;
 
-    @PostMapping("/generate")
-    public List<GapQuestion> generate(@PathVariable UUID sessionId) {
-        return gapElicitationService.generateNextRound(sessionId);
+    public record AnswerGapQuestionRequest(String answer, boolean skipped) {}
+
+    @PostMapping("/gaps/generate")
+    public List<GapQuestion> generate(
+            @PathVariable UUID sessionId,
+            Authentication authentication,
+            @RequestHeader(name = "X-Axiom-User-Id", required = false) String userIdHeader) {
+        String userId = userResolver.resolveUserId(authentication, userIdHeader).toString();
+        return gapElicitationService.generateNextRound(sessionId, userId);
     }
 
-    @PostMapping("/{questionId}/answer")
-    public GapQuestion answer(@PathVariable UUID sessionId, @PathVariable UUID questionId, @RequestBody(required = false) String answer) {
-        return new GapQuestion(questionId, sessionId, 1, com.lens.api.domain.model.GapCategory.STRUCTURAL, "Placeholder question", "Placeholder rationale", true, answer, false, java.time.LocalDateTime.now(), java.time.LocalDateTime.now());
+    @PostMapping("/gaps/{questionId}/answer")
+    public GapQuestion answer(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID questionId,
+            @Valid @RequestBody AnswerGapQuestionRequest request,
+            Authentication authentication,
+            @RequestHeader(name = "X-Axiom-User-Id", required = false) String userIdHeader) {
+        String userId = userResolver.resolveUserId(authentication, userIdHeader).toString();
+        return gapElicitationService.answerQuestion(
+                sessionId,
+                questionId,
+                request.answer(),
+                request.skipped(),
+                userId);
     }
 
-    @GetMapping
-    public List<GapQuestion> list(@PathVariable UUID sessionId) {
-        return List.of();
+    @GetMapping("/gaps")
+    public List<GapQuestion> list(
+            @PathVariable UUID sessionId,
+            Authentication authentication,
+            @RequestHeader(name = "X-Axiom-User-Id", required = false) String userIdHeader) {
+        String userId = userResolver.resolveUserId(authentication, userIdHeader).toString();
+        return gapElicitationService.getQuestionsForCurrentRound(sessionId, userId);
     }
 
-    @PostMapping("/assess")
-    public String assess(@PathVariable UUID sessionId) {
-        gapElicitationService.assessGaps(sessionId);
-        return "{\"resolved\":true,\"canProceed\":true}";
+    @PostMapping("/gaps/assess")
+    public Map<String, Object> assess(
+            @PathVariable UUID sessionId,
+            Authentication authentication,
+            @RequestHeader(name = "X-Axiom-User-Id", required = false) String userIdHeader) {
+        String userId = userResolver.resolveUserId(authentication, userIdHeader).toString();
+        return gapElicitationService.assessGaps(sessionId, userId);
     }
 
     @PostMapping("/proceed")
     @ResponseStatus(HttpStatus.OK)
-    public String proceed(@PathVariable UUID sessionId) {
-        gapElicitationService.forceProceed(sessionId);
-        return "{\"status\":\"READY_FOR_REVIEW\"}";
+    public Map<String, Object> proceed(
+            @PathVariable UUID sessionId,
+            Authentication authentication,
+            @RequestHeader(name = "X-Axiom-User-Id", required = false) String userIdHeader) {
+        String userId = userResolver.resolveUserId(authentication, userIdHeader).toString();
+        List<String> insufficient = reviewSessionService.forceProceed(sessionId, userId);
+        return Map.of(
+                "status", "READY_FOR_REVIEW",
+                "insufficientInfoGaps", insufficient);
     }
 }
