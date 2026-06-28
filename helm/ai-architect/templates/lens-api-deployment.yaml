@@ -19,6 +19,7 @@ spec:
         app.kubernetes.io/name: {{ .Chart.Name }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: lens-api
+        app: lens-api
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
@@ -47,8 +48,27 @@ spec:
                   key: db-password
             - name: LENS_AGENT_BASE_URL
               value: "http://lens-agent:8086"
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: ""
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: lens-jwt-secret
+            - name: AXIOM_INTERNAL_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: internal-secret
+            - name: LENS_GAP_MAX_ROUNDS
+              value: "5"
+            - name: LENS_GAP_MAX_QUESTIONS
+              value: "8"
+            # Disable OTEL SDK when no endpoint is configured.
+            # An empty endpoint causes Spring Boot to construct "/v1/traces"
+            # which is an invalid relative URL and crashes the application.
+            - name: OTEL_SDK_DISABLED
+              value: "true"
+            - name: MANAGEMENT_TRACING_ENABLED
+              value: "false"
           resources:
             {{- toYaml .Values.lensApi.resources | nindent 12 }}
           readinessProbe:
