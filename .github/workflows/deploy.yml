@@ -427,33 +427,37 @@ jobs:
             --output tsv 2>/dev/null || echo "")
           if [[ -z "$DB_EXISTS" ]]; then
             echo "::error::lens database not found on psql-axiom-dev-bpxn."
-            echo "Create it with:"
+            echo "Create it manually before re-running this workflow:"
             echo "  az postgres flexible-server db create \\"
             echo "    --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \\"
             echo "    --server-name psql-axiom-dev-bpxn \\"
             echo "    --database-name lens"
-            echo "Or apply Terraform: azurerm_postgresql_flexible_server_database.lens"
             exit 1
           fi
           echo "lens database: OK"
 
-          # Verify lens-jwt-secret exists and is not a placeholder.
-          # Generate a real value automatically if missing.
+          # Verify lens-jwt-secret exists in Key Vault and is not a placeholder.
+          # This secret must be set manually before the first deploy — the deploy
+          # identity has read access only (Key Vault Secrets User), not write access.
+          # To set it run:
+          #   az keyvault secret set \
+          #     --vault-name kv-axiom-dev-bpxn \
+          #     --name lens-jwt-secret \
+          #     --value "$(openssl rand -base64 48)"
           SECRET=$(az keyvault secret show \
             --vault-name "${{ secrets.KEY_VAULT_NAME }}" \
             --name lens-jwt-secret \
             --query value -o tsv 2>/dev/null || echo "")
           if [[ -z "$SECRET" || "$SECRET" == "placeholder-set-after-provisioning" ]]; then
-            echo "lens-jwt-secret is missing or placeholder — generating now..."
-            az keyvault secret set \
-              --vault-name "${{ secrets.KEY_VAULT_NAME }}" \
-              --name lens-jwt-secret \
-              --value "$(openssl rand -base64 48)" \
-              --output none
-            echo "lens-jwt-secret: SET"
-          else
-            echo "lens-jwt-secret: OK"
+            echo "::error::lens-jwt-secret is missing or still a placeholder in Key Vault."
+            echo "Set it manually before re-running this workflow:"
+            echo "  az keyvault secret set \\"
+            echo "    --vault-name ${{ secrets.KEY_VAULT_NAME }} \\"
+            echo "    --name lens-jwt-secret \\"
+            echo "    --value \"\$(openssl rand -base64 48)\""
+            exit 1
           fi
+          echo "lens-jwt-secret: OK"
 
       - name: Get ingress FQDN
         id: ingress
@@ -569,7 +573,6 @@ jobs:
           echo "Certificate not ready after 3 minutes."
           echo "Check status with:"
           echo "  kubectl describe certificate ai-architect-tls -n ai-architect"
-          echo "Note: continue-on-error is set — deploy is not failed."
 
       - name: Print status
         if: always()
