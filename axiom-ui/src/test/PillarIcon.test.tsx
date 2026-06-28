@@ -13,13 +13,19 @@ describe('PillarIcon', () => {
   it('renders archon icon without crashing', () => {
     render(<PillarIcon pillar="archon" />);
 
-    expect(screen.getByTestId('pillar-icon-archon')).toBeInTheDocument();
+    const icon = screen.getByTestId('pillar-icon-archon');
+    expect(icon).toBeInTheDocument();
+    expect(icon.querySelectorAll('rect')).toHaveLength(3);
+    expect(icon.querySelector('path')).toHaveAttribute('d', 'M12 9v3m-4.5 0h9M7.5 12v3m9-3v3');
   });
 
   it('renders lens icon without crashing', () => {
     render(<PillarIcon pillar="lens" />);
 
-    expect(screen.getByTestId('pillar-icon-lens')).toBeInTheDocument();
+    const icon = screen.getByTestId('pillar-icon-lens');
+    expect(icon).toBeInTheDocument();
+    expect(icon.querySelector('circle')).toHaveAttribute('cx', '10.5');
+    expect(icon.querySelector('path')).toHaveAttribute('d', 'M14.5 14.5 20 20');
   });
 
   it('renders axiom icon without crashing', () => {

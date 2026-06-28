@@ -39,6 +39,7 @@ import type { WorkshopSessionSummary } from './types/workshop';
 import { useSpecWeaverStore } from './store/useSpecWeaverStore';
 
 type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop' | 'specweaver';
+type Pillar = 'axiom' | 'archon' | 'specweaver' | 'lens';
 
 const STORAGE_KEYS = {
   lastView: 'archon.lastView',
@@ -48,7 +49,7 @@ const STORAGE_KEYS = {
 const CONVERSATION_HYDRATION_RETRY_ATTEMPTS = 5;
 const CONVERSATION_HYDRATION_RETRY_DELAY_MS = 400;
 
-function getCurrentPillar(pathname: string): 'axiom' | 'archon' | 'specweaver' | 'lens' {
+function getCurrentPillar(pathname: string): Pillar {
   if (pathname.startsWith('/specweaver')) return 'specweaver';
   if (pathname.startsWith('/lens')) return 'lens';
   if (pathname === '/') return 'axiom';
@@ -63,7 +64,7 @@ function getPillarTitle(pathname: string): string {
   return 'Axiom — Architecture Intelligence Platform';
 }
 
-function getPillarFavicon(pillar: 'axiom' | 'archon' | 'specweaver' | 'lens'): string {
+function getPillarFavicon(pillar: Pillar): string {
   const iconMap: Record<typeof pillar, { stroke: string; path: string }> = {
     axiom: {
       stroke: '%237B2FBE',
@@ -86,6 +87,22 @@ function getPillarFavicon(pillar: 'axiom' | 'archon' | 'specweaver' | 'lens'): s
   const { stroke, path } = iconMap[pillar];
 
   return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='${path}'/%3E%3C/svg%3E`;
+}
+
+function getSidebarPillarClass(pillar: Pillar): string {
+  return `sidebar-pillar-active--${pillar}`;
+}
+
+function getActiveSidebarItemClass(pillar: Pillar): string {
+  return `${getSidebarPillarClass(pillar)} sidebar-active-item`;
+}
+
+function getActiveSidebarNavClass(pillar: Pillar): string {
+  return `${getSidebarPillarClass(pillar)} sidebar-active-nav`;
+}
+
+function getActiveSidebarDotClass(pillar: Pillar): string {
+  return `${getSidebarPillarClass(pillar)} sidebar-active-dot`;
 }
 
 function getConversationIdFromPath(pathname: string): string | null {
@@ -292,6 +309,10 @@ function AppContent() {
   const isArchonHomeRoute = location.pathname === '/archon';
   const isArchonChatRoute = location.pathname === '/archon/chat';
   const isConversationRoute = !!getConversationIdFromPath(location.pathname);
+  const activeSidebarPillar: Pillar = isSpecWeaverRoute ? 'specweaver' : isLensRoute ? 'lens' : 'archon';
+  const activeSidebarItemClass = getActiveSidebarItemClass(activeSidebarPillar);
+  const activeSidebarNavClass = getActiveSidebarNavClass(activeSidebarPillar);
+  const activeSidebarDotClass = getActiveSidebarDotClass(activeSidebarPillar);
   const activeSpecWeaverSessionId = isSpecWeaverRoute
     ? getSpecWeaverSessionId(location.pathname)
     : null;
@@ -864,7 +885,7 @@ function AppContent() {
                   navigate('/specweaver/sessions');
                   setMobileDrawerOpen(false);
                 }}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors bg-sidebar-hover text-white"
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${activeSidebarNavClass}`}
                 data-testid="nav-specweaver-sessions"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -878,7 +899,7 @@ function AppContent() {
                   navigate('/lens');
                   setMobileDrawerOpen(false);
                 }}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors bg-sidebar-hover text-white"
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${activeSidebarNavClass}`}
                 data-testid="nav-lens-reviews"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -893,7 +914,7 @@ function AppContent() {
                   onClick={() => handleNavigatePrimaryView(key)}
                   className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
                     activeView === key
-                      ? 'bg-sidebar-hover text-white'
+                      ? activeSidebarNavClass
                       : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                   }`}
                   data-testid={`nav-${key}`}
@@ -910,7 +931,7 @@ function AppContent() {
           {isSpecWeaverRoute && activeSpecWeaverSessionId && (
             <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
               <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
                 <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
                   Active session
                 </span>
@@ -923,7 +944,7 @@ function AppContent() {
                   }}
                   className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
                     location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}`
-                      ? 'bg-sidebar-hover text-white'
+                      ? activeSidebarNavClass
                       : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                   }`}
                   data-testid="nav-specweaver-session"
@@ -940,7 +961,7 @@ function AppContent() {
                   }}
                   className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
                     location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}/package`
-                      ? 'bg-sidebar-hover text-white'
+                      ? activeSidebarNavClass
                       : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                   }`}
                   data-testid="nav-specweaver-package"
@@ -957,7 +978,7 @@ function AppContent() {
           {!isSpecWeaverRoute && !isLensRoute && hasConversation && (
             <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
               <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
                 <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
                   Active session
                 </span>
@@ -969,7 +990,7 @@ function AppContent() {
                     onClick={() => setActiveView(key)}
                     className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
                       activeView === key
-                        ? 'bg-sidebar-hover text-white'
+                        ? activeSidebarNavClass
                         : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                     }`}
                     data-testid={`nav-${key}`}
@@ -1005,14 +1026,14 @@ function AppContent() {
                         onClick={() => handleOpenSpecWeaverSession(session.id)}
                         className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
                           active
-                            ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                            ? activeSidebarItemClass
                             : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                         }`}
                         title={getSpecWeaverSessionTitle(session)}
                         data-testid={`specweaver-history-${session.id}`}
                       >
                         <div className="flex items-center gap-2">
-                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                          {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                           <span className={`truncate ${active ? 'font-medium' : ''}`}>{getSpecWeaverSessionTitle(session)}</span>
                         </div>
                         <div className="text-[10px] text-gray-500 mt-0.5 truncate">
@@ -1040,14 +1061,14 @@ function AppContent() {
                         onClick={() => handleOpenLensSession(session.id)}
                         className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
                           active
-                            ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                            ? activeSidebarItemClass
                             : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                         }`}
                         title={session.title}
                         data-testid={`lens-history-${session.id}`}
                       >
                         <div className="flex items-center gap-2">
-                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                          {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                           <span className={`truncate ${active ? 'font-medium' : ''}`}>{session.title || 'Untitled review'}</span>
                         </div>
                         <div className="text-[10px] text-gray-500 mt-0.5 truncate">
@@ -1075,15 +1096,14 @@ function AppContent() {
                         onClick={() => handleLoadWorkshopSession(ws.sessionId)}
                         className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
                           active
-                            ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                            ? activeSidebarItemClass
                             : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                         }`}
                         title={ws.systemName}
                         data-testid={`workshop-history-${ws.sessionId}`}
                       >
                         <div className="flex items-center gap-2">
-                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
-                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                          {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                           <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
                         </div>
                         <div className="text-[10px] text-gray-500 mt-0.5 truncate">
@@ -1112,14 +1132,14 @@ function AppContent() {
                       disabled={isStreaming || loading}
                       className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors relative ${
                         active
-                          ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                          ? activeSidebarItemClass
                           : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                       } ${isStreaming || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                       title={s.title}
                       data-testid={`history-${s.id}`}
                     >
                       <div className="flex items-center gap-2">
-                        {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                        {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                         <span className={`truncate ${active ? 'font-medium' : ''}`}>{s.title}</span>
                       </div>
                     </button>
@@ -1274,7 +1294,7 @@ function AppContent() {
                         navigate('/specweaver/sessions');
                         setMobileDrawerOpen(false);
                       }}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors bg-sidebar-hover text-white"
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${activeSidebarNavClass}`}
                       data-testid="mobile-drawer-nav-specweaver-sessions"
                     >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1288,7 +1308,7 @@ function AppContent() {
                         navigate('/lens');
                         setMobileDrawerOpen(false);
                       }}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors bg-sidebar-hover text-white"
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${activeSidebarNavClass}`}
                       data-testid="mobile-drawer-nav-lens-reviews"
                     >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1306,7 +1326,7 @@ function AppContent() {
                         }}
                         className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${
                           activeView === key
-                            ? 'bg-sidebar-hover text-white'
+                            ? activeSidebarNavClass
                             : 'text-gray-300 hover:bg-sidebar-hover hover:text-gray-100'
                         }`}
                         data-testid={`mobile-drawer-nav-${key}`}
@@ -1324,7 +1344,7 @@ function AppContent() {
               {isSpecWeaverRoute && activeSpecWeaverSessionId && (
                 <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
                   <div className="px-2 pt-1 pb-1 flex items-center gap-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
                     <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
                       Active session
                     </span>
@@ -1337,7 +1357,7 @@ function AppContent() {
                       }}
                       className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
                         location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}`
-                          ? 'bg-sidebar-hover text-white'
+                          ? activeSidebarNavClass
                           : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                       }`}
                       data-testid="mobile-drawer-nav-specweaver-session"
@@ -1354,7 +1374,7 @@ function AppContent() {
                       }}
                       className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
                         location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}/package`
-                          ? 'bg-sidebar-hover text-white'
+                          ? activeSidebarNavClass
                           : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                       }`}
                       data-testid="mobile-drawer-nav-specweaver-package"
@@ -1371,7 +1391,7 @@ function AppContent() {
               {!isSpecWeaverRoute && !isLensRoute && hasConversation && (
                 <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
                   <div className="px-2 pt-1 pb-1 flex items-center gap-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
                     <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
                       Active session
                     </span>
@@ -1386,7 +1406,7 @@ function AppContent() {
                         }}
                         className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
                           activeView === key
-                            ? 'bg-sidebar-hover text-white'
+                            ? activeSidebarNavClass
                             : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                         }`}
                         data-testid={`mobile-drawer-nav-${key}`}
@@ -1424,14 +1444,14 @@ function AppContent() {
                               onClick={() => handleOpenSpecWeaverSession(session.id)}
                               className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors ${
                                 active
-                                  ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                  ? activeSidebarItemClass
                                   : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                               }`}
                               title={getSpecWeaverSessionTitle(session)}
                               data-testid={`mobile-specweaver-history-${session.id}`}
                             >
                               <div className="flex items-center gap-2">
-                                {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                                {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                                 <span className={`truncate ${active ? 'font-medium' : ''}`}>{getSpecWeaverSessionTitle(session)}</span>
                               </div>
                               <div className="text-[10px] text-gray-500 mt-0.5 truncate">
@@ -1459,14 +1479,14 @@ function AppContent() {
                               onClick={() => handleOpenLensSession(session.id)}
                               className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors ${
                                 active
-                                  ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                  ? activeSidebarItemClass
                                   : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                               }`}
                               title={session.title}
                               data-testid={`mobile-lens-history-${session.id}`}
                             >
                               <div className="flex items-center gap-2">
-                                {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                                {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                                 <span className={`truncate ${active ? 'font-medium' : ''}`}>{session.title || 'Untitled review'}</span>
                               </div>
                               <div className="text-[10px] text-gray-500 mt-0.5 truncate">
@@ -1494,13 +1514,13 @@ function AppContent() {
                               onClick={() => handleLoadWorkshopSession(ws.sessionId)}
                               className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors ${
                                 active
-                                  ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                  ? activeSidebarItemClass
                                   : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                               }`}
                               title={ws.systemName}
                             >
                               <div className="flex items-center gap-2">
-                                {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                                {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                                 <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
                               </div>
                               <div className="text-[10px] text-gray-500 mt-0.5 truncate">
@@ -1529,13 +1549,13 @@ function AppContent() {
                             disabled={isStreaming || loading}
                             className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors relative ${
                               active
-                                ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                ? activeSidebarItemClass
                                 : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                             } ${isStreaming || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                             title={s.title}
                           >
                             <div className="flex items-center gap-2">
-                              {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                              {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                               <span className={`truncate ${active ? 'font-medium' : ''}`}>{s.title}</span>
                             </div>
                           </button>

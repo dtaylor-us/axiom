@@ -10,5 +10,7 @@ public interface ReviewReportRepository extends JpaRepository<ReviewReport, UUID
 
     Optional<ReviewReport> findBySessionId(UUID sessionId);
 
+    Optional<ReviewReport> findFirstBySessionIdOrderByGeneratedAtDescIdDesc(UUID sessionId);
+
     void deleteBySessionId(UUID sessionId);
 }

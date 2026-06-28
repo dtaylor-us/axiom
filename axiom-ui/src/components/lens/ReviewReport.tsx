@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
-import type { ReviewReport as LensReviewReport, ReviewRisk } from '../../api/lens';
+import type { ReviewReport as LensReviewReport } from '../../api/lens';
+import type { ReviewRisk } from '../../api/lens';
 
 type TabId = 'overview' | 'waf' | 'atam' | 'sei' | 'structural' | 'risks' | 'recommendations';
 
@@ -86,6 +87,22 @@ function asNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function pickRecord(source: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+  for (const key of keys) {
+    const candidate = asRecord(source[key]);
+    if (Object.keys(candidate).length > 0) return candidate;
+  }
+  return {};
+}
+
+function pickArray<T>(source: Record<string, unknown>, keys: string[]): T[] {
+  for (const key of keys) {
+    const candidate = asArray<T>(source[key]);
+    if (candidate.length > 0) return candidate;
+  }
+  return [];
+}
+
 function PillarScore({ title, score }: { title: string; score: number }) {
   const percent = scorePercent(score);
   return (
@@ -116,28 +133,28 @@ export function ReviewReport({ report }: { report: LensReviewReport }) {
     return sorted.filter((risk) => risk.severity === severityFilter);
   }, [report.risks, severityFilter]);
 
-  const waf = asRecord(report.azureWafScorecard);
+  const waf = pickRecord(asRecord(report.azureWafScorecard), ['pillars']);
   const wafPillars = [
     { key: 'reliability', title: 'Reliability' },
     { key: 'security', title: 'Security' },
-    { key: 'cost', title: 'Cost' },
+    { key: 'cost_optimisation', title: 'Cost' },
     { key: 'operational_excellence', title: 'Operational Excellence' },
     { key: 'performance_efficiency', title: 'Performance Efficiency' },
   ];
 
   const atam = asRecord(report.atamAnalysis);
-  const sei = asRecord(report.seiAnalysis);
+  const sei = pickRecord(asRecord(report.seiAnalysis), ['attributes']);
   const structural = asRecord(report.structuralAnalysis);
 
   return (
-    <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4" data-testid="lens-review-report">
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-3 sm:p-4" data-testid="lens-review-report">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${activeTab === tab.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${activeTab === tab.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}
           >
             {tab.label}
           </button>
@@ -165,16 +182,16 @@ export function ReviewReport({ report }: { report: LensReviewReport }) {
 
       {activeTab === 'waf' && (
         <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             {wafPillars.map((pillar) => {
-              const details = asRecord(waf[pillar.key]);
+              const details = pickRecord(waf, [pillar.key, pillar.key.replace('optimisation', 'optimization')]);
               const score = asNumber(details.score, 0);
               return <PillarScore key={pillar.key} title={pillar.title} score={score} />;
             })}
           </div>
           <div className="space-y-3">
             {wafPillars.map((pillar) => {
-              const details = asRecord(waf[pillar.key]);
+              const details = pickRecord(waf, [pillar.key, pillar.key.replace('optimisation', 'optimization')]);
               const addressed = asArray<string>(details.addressed);
               const gaps = asArray<string>(details.gaps);
               const findings = asArray<string>(details.findings);
@@ -193,24 +210,26 @@ export function ReviewReport({ report }: { report: LensReviewReport }) {
 
       {activeTab === 'atam' && (
         <div className="space-y-3">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="border-b border-gray-200 py-2">Scenario</th>
-                <th className="border-b border-gray-200 py-2">Attribute</th>
-                <th className="border-b border-gray-200 py-2">Response</th>
-              </tr>
-            </thead>
-            <tbody>
-              {asArray<Record<string, unknown>>(atam.quality_attribute_scenarios).map((scenario, index) => (
-                <tr key={`scenario-${index}`} className="text-gray-700">
-                  <td className="border-b border-gray-100 py-2">{asDisplayText(scenario.scenario)}</td>
-                  <td className="border-b border-gray-100 py-2">{asDisplayText(scenario.attribute)}</td>
-                  <td className="border-b border-gray-100 py-2">{asDisplayText(scenario.response)}</td>
+          <div className="overflow-x-auto">
+            <table className="min-w-[40rem] w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                  <th className="border-b border-gray-200 py-2">Scenario</th>
+                  <th className="border-b border-gray-200 py-2">Attribute</th>
+                  <th className="border-b border-gray-200 py-2">Response</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {asArray<Record<string, unknown>>(atam.quality_attribute_scenarios).map((scenario, index) => (
+                  <tr key={`scenario-${index}`} className="text-gray-700">
+                    <td className="border-b border-gray-100 py-2">{asDisplayText(scenario.scenario)}</td>
+                    <td className="border-b border-gray-100 py-2">{asDisplayText(scenario.attribute || scenario.quality_attribute)}</td>
+                    <td className="border-b border-gray-100 py-2">{asDisplayText(scenario.response || scenario.architecture_approach)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-gray-200 p-3 text-sm">
@@ -236,7 +255,7 @@ export function ReviewReport({ report }: { report: LensReviewReport }) {
       )}
 
       {activeTab === 'sei' && (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {['modifiability', 'performance', 'availability', 'security', 'integrability'].map((attribute) => {
             const details = asRecord(sei[attribute]);
             const rating = asString(details.rating, 'UNKNOWN');
@@ -252,6 +271,9 @@ export function ReviewReport({ report }: { report: LensReviewReport }) {
                 <ul className="mt-1 space-y-1 text-gray-700">
                   {asArray<string>(details.tactics_missing).map((item) => <li key={item}>• {item}</li>)}
                 </ul>
+                {asString(details.observations).length > 0 && (
+                  <p className="mt-3 rounded-lg bg-gray-50 p-2 text-xs leading-5 text-gray-600">{asString(details.observations)}</p>
+                )}
               </div>
             );
           })}
@@ -260,16 +282,22 @@ export function ReviewReport({ report }: { report: LensReviewReport }) {
 
       {activeTab === 'structural' && (
         <div className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-2">
-            <PillarScore title="Coupling" score={asNumber(structural.coupling_score, 0)} />
-            <PillarScore title="Cohesion" score={asNumber(structural.cohesion_score, 0)} />
-            <PillarScore title="Dependency direction" score={asNumber(structural.dependency_direction_score, 0)} />
-            <PillarScore title="Boundary clarity" score={asNumber(structural.boundary_clarity_score, 0)} />
+          <div className="grid gap-3 lg:grid-cols-2">
+            <PillarScore title="Coupling" score={asNumber(asRecord(structural.coupling).score, 0)} />
+            <PillarScore title="Cohesion" score={asNumber(asRecord(structural.cohesion).score, 0)} />
+            <PillarScore title="Dependency direction" score={asNumber(asRecord(structural.dependency_direction).score, 0)} />
+            <PillarScore title="Boundary clarity" score={asNumber(asRecord(structural.boundary_clarity).score, 0)} />
           </div>
           <div className="rounded-xl border border-gray-200 p-3 text-sm text-gray-700">
             <p className="font-semibold text-gray-800">Observations</p>
             <ul className="mt-2 space-y-1">
-              {asArray<string>(structural.observations).map((item) => <li key={item}>• {item}</li>)}
+              {[
+                ...pickArray<string>(structural, ['observations']),
+                ...pickArray<string>(asRecord(structural.coupling), ['observations']),
+                ...pickArray<string>(asRecord(structural.cohesion), ['observations']),
+                ...pickArray<string>(asRecord(structural.dependency_direction), ['observations']),
+                ...pickArray<string>(asRecord(structural.boundary_clarity), ['observations']),
+              ].map((item, index) => <li key={`${item}-${index}`}>• {item}</li>)}
             </ul>
           </div>
         </div>

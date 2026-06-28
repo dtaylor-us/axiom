@@ -324,8 +324,8 @@ export function LensReviewPage() {
   };
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto p-4" data-testid="lens-review-page">
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4">
+    <div className="flex h-full flex-col gap-4 overflow-y-auto p-3 sm:p-4 lg:p-6" data-testid="lens-review-page">
+      <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <PillarBadge pillar="lens" />
           <h1 className="mt-2 text-xl font-semibold text-gray-900">{session.title || 'Untitled review'}</h1>
@@ -348,8 +348,8 @@ export function LensReviewPage() {
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr_1fr]">
-        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+        <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <div>
             <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Session title</label>
             <input
@@ -361,7 +361,7 @@ export function LensReviewPage() {
           <div>
             <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">System description</label>
             <textarea
-              className="mt-2 min-h-40 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="mt-2 min-h-32 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm sm:min-h-40"
               value={draftDescription}
               onChange={(event) => setDraftDescription(event.target.value)}
             />
@@ -378,29 +378,31 @@ export function LensReviewPage() {
           </div>
 
           <div className="space-y-2">
-            {evidence.map((item) => (
-              <div key={item.id} className="rounded-xl border border-gray-200 p-3 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold">{item.evidenceType}</span>
-                    <span className="text-xs text-gray-500">{item.sourceLabel || 'Unlabeled source'}</span>
+            <div className="space-y-2 xl:max-h-[32rem] xl:overflow-y-auto xl:pr-1">
+              {evidence.map((item) => (
+                <div key={item.id} className="rounded-xl border border-gray-200 p-3 text-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold">{item.evidenceType}</span>
+                      <span className="text-xs text-gray-500">{item.sourceLabel || 'Unlabeled source'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="self-start text-xs font-semibold text-red-600 sm:self-auto"
+                      onClick={() => void handleDeleteEvidence(item.id)}
+                    >
+                      Delete
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-red-600"
-                    onClick={() => void handleDeleteEvidence(item.id)}
-                  >
-                    Delete
-                  </button>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-gray-700">{item.content}</p>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-gray-700">{item.content}</p>
-              </div>
-            ))}
-            {evidence.length === 0 && (
-              <p className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
-                No evidence submitted yet.
-              </p>
-            )}
+              ))}
+              {evidence.length === 0 && (
+                <p className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+                  No evidence submitted yet.
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -423,7 +425,7 @@ export function LensReviewPage() {
         </section>
 
         {evidence.length > 0 && (
-        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-gray-900">Gap elicitation</h2>
             <span className="text-xs text-gray-500">Round {Math.max(session.gapRound, 1)} of 5</span>
@@ -436,7 +438,7 @@ export function LensReviewPage() {
           )}
 
           {session.status === 'GAP_ELICITATION' && questions.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-3 xl:max-h-[32rem] xl:overflow-y-auto xl:pr-1">
               {questions.map((question) => (
                 <div key={question.id} className="rounded-xl border border-gray-200 p-3 text-sm">
                   <div className="flex items-center justify-between gap-2">
@@ -508,7 +510,9 @@ export function LensReviewPage() {
         </section>
         )}
 
-        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+      </div>
+
+      <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <h2 className="text-sm font-semibold text-gray-900">Status and report</h2>
           {loading && <p className="text-sm text-gray-600">Loading session…</p>}
 
@@ -541,8 +545,7 @@ export function LensReviewPage() {
               The completed report appears here after review finalization.
             </div>
           )}
-        </section>
-      </div>
+      </section>
 
       {showEvidenceModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">

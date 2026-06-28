@@ -45,11 +45,8 @@ public class ReviewReportService {
 
     @Transactional
     public ReviewReport saveReport(UUID sessionId, Map<String, Object> agentReport) {
-        reviewReportRepository.findBySessionId(sessionId).ifPresent(existing -> {
-            reviewFindingRepository.deleteByReportId(existing.getId());
-            reviewRiskRepository.deleteByReportId(existing.getId());
-            reviewReportRepository.delete(existing);
-        });
+        reviewReportRepository.deleteBySessionId(sessionId);
+        reviewReportRepository.flush();
 
         ReviewReport report = new ReviewReport();
         report.setId(UUID.randomUUID());
@@ -88,7 +85,7 @@ public class ReviewReportService {
             throw new ResourceNotFoundException("Review report is not available until the session is complete");
         }
 
-        ReviewReport report = reviewReportRepository.findBySessionId(sessionId)
+        ReviewReport report = reviewReportRepository.findFirstBySessionIdOrderByGeneratedAtDescIdDesc(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review report not found"));
 
         report.setFindings(reviewFindingRepository.findByReportId(report.getId()));

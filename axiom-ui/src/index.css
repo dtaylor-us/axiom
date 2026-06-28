@@ -184,6 +184,37 @@ body {
   white-space: nowrap;
 }
 
+.sidebar-pillar-active--axiom {
+  --sidebar-active-color: var(--color-pillar-axiom);
+}
+
+.sidebar-pillar-active--archon {
+  --sidebar-active-color: var(--color-pillar-archon);
+}
+
+.sidebar-pillar-active--specweaver {
+  --sidebar-active-color: var(--color-pillar-specweaver);
+}
+
+.sidebar-pillar-active--lens {
+  --sidebar-active-color: var(--color-pillar-lens);
+}
+
+.sidebar-active-item {
+  background: color-mix(in srgb, var(--sidebar-active-color) 15%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sidebar-active-color) 40%, transparent);
+  color: #fff;
+}
+
+.sidebar-active-nav {
+  background: color-mix(in srgb, var(--sidebar-active-color) 14%, var(--color-sidebar-hover));
+  color: #fff;
+}
+
+.sidebar-active-dot {
+  background: var(--sidebar-active-color);
+}
+
 /* Pillar badges */
 .pillar-badge {
   align-items: center;

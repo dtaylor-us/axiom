@@ -7,6 +7,7 @@ import { getToken } from '../api/auth';
 import { getPipelineStatus, getRunStatus, reattachStream } from '../api/chat';
 import { getSessionMessages } from '../api/sessions';
 import { getSessions as getSpecWeaverSessions } from '../api/specweaver';
+import { listReviewSessions } from '../api/lens';
 import { useSpecWeaverStore } from '../store/useSpecWeaverStore';
 
 vi.mock('../api/sessions', () => ({
@@ -38,6 +39,11 @@ vi.mock('../api/specweaver', () => ({
   getSessions: vi.fn().mockResolvedValue([]),
   sendToArchon: vi.fn(),
   uploadDocument: vi.fn(),
+}));
+
+vi.mock('../api/lens', () => ({
+  createReviewSession: vi.fn(),
+  listReviewSessions: vi.fn().mockResolvedValue([]),
 }));
 
 /* Mock auth gate */
@@ -188,8 +194,34 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByTestId('nav-specweaver-session')).toBeInTheDocument();
     });
+    expect(screen.getByTestId('nav-specweaver-sessions')).toHaveClass('sidebar-pillar-active--specweaver', 'sidebar-active-nav');
+    expect(screen.getByTestId('nav-specweaver-session')).toHaveClass('sidebar-pillar-active--specweaver', 'sidebar-active-nav');
     expect(screen.getByTestId('nav-specweaver-package')).toBeInTheDocument();
+    expect(screen.getByTestId('specweaver-history-sw-1')).toHaveClass('sidebar-pillar-active--specweaver', 'sidebar-active-item');
     expect(screen.getByTestId('specweaver-session-view')).toBeInTheDocument();
+  });
+
+  it('usesLensPillarColorForActiveReviewNavigationAndHistory', async () => {
+    useStore.setState({ token: 'jwt', username: 'Alice' });
+    (listReviewSessions as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: 'lens-1',
+        title: 'Checkout review',
+        status: 'IN_REVIEW',
+        createdAt: '2026-05-30T00:00:00Z',
+        updatedAt: '2026-05-30T00:00:00Z',
+      },
+    ]);
+    window.history.pushState({}, '', '/lens/sessions/lens-1');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('lens-history-lens-1')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('nav-lens-reviews')).toHaveClass('sidebar-pillar-active--lens', 'sidebar-active-nav');
+    expect(screen.getByTestId('lens-history-lens-1')).toHaveClass('sidebar-pillar-active--lens', 'sidebar-active-item');
+    expect(screen.getByTestId('lens-review-page')).toBeInTheDocument();
   });
 
   it('showsUsernameInSidebar', () => {

@@ -17,10 +17,10 @@ const AxiomIcon = (
 
 const ArchonIcon = (
   <>
-    <rect x="3" y="4" width="6" height="4" rx="1" />
-    <rect x="15" y="4" width="6" height="4" rx="1" />
-    <rect x="9" y="16" width="6" height="4" rx="1" />
-    <path d="M6 8v3m12-3v3m-6-2v5m-6 0h12" />
+    <rect x="4" y="5" width="16" height="4" rx="1.3" />
+    <rect x="4" y="15" width="7" height="4" rx="1.3" />
+    <rect x="13" y="15" width="7" height="4" rx="1.3" />
+    <path d="M12 9v3m-4.5 0h9M7.5 12v3m9-3v3" />
   </>
 );
 
@@ -35,9 +35,7 @@ const SpecWeaverIcon = (
 const LensIcon = (
   <>
     <circle cx="10.5" cy="10.5" r="5.5" />
-    <path d="M14.8 14.8L20 20" />
-    <path d="M10.5 8.5v4m-2-2h4" />
-    <path d="M7.2 4.8l1.2 1.2M15.8 4.8l-1.2 1.2" />
+    <path d="M14.5 14.5 20 20" />
   </>
 );
 

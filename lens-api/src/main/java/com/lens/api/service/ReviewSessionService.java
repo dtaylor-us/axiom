@@ -6,9 +6,7 @@ import com.lens.api.domain.model.ReviewStatus;
 import com.lens.api.exception.ResourceNotFoundException;
 import com.lens.api.repository.ArchitectureEvidenceRepository;
 import com.lens.api.repository.GapQuestionRepository;
-import com.lens.api.repository.ReviewFindingRepository;
 import com.lens.api.repository.ReviewReportRepository;
-import com.lens.api.repository.ReviewRiskRepository;
 import com.lens.api.repository.ReviewSessionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,22 +24,16 @@ public class ReviewSessionService {
     private final GapQuestionRepository gapQuestionRepository;
     private final ArchitectureEvidenceRepository evidenceRepository;
     private final ReviewReportRepository reviewReportRepository;
-    private final ReviewFindingRepository reviewFindingRepository;
-    private final ReviewRiskRepository reviewRiskRepository;
 
     public ReviewSessionService(
             ReviewSessionRepository reviewSessionRepository,
             GapQuestionRepository gapQuestionRepository,
             ArchitectureEvidenceRepository evidenceRepository,
-            ReviewReportRepository reviewReportRepository,
-            ReviewFindingRepository reviewFindingRepository,
-            ReviewRiskRepository reviewRiskRepository) {
+            ReviewReportRepository reviewReportRepository) {
         this.reviewSessionRepository = reviewSessionRepository;
         this.gapQuestionRepository = gapQuestionRepository;
         this.evidenceRepository = evidenceRepository;
         this.reviewReportRepository = reviewReportRepository;
-        this.reviewFindingRepository = reviewFindingRepository;
-        this.reviewRiskRepository = reviewRiskRepository;
     }
 
     @Transactional
@@ -74,10 +66,6 @@ public class ReviewSessionService {
     @Transactional
     public void deleteSession(UUID sessionId, String userId) {
         ReviewSession session = getSession(sessionId, userId);
-        reviewReportRepository.findBySessionId(session.getId()).ifPresent(report -> {
-            reviewFindingRepository.deleteByReportId(report.getId());
-            reviewRiskRepository.deleteByReportId(report.getId());
-        });
         reviewReportRepository.deleteBySessionId(session.getId());
         evidenceRepository.deleteBySessionId(session.getId());
         gapQuestionRepository.deleteBySessionId(session.getId());
