@@ -1,24 +1,23 @@
-You're right on all three points:
+# Copilot Coding Agent Instructions
 
-Repetitive — ARCHITECTURE.md and ADL.md already contain the rules. The instructions file should reference them, not duplicate them.
-Enforceable actions — Copilot works best with short, imperative directives it checks on every generation, not long prose it skimbles over.
-Context vs instructions — GitHub Copilot loads .github/copilot-instructions.md automatically in agent mode, but there is a token limit. Shorter = more reliably applied.
+## Output Discipline
+- Do not emit full diffs unless explicitly requested.
+- Summarize file changes in bullets.
+- Do not paste full logs.
+- For failures, include only:
+  - failing command
+  - failing test or step
+  - likely cause
+  - proposed fix
 
-The right structure is:
+## Validation Discipline
+- During implementation, run the smallest targeted test possible.
+- Do not repeat full `mvn verify` loops during iteration.
+- Run full verification only once before final response.
 
-.github/copilot-instructions.md — short, imperative, always-loaded. Mandatory checks only.
-ARCHITECTURE.md — full platform architecture reference. Copilot reads this when explicitly told to.
-ADL.md — governance rules with enforcement tests. Copilot reads this when explicitly told to.
-
-Here is the tightened version:
-
-markdown# Copilot Instructions — Axiom Platform
-
-Read ARCHITECTURE.md and ADL.md before generating any code.
-They are the authoritative source of truth. These instructions
-are a short enforcement checklist only — not a substitute.
-
----
+## Session Discipline
+- Keep work scoped to the requested milestone.
+- Recommend a new session before starting unrelated docs, tests, refactors, or cleanup
 
 ## MANDATORY PRE-GENERATION CHECKS
 
