@@ -93,9 +93,7 @@ class LLMClient:
             )
             return
 
-        import openai
-
-        self._openai_client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self._openai_client = None
         self._model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
         self._temperature = float(
             os.getenv("OPENAI_TEMPERATURE", str(DEFAULT_OPENAI_TEMPERATURE))
@@ -241,6 +239,14 @@ class LLMClient:
         schema_name: str,
     ) -> str:
         """Call OpenAI Chat Completions with optional structured output."""
+        if self._openai_client is None:
+            import openai
+
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise LLMCallException("OPENAI_API_KEY is required for the openai provider")
+            self._openai_client = openai.AsyncOpenAI(api_key=api_key)
+
         response_format_param: Any = None
         if response_format == "json" and output_schema is not None:
             response_format_param = {
@@ -303,7 +309,10 @@ def get_llm_client() -> LLMClient:
     Returns:
         Shared LLMClient instance.
     """
+    global _llm_client_instance
+    if _llm_client_instance is None:
+        _llm_client_instance = LLMClient()
     return _llm_client_instance
 
 
-_llm_client_instance = LLMClient()
+_llm_client_instance: LLMClient | None = None

@@ -14,6 +14,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfig.class)
+@Testcontainers(disabledWithoutDocker = true)
 class BuyVsBuildControllerIntegrationTest {
 
     @Autowired private WebTestClient webTestClient;
@@ -201,4 +203,3 @@ class BuyVsBuildControllerIntegrationTest {
                 .jsonPath("$.length()").isEqualTo(0);
     }
 }
-
