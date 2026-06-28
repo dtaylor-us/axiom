@@ -28,7 +28,7 @@ function mockJsonFetch(data: unknown, status = 200, contentType = 'application/j
 }
 
 function makeJwt(sub: string): string {
-  const payload = Buffer.from(JSON.stringify({ sub })).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const payload = btoa(JSON.stringify({ sub })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   return `header.${payload}.sig`;
 }
 

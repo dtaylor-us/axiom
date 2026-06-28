@@ -88,8 +88,7 @@ class PillarHealthIndicatorTest {
 
         assertEquals("OUT_OF_SERVICE", ((Map<String, Object>) components.get("archon")).get("status"));
         assertEquals("OUT_OF_SERVICE", ((Map<String, Object>) components.get("specweaver")).get("status"));
-        assertEquals("OUT_OF_SERVICE", ((Map<String, Object>) components.get("scout")).get("status"));
-        assertEquals("OUT_OF_SERVICE", ((Map<String, Object>) components.get("forge")).get("status"));
+        assertEquals("OUT_OF_SERVICE", ((Map<String, Object>) components.get("lens")).get("status"));
     }
 
     /**
@@ -179,8 +178,7 @@ class PillarHealthIndicatorTest {
 
         config.setArchon(archon);
         config.setSpecweaver(specweaver);
-        config.setScout(disabled);
-        config.setForge(disabled);
+        config.setLens(disabled);
 
         return config;
     }
