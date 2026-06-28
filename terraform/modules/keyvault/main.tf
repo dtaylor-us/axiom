@@ -5,11 +5,7 @@ resource "azurerm_key_vault" "main" {
   tenant_id           = var.tenant_id
   sku_name            = "standard"
 
-  # RBAC authorization replaces legacy access policies — simpler and more auditable.
-  enable_rbac_authorization = true
-
-  # 7-day soft-delete window provides safety against accidental destruction.
-  # purge_protection is disabled by default for dev so `terraform destroy` works.
+  enable_rbac_authorization  = true
   soft_delete_retention_days = 7
   purge_protection_enabled   = var.purge_protection
 
@@ -22,23 +18,18 @@ resource "azurerm_key_vault" "main" {
 
 # ─── Role Assignments ─────────────────────────────────────────────────────────
 
-# The deployer (the person or CI runner executing Terraform) needs
-# Key Vault Administrator to write secrets during apply.
 resource "azurerm_role_assignment" "deployer_admin" {
   scope                = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Administrator"
   principal_id         = var.deployer_object_id
 }
 
-# The AKS kubelet identity reads secrets at pod start-up via the CSI driver.
 resource "azurerm_role_assignment" "aks_secrets_user" {
   scope                = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = var.aks_kubelet_identity_object_id
 }
 
-# Optional: grant the GitHub Actions service principal read access so
-# CI/CD pipelines can fetch secrets directly if needed.
 resource "azurerm_role_assignment" "github_secrets_user" {
   count = var.github_actions_sp_object_id != "" ? 1 : 0
 
@@ -48,8 +39,6 @@ resource "azurerm_role_assignment" "github_secrets_user" {
 }
 
 # ─── Secrets ──────────────────────────────────────────────────────────────────
-# Each secret depends on deployer_admin to avoid the race condition where
-# the secret write is attempted before the role assignment has propagated.
 
 resource "azurerm_key_vault_secret" "db_password" {
   name         = "db-password"
@@ -119,6 +108,20 @@ resource "azurerm_key_vault_secret" "axiom_platform_jwt_secret" {
 
 resource "azurerm_key_vault_secret" "specweaver_jwt_secret" {
   name         = "specweaver-jwt-secret"
+  value        = "placeholder-set-after-provisioning"
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.deployer_admin]
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+# Lens JWT secret — used by lens-api for session token signing.
+# Placeholder set on first apply; update via az keyvault secret set.
+# ignore_changes prevents Terraform from overwriting a value set out-of-band.
+resource "azurerm_key_vault_secret" "lens_jwt_secret" {
+  name         = "lens-jwt-secret"
   value        = "placeholder-set-after-provisioning"
   key_vault_id = azurerm_key_vault.main.id
   depends_on   = [azurerm_role_assignment.deployer_admin]

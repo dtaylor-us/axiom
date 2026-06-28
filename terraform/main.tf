@@ -1,5 +1,4 @@
 # Retrieve the active Azure client configuration (tenant ID, object ID).
-# Used to pass the tenant_id to the Key Vault module and for reference.
 data "azurerm_client_config" "current" {}
 
 # ─── Resource Group ───────────────────────────────────────────────────────────
@@ -37,23 +36,17 @@ resource "azurerm_storage_container" "specweaver_documents" {
 
 # ─── Random Secrets ───────────────────────────────────────────────────────────
 
-# Short suffix appended to globally-unique resource names (ACR, PostgreSQL, Key Vault)
-# to avoid conflicts with names already taken in Azure's global namespace.
-# Stored in state — does not change on re-apply.
 resource "random_string" "suffix" {
   length  = 4
   upper   = false
   special = false
 }
 
-# 64-character alphanumeric JWT signing secret.
-# Regenerates only when Terraform state is lost — not on every apply.
 resource "random_password" "jwt_secret" {
   length  = 64
   special = false
 }
 
-# 32-character alphanumeric internal service-to-service authentication secret.
 resource "random_password" "internal_secret" {
   length  = 32
   special = false
@@ -83,12 +76,7 @@ module "aks" {
   min_node_count      = var.aks_min_node_count
   max_node_count      = var.aks_max_node_count
 
-  # AKS must know the ACR resource ID to create the AcrPull role assignment.
-  acr_id = module.acr.acr_id
-
-  # Required so the module can construct the node resource group scope for the
-  # Network Contributor role assignment that links the ingress load balancer
-  # to the Terraform-managed static public IP.
+  acr_id          = module.acr.acr_id
   subscription_id = var.subscription_id
 
   depends_on = [module.acr]
@@ -130,4 +118,15 @@ module "keyvault" {
   azure_openai_api_key  = var.azure_openai_api_key
 
   depends_on = [module.database, module.aks]
+}
+
+# ─── Lens database ────────────────────────────────────────────────────────────
+# Created on the existing Flexible Server provisioned by the database module.
+# Separate resource so it can be applied independently without touching
+# the server configuration.
+resource "azurerm_postgresql_flexible_server_database" "lens" {
+  name      = "lens"
+  server_id = module.database.server_id
+  collation = "en_US.utf8"
+  charset   = "utf8"
 }
