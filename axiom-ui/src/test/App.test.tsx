@@ -198,6 +198,13 @@ describe('App', () => {
     expect(screen.getByTestId('nav-specweaver-session')).toHaveClass('sidebar-pillar-active--specweaver', 'sidebar-active-nav');
     expect(screen.getByTestId('nav-specweaver-package')).toBeInTheDocument();
     expect(screen.getByTestId('specweaver-history-sw-1')).toHaveClass('sidebar-pillar-active--specweaver', 'sidebar-active-item');
+    expect(screen.getByTestId('mobile-bottom-nav')).toHaveClass('mobile-bottom-nav--specweaver');
+    expect(screen.getByTestId('mobile-bottom-nav').firstElementChild).toHaveClass('grid-cols-5');
+    expect(screen.getByTestId('mobile-nav-specweaver-session')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-nav-specweaver-package')).toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-nav-chat')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-nav-architecture')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-nav-governance')).not.toBeInTheDocument();
     expect(screen.getByTestId('specweaver-session-view')).toBeInTheDocument();
   });
 
@@ -221,7 +228,19 @@ describe('App', () => {
     });
     expect(screen.getByTestId('nav-lens-reviews')).toHaveClass('sidebar-pillar-active--lens', 'sidebar-active-nav');
     expect(screen.getByTestId('lens-history-lens-1')).toHaveClass('sidebar-pillar-active--lens', 'sidebar-active-item');
+    expect(screen.getByTestId('mobile-bottom-nav')).toHaveClass('mobile-bottom-nav--lens');
     expect(screen.getByTestId('lens-review-page')).toBeInTheDocument();
+  });
+
+  it('usesArchonPillarColorAndFiveColumnsForMobileFooterOnArchonRoutes', () => {
+    useStore.setState({ token: 'jwt', username: 'User', conversationId: 'c1' });
+    window.history.pushState({}, '', '/archon/chat');
+
+    render(<App />);
+
+    expect(screen.getByTestId('mobile-bottom-nav')).toHaveClass('mobile-bottom-nav--archon');
+    expect(screen.getByTestId('mobile-bottom-nav').firstElementChild).toHaveClass('grid-cols-5');
+    expect(screen.getByTestId('mobile-nav-workshop')).toBeInTheDocument();
   });
 
   it('showsUsernameInSidebar', () => {

@@ -215,6 +215,30 @@ body {
   background: var(--sidebar-active-color);
 }
 
+.mobile-bottom-nav {
+  --mobile-nav-active-color: var(--color-pillar-archon);
+}
+
+.mobile-bottom-nav--axiom {
+  --mobile-nav-active-color: var(--color-pillar-axiom);
+}
+
+.mobile-bottom-nav--archon {
+  --mobile-nav-active-color: var(--color-pillar-archon);
+}
+
+.mobile-bottom-nav--specweaver {
+  --mobile-nav-active-color: var(--color-pillar-specweaver);
+}
+
+.mobile-bottom-nav--lens {
+  --mobile-nav-active-color: var(--color-pillar-lens);
+}
+
+.mobile-bottom-nav-item--active {
+  color: var(--mobile-nav-active-color);
+}
+
 /* Pillar badges */
 .pillar-badge {
   align-items: center;

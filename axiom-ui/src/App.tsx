@@ -41,6 +41,15 @@ import { useSpecWeaverStore } from './store/useSpecWeaverStore';
 type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop' | 'specweaver';
 type Pillar = 'axiom' | 'archon' | 'specweaver' | 'lens';
 
+interface MobileBottomNavItem {
+  id: string;
+  label: string;
+  icon: string;
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}
+
 const STORAGE_KEYS = {
   lastView: 'archon.lastView',
   lastConversationId: 'archon.lastConversationId',
@@ -217,6 +226,14 @@ const NAV_ITEMS: { key: View; label: string; icon: string }[] = [
     icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M12 12h.01M8 12h.01M16 12h.01',
   },
 ];
+
+const MOBILE_ICON_PATHS = {
+  home: NAV_ITEMS[0].icon,
+  sessions: 'M4 6h16M4 12h16M4 18h10',
+  package: 'M6 4h9l5 5v11a1 1 0 01-1 1H6a2 2 0 01-2-2V6a2 2 0 012-2zm8 1v4h4',
+  plus: 'M12 5v14M5 12h14',
+  review: 'M9 11l2 2 4-4M7 3h10a2 2 0 012 2v14l-3-2-3 2-3-2-3 2V5a2 2 0 012-2z',
+} as const;
 
 const SPECWEAVER_STATUS_LABELS: Record<SpecWeaverSession['status'], string> = {
   ACTIVE: 'Active',
@@ -802,6 +819,95 @@ function AppContent() {
           : activeView === 'workshop'
             ? 'Workshop'
             : 'SpecWeaver';
+
+  const mobileBottomNavItems: MobileBottomNavItem[] = isSpecWeaverRoute
+    ? [
+      {
+        id: 'specweaver-home',
+        label: 'Home',
+        icon: MOBILE_ICON_PATHS.home,
+        active: location.pathname === '/specweaver',
+        onClick: () => navigate('/specweaver'),
+      },
+      {
+        id: 'specweaver-sessions',
+        label: 'Sessions',
+        icon: MOBILE_ICON_PATHS.sessions,
+        active: location.pathname === '/specweaver/sessions',
+        onClick: () => navigate('/specweaver/sessions'),
+      },
+      ...(activeSpecWeaverSessionId
+        ? [
+          {
+            id: 'specweaver-session',
+            label: 'Session',
+            icon: MOBILE_ICON_PATHS.sessions,
+            active: location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}`,
+            onClick: () => navigate(`/specweaver/sessions/${activeSpecWeaverSessionId}`),
+          },
+          {
+            id: 'specweaver-package',
+            label: 'Package',
+            icon: MOBILE_ICON_PATHS.package,
+            active: location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}/package`,
+            onClick: () => navigate(`/specweaver/sessions/${activeSpecWeaverSessionId}/package`),
+          },
+        ]
+        : []),
+      {
+        id: 'specweaver-new',
+        label: 'New',
+        icon: MOBILE_ICON_PATHS.plus,
+        active: false,
+        disabled: isCreatingSpecWeaverSession,
+        onClick: () => {
+          void handleCreateSpecWeaverSession();
+        },
+      },
+    ]
+    : isLensRoute
+      ? [
+        {
+          id: 'lens-home',
+          label: 'Home',
+          icon: MOBILE_ICON_PATHS.home,
+          active: location.pathname === '/lens',
+          onClick: () => navigate('/lens'),
+        },
+        {
+          id: 'lens-new',
+          label: 'New',
+          icon: MOBILE_ICON_PATHS.plus,
+          active: location.pathname === '/lens/new',
+          onClick: handleCreateLensSession,
+        },
+        ...(activeLensSessionId
+          ? [
+            {
+              id: 'lens-review',
+              label: 'Review',
+              icon: MOBILE_ICON_PATHS.review,
+              active: location.pathname === `/lens/sessions/${activeLensSessionId}`,
+              onClick: () => navigate(`/lens/sessions/${activeLensSessionId}`),
+            },
+          ]
+          : []),
+      ]
+      : NAV_ITEMS.map(({ key, label, icon }) => ({
+        id: key,
+        label,
+        icon,
+        active: activeView === key,
+        disabled: (key === 'architecture' || key === 'governance') && !hasConversation,
+        onClick: () => handleNavigatePrimaryView(key),
+      }));
+  const mobileBottomGridClass = mobileBottomNavItems.length >= 5
+    ? 'grid-cols-5'
+    : mobileBottomNavItems.length === 4
+      ? 'grid-cols-4'
+      : mobileBottomNavItems.length === 3
+        ? 'grid-cols-3'
+        : 'grid-cols-2';
 
   return (
     <ToastProvider>
@@ -1646,7 +1752,7 @@ function AppContent() {
         </div>
 
         {/* Content (leave space for fixed mobile bottom nav) */}
-        <div className="flex-1 min-h-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+        <div className="flex-1 min-h-0 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
           {isPlatformHomeRoute ? (
             <AxiomHomePage />
           ) : isSpecWeaverRoute ? (
@@ -1699,27 +1805,28 @@ function AppContent() {
         </div>
 
         {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-gray-100 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-          <div className="grid grid-cols-4 h-14">
-            {NAV_ITEMS.map(({ key, label, icon }) => {
-              const active = activeView === key;
-              const disabled = (key === 'architecture' || key === 'governance') && !hasConversation;
+        <nav
+          className={`mobile-bottom-nav mobile-bottom-nav--${activeSidebarPillar} md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-gray-100 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]`}
+          data-testid="mobile-bottom-nav"
+        >
+          <div className={`grid h-16 ${mobileBottomGridClass}`}>
+            {mobileBottomNavItems.map(({ id, label, icon, active, disabled, onClick }) => {
               return (
                 <button
-                  key={key}
+                  key={id}
                   type="button"
-                  onClick={() => handleNavigatePrimaryView(key)}
+                  onClick={onClick}
                   disabled={disabled}
-                  className={`flex flex-col items-center justify-center gap-1 text-[11px] transition-colors ${
-                    active ? 'text-accent' : 'text-gray-500'
+                  className={`min-w-0 flex flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] transition-colors ${
+                    active ? 'mobile-bottom-nav-item--active' : 'text-gray-500'
                   } ${disabled ? 'opacity-40' : 'hover:bg-gray-50 active:bg-gray-100'}`}
                   aria-current={active ? 'page' : undefined}
-                  data-testid={`mobile-nav-${key}`}
+                  data-testid={`mobile-nav-${id}`}
                 >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="h-[18px] w-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                     <path d={icon} />
                   </svg>
-                  <span className="leading-none">{label}</span>
+                  <span className="max-w-full truncate leading-none">{label}</span>
                 </button>
               );
             })}
