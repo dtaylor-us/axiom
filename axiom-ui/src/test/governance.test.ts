@@ -33,7 +33,12 @@ describe('governance API', () => {
     expect(result).toEqual([{ id: 'T-1' }]);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/sessions/s1/trade-offs',
-      expect.objectContaining({ headers: { Authorization: 'Bearer jwt' } }),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer jwt',
+          'X-Axiom-User-Id': 'guest',
+        }),
+      }),
     );
   });
 

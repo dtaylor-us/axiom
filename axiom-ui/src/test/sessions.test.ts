@@ -22,7 +22,12 @@ describe('sessions API', () => {
     expect(result).toEqual([{ sessionId: 'abc', title: 'My session' }]);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/sessions',
-      expect.objectContaining({ headers: { Authorization: 'Bearer jwt-token' } }),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer jwt-token',
+          'X-Axiom-User-Id': 'guest',
+        }),
+      }),
     );
   });
 
@@ -42,7 +47,12 @@ describe('sessions API', () => {
     expect(result).toEqual([{ role: 'user', content: 'hello' }]);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/sessions/session-42/messages',
-      expect.objectContaining({ headers: { Authorization: 'Bearer jwt-token' } }),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer jwt-token',
+          'X-Axiom-User-Id': 'guest',
+        }),
+      }),
     );
   });
 
