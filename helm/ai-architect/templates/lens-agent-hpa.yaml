@@ -1,0 +1,23 @@
+{{- if .Values.lensAgent.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: lens-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ai-architect.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: lens-agent
+  minReplicas: {{ .Values.lensAgent.hpa.minReplicas }}
+  maxReplicas: {{ .Values.lensAgent.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.lensAgent.hpa.targetCPU }}
+{{- end }}
