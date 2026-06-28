@@ -47,6 +47,18 @@ spec:
                   key: db-password
             - name: LENS_AGENT_BASE_URL
               value: "http://lens-agent:8086"
+            - name: AXIOM_GATEWAY_BYPASS
+              value: "false"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: lens-jwt-secret
+            - name: AXIOM_INTERNAL_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: internal-secret
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: ""
           resources:
@@ -82,24 +94,3 @@ spec:
             volumeAttributes:
               secretProviderClass: {{ .Release.Name }}-secrets
       {{- end }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: lens-api
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: lens-api
-    chart: {{ .Chart.Name }}
-    release: {{ .Release.Name }}
-spec:
-  type: ClusterIP
-  selector:
-    app.kubernetes.io/name: {{ .Chart.Name }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: lens-api
-  ports:
-    - name: http
-      port: {{ .Values.lensApi.service.port }}
-      targetPort: {{ .Values.lensApi.service.port }}
-      protocol: TCP

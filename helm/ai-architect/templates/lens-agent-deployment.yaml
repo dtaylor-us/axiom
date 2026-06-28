@@ -44,7 +44,7 @@ spec:
             - name: OPENAI_MODEL
               value: "gpt-4o"
             - name: QDRANT_URL
-              value: "http://qdrant:6333"
+              value: "http://{{ .Release.Name }}-qdrant:6333"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: ""
           resources:
@@ -76,24 +76,3 @@ spec:
             volumeAttributes:
               secretProviderClass: {{ .Release.Name }}-secrets
       {{- end }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: lens-agent
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: lens-agent
-    chart: {{ .Chart.Name }}
-    release: {{ .Release.Name }}
-spec:
-  type: ClusterIP
-  selector:
-    app.kubernetes.io/name: {{ .Chart.Name }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: lens-agent
-  ports:
-    - name: http
-      port: {{ .Values.lensAgent.service.port }}
-      targetPort: {{ .Values.lensAgent.service.port }}
-      protocol: TCP
