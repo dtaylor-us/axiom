@@ -186,6 +186,68 @@ jobs:
             --file specweaver-agent/Dockerfile \
             specweaver-agent/
 
+  build-lens-api:
+    name: Build lens-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip message when lens-api Dockerfile is absent
+        if: ${{ hashFiles('lens-api/Dockerfile') == '' }}
+        run: echo "Skipping lens-api image build because lens-api/Dockerfile is missing"
+
+      - uses: azure/login@v2
+        if: ${{ hashFiles('lens-api/Dockerfile') != '' }}
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        if: ${{ hashFiles('lens-api/Dockerfile') != '' }}
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push lens-api
+        if: ${{ hashFiles('lens-api/Dockerfile') != '' }}
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image lens-api:${{ github.sha }} \
+            --image lens-api:latest \
+            --file lens-api/Dockerfile \
+            lens-api/
+
+  build-lens-agent:
+    name: Build lens-agent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip message when lens-agent Dockerfile is absent
+        if: ${{ hashFiles('lens-agent/Dockerfile') == '' }}
+        run: echo "Skipping lens-agent image build because lens-agent/Dockerfile is missing"
+
+      - uses: azure/login@v2
+        if: ${{ hashFiles('lens-agent/Dockerfile') != '' }}
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        if: ${{ hashFiles('lens-agent/Dockerfile') != '' }}
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push lens-agent
+        if: ${{ hashFiles('lens-agent/Dockerfile') != '' }}
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image lens-agent:${{ github.sha }} \
+            --image lens-agent:latest \
+            --file lens-agent/Dockerfile \
+            lens-agent/
+
   check-pillar-structure:
     name: Check pillar service count
     runs-on: ubuntu-latest
@@ -195,16 +257,15 @@ jobs:
       - name: Verify max two services per pillar
         run: |
           FAILED=0
-          for pillar in archon specweaver scout forge; do
-            if [ -d "$pillar" ]; then
-              COUNT=$(find "$pillar" -maxdepth 1 -type d \
-                \( -name "*-api" -o -name "*-agent" \) | wc -l)
-              if [ "$COUNT" -gt 2 ]; then
-                echo "VIOLATION: $pillar has $COUNT services (max 2)"
-                FAILED=1
-              else
-                echo "OK: $pillar has $COUNT service(s)"
-              fi
+          for pillar in archon specweaver lens; do
+            COUNT=0
+            [ -d "${pillar}-api" ] && COUNT=$((COUNT+1))
+            [ -d "${pillar}-agent" ] && COUNT=$((COUNT+1))
+            if [ "$COUNT" -gt 2 ]; then
+              echo "VIOLATION: $pillar has $COUNT services (max 2)"
+              FAILED=1
+            else
+              echo "OK: $pillar has $COUNT service(s)"
             fi
           done
           exit $FAILED
@@ -217,6 +278,8 @@ jobs:
       - build-axiom-api
       - build-specweaver-api
       - build-specweaver-agent
+      - build-lens-api
+      - build-lens-agent
     environment: production
     steps:
       - uses: actions/checkout@v4
@@ -251,8 +314,6 @@ jobs:
             exit 1
           fi
 
-          # Validate the cluster exists before fetching credentials — gives
-          # a clearer error than get-credentials on a 400 Bad Request
           az aks show \
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
             --name "${{ secrets.AKS_CLUSTER_NAME }}" \
@@ -315,9 +376,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # ── Secrets Store CSI driver + Azure provider ──────────────────────────
-          # The AKS key_vault_secrets_provider add-on manages both the core
-          # CSI driver and the Azure provider DaemonSets. No Helm install needed.
           echo "=== Secrets Store CSI driver ==="
           kubectl get csidriver secrets-store.csi.k8s.io
           echo "CSI driver registered (AKS add-on)."
@@ -325,7 +383,6 @@ jobs:
           kubectl get daemonset -n kube-system aks-secrets-store-provider-azure
           echo "Azure Key Vault provider DaemonSet present (AKS add-on)."
 
-          # ── cert-manager ClusterIssuer ────────────────────────────────────
           echo "=== cert-manager ClusterIssuer ==="
           if kubectl get clusterissuer letsencrypt-prod &>/dev/null; then
             echo "ClusterIssuer letsencrypt-prod already exists."
@@ -351,19 +408,56 @@ jobs:
             echo "ClusterIssuer created."
           fi
 
-          # ── archon-secrets status (informational) ─────────────────────────
           echo "=== archon-secrets ==="
           kubectl -n ai-architect get secret archon-secrets &>/dev/null \
             && echo "Secret archon-secrets exists." \
             || echo "Secret archon-secrets not yet present — will be synced by CSI driver after first pod mount."
 
+      - name: Verify lens prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Verify lens database exists — lens-api Flyway migrations will fail
+          # on first startup if the database does not exist.
+          DB_EXISTS=$(az postgres flexible-server db list \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --server-name psql-axiom-dev-bpxn \
+            --query "[?name=='lens'].name" \
+            --output tsv 2>/dev/null || echo "")
+          if [[ -z "$DB_EXISTS" ]]; then
+            echo "::error::lens database not found on psql-axiom-dev-bpxn."
+            echo "Create it with:"
+            echo "  az postgres flexible-server db create \\"
+            echo "    --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \\"
+            echo "    --server-name psql-axiom-dev-bpxn \\"
+            echo "    --database-name lens"
+            echo "Or apply Terraform: azurerm_postgresql_flexible_server_database.lens"
+            exit 1
+          fi
+          echo "lens database: OK"
+
+          # Verify lens-jwt-secret exists and is not a placeholder.
+          # Generate a real value automatically if missing.
+          SECRET=$(az keyvault secret show \
+            --vault-name "${{ secrets.KEY_VAULT_NAME }}" \
+            --name lens-jwt-secret \
+            --query value -o tsv 2>/dev/null || echo "")
+          if [[ -z "$SECRET" || "$SECRET" == "placeholder-set-after-provisioning" ]]; then
+            echo "lens-jwt-secret is missing or placeholder — generating now..."
+            az keyvault secret set \
+              --vault-name "${{ secrets.KEY_VAULT_NAME }}" \
+              --name lens-jwt-secret \
+              --value "$(openssl rand -base64 48)" \
+              --output none
+            echo "lens-jwt-secret: SET"
+          else
+            echo "lens-jwt-secret: OK"
+          fi
+
       - name: Get ingress FQDN
         id: ingress
         run: |
-          # Use a custom hostname if one is configured in GitHub Secrets.
-          # Otherwise, query the Azure-assigned FQDN from the static public IP
-          # resource that Terraform created. This FQDN is stable and works for
-          # Let's Encrypt HTTP-01 challenges without custom DNS configuration.
           if [ -n "${{ secrets.INGRESS_HOSTNAME }}" ]; then
             echo "host=${{ secrets.INGRESS_HOSTNAME }}" >> $GITHUB_OUTPUT
           else
@@ -393,35 +487,22 @@ jobs:
             --set specweaverApi.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
             --set specweaverAgent.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/specweaver-agent \
             --set specweaverAgent.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
+            --set lensApi.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/lens-api \
+            --set lensApi.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
+            --set lensAgent.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/lens-agent \
+            --set lensAgent.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
             --set database.host=psql-axiom-dev-bpxn.postgres.database.azure.com \
             --set keyVault.vaultName=${{ secrets.KEY_VAULT_NAME }} \
             --set keyVault.tenantId=${{ secrets.KEY_VAULT_TENANT_ID }} \
             --set keyVault.userAssignedIdentityClientId=${{ secrets.AKS_KUBELET_CLIENT_ID }} \
             --set ingress.host=${{ steps.ingress.outputs.host }} \
             --set ingress.tls.enabled=true
-            # ingress.tls.issuer intentionally NOT set here.
-            # values.yaml defaults to letsencrypt-prod. The TLS_ISSUER
-            # GitHub secret previously held 'letsencrypt-staging' and
-            # overrode the fallback, preventing the switch to prod.
 
       - name: Force TLS re-issuance if staging cert detected
-        # cert-manager does not automatically re-issue when the ClusterIssuer
-        # changes — it only re-issues when the cert is near expiry or the SANs
-        # change. If the secret holds a staging cert (issued by the STAGING CA)
-        # and the chart now requests letsencrypt-prod, delete both the
-        # Certificate object and the TLS secret so cert-manager provisions a
-        # fresh prod certificate on its next reconcile loop.
         run: |
-          # Always target prod — never read from TLS_ISSUER secret (it was
-          # previously set to 'letsencrypt-staging' and poisoned CI deploys).
           DESIRED_ISSUER="letsencrypt-prod"
           echo "Desired issuer: $DESIRED_ISSUER"
 
-          # Force the ingress annotation to the desired issuer before
-          # checking the cert. This ensures cert-manager recreates the
-          # Certificate with the correct issuer even if Helm's three-way
-          # merge did not patch the annotation (e.g. due to field-manager
-          # conflicts with a previous server-side apply).
           kubectl annotate ingress ai-architect-ingress \
             --namespace ai-architect \
             --overwrite \
@@ -437,8 +518,6 @@ jobs:
 
           echo "Current cert issuer: $CERT_ISSUER"
 
-          # The Let's Encrypt staging CA includes "(STAGING)" in its CN.
-          # Prod issuer CNs do not contain that string.
           if echo "$CERT_ISSUER" | grep -qi "staging"; then
             echo "Staging cert detected — deleting certificate and secret to trigger prod re-issuance"
             kubectl delete certificate ai-architect-tls \
@@ -464,11 +543,12 @@ jobs:
             --namespace ai-architect --timeout=5m
           kubectl rollout status deployment/specweaver-agent \
             --namespace ai-architect --timeout=5m
+          kubectl rollout status deployment/lens-api \
+            --namespace ai-architect --timeout=5m
+          kubectl rollout status deployment/lens-agent \
+            --namespace ai-architect --timeout=5m
 
       - name: Verify certificate issuance
-        # continue-on-error so a slow certificate does not fail the deployment.
-        # The deploy itself succeeded; the cert being pending is not a blocking
-        # error — it resolves within minutes on a healthy cluster.
         continue-on-error: true
         run: |
           echo "Waiting for TLS certificate to be issued..."
@@ -490,7 +570,6 @@ jobs:
           echo "Check status with:"
           echo "  kubectl describe certificate ai-architect-tls -n ai-architect"
           echo "Note: continue-on-error is set — deploy is not failed."
-          echo "Run scripts/switch-to-prod-tls.sh once cert is ready."
 
       - name: Print status
         if: always()
@@ -513,9 +592,6 @@ jobs:
             echo "=== Logs for $pod (best effort) ==="
             kubectl logs $pod -n ai-architect --all-containers=true --tail=200 || true
           done
-
-          echo "=== Namespace events ==="
-          kubectl get events -n ai-architect --sort-by=.lastTimestamp | tail -200 || true
 
           echo "=== Namespace events ==="
           kubectl get events -n ai-architect --sort-by=.lastTimestamp | tail -200 || true

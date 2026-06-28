@@ -1,0 +1,103 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - generic [ref=e11]:
+        - generic [ref=e12]: Axiom
+        - generic [ref=e13]: Architecture Intelligence
+    - generic [ref=e14]:
+      - navigation "Platform pillars" [ref=e15]:
+        - paragraph [ref=e17]: Platform pillars
+        - generic [ref=e18]:
+          - link "SpecWeaver Requirements Intelligence" [ref=e19] [cursor=pointer]:
+            - /url: /specweaver
+            - generic [ref=e20]:
+              - img [ref=e22]
+              - generic [ref=e26]:
+                - generic [ref=e27]: SpecWeaver
+                - generic [ref=e28]: Requirements Intelligence
+          - link "Archon Architecture Reasoning" [ref=e29] [cursor=pointer]:
+            - /url: /archon
+            - generic [ref=e30]:
+              - img [ref=e32]
+              - generic [ref=e37]:
+                - generic [ref=e38]: Archon
+                - generic [ref=e39]: Architecture Reasoning
+          - link "Lens Architecture Review Intelligence" [ref=e40] [cursor=pointer]:
+            - /url: /lens
+            - generic [ref=e41]:
+              - img [ref=e43]
+              - generic [ref=e48]:
+                - generic [ref=e49]: Lens
+                - generic [ref=e50]: Architecture Review Intelligence
+      - button "New chat" [ref=e52]:
+        - img [ref=e53]
+        - text: New chat
+      - navigation [ref=e55]:
+        - button "Home" [ref=e56]:
+          - img [ref=e57]
+          - text: Home
+        - button "Chat" [ref=e59]:
+          - img [ref=e60]
+          - text: Chat
+        - button "Workshop" [ref=e62]:
+          - img [ref=e63]
+          - text: Workshop
+      - generic [ref=e65]:
+        - heading "History" [level=3] [ref=e66]
+        - generic [ref=e67]: No chats yet
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e71]: G
+        - generic [ref=e72]: Guest
+      - button "Sign out" [ref=e73]:
+        - img [ref=e74]
+        - text: Sign out
+  - main [ref=e76]:
+    - generic [ref=e78]:
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - generic [ref=e81]:
+            - img [ref=e82]
+            - generic [ref=e87]: Lens
+          - heading "Untitled review" [level=1] [ref=e88]
+          - paragraph [ref=e89]: Lens gap elicitation never blocks progress. Unresolved gaps become findings.
+        - generic [ref=e90]: EVIDENCE_COLLECTION
+      - generic [ref=e115]: Session details saved.
+      - generic [ref=e91]:
+        - generic [ref=e92]:
+          - generic [ref=e93]:
+            - text: Session title
+            - textbox [ref=e94]: Untitled review
+          - generic [ref=e95]:
+            - text: System description
+            - textbox [ref=e96]: Event-driven analytics platform with ingestion API and reporting dashboard.
+          - button "Save details" [disabled] [ref=e98]
+          - paragraph [ref=e100]: No evidence submitted yet.
+          - generic [ref=e101]:
+            - button "Add Evidence" [active] [ref=e102]
+            - button "Generate gap questions" [disabled] [ref=e103]
+        - generic [ref=e104]:
+          - generic [ref=e105]:
+            - heading "Gap elicitation" [level=2] [ref=e106]
+            - generic [ref=e107]: Round 1 of 5
+          - generic [ref=e108]:
+            - button "Submit answers" [disabled] [ref=e109]
+            - button "Assess gaps" [disabled] [ref=e110]
+            - button "Proceed anyway" [ref=e111]
+        - generic [ref=e112]:
+          - heading "Status and report" [level=2] [ref=e113]
+          - generic [ref=e114]: The completed report appears here after review finalization.
+      - generic [ref=e117]:
+        - heading "Add evidence" [level=2] [ref=e118]
+        - combobox [ref=e119]:
+          - option "TEXT_DESCRIPTION" [selected]
+          - option "ADL_CONTENT"
+          - option "DIAGRAM_DESCRIPTION"
+          - option "DECISION_RECORD"
+          - option "REQUIREMENTS_BRIEF"
+        - textbox "Paste architecture evidence here (minimum 50 characters)." [ref=e120]
+        - textbox "Source label (optional)" [ref=e121]
+        - generic [ref=e122]:
+          - button "Cancel" [ref=e123]
+          - button "Submit evidence" [ref=e124]

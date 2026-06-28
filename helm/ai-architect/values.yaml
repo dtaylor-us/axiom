@@ -3,11 +3,6 @@ global:
   imageRegistry: ""
   imagePullSecrets: []
 
-# ── Bootstrap secrets (for initial environment bring-up only) ──────
-# When keyVault.enabled=true this should stay false — secrets are synced
-# by the CSI driver. Enable only when Key Vault CSI is not yet available,
-# e.g. the very first deploy into a fresh cluster.
-# Never commit real values here; pass them via --set at deploy time.
 bootstrapSecrets:
   create: false
   openaiApiKey: ""
@@ -15,7 +10,7 @@ bootstrapSecrets:
   jwtSecret: ""
   agentInternalSecret: ""
 
-# ── Agent (Python / FastAPI) ─────────────────────────────────────
+# ── Agent (archon-agent) ─────────────────────────────────────────
 agent:
   replicaCount: 2
   image:
@@ -36,8 +31,6 @@ agent:
     minReplicas: 2
     maxReplicas: 6
     targetCPU: 70
-  # Schedule agent pods on the dedicated agent node pool.
-  # The node taint workload=agent:NoSchedule is applied by Terraform.
   nodeSelector:
     workload: agent
   tolerations:
@@ -46,16 +39,12 @@ agent:
       value: agent
       effect: NoSchedule
   env:
-    # Tracing is disabled (sampler ratio 0.0) until a collector is deployed
-    # in the cluster. Keeping the endpoint set prevents startup warnings;
-    # zero-ratio sampling means no spans are exported and no connections made.
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger-collector:4317"
     OTEL_SERVICE_NAME: "archon-agent"
     OTEL_TRACES_SAMPLER: "parentbased_traceidratio"
     OTEL_TRACES_SAMPLER_ARG: "0.0"
     LLM_PROVIDER: "openai"
     QDRANT_URL: "http://ai-architect-qdrant:6333"
-  # Secret references — actual values sourced from Key Vault CSI
   secretEnv:
     - name: OPENAI_API_KEY
       secretName: archon-secrets
@@ -64,7 +53,7 @@ agent:
       secretName: archon-secrets
       secretKey: agent-internal-secret
 
-# ── API (Spring Boot) ───────────────────────────────────────────
+# ── API (archon-api) ───────────────────────────────────────────
 api:
   replicaCount: 2
   image:
@@ -86,9 +75,6 @@ api:
     maxReplicas: 6
     targetCPU: 70
   env:
-    # Tracing is disabled (probability 0.0) until a collector is deployed
-    # in the cluster. Zero probability means no spans are sampled and the
-    # OTLP exporter never attempts to connect to the endpoint.
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger-collector:4317"
     OTEL_SERVICE_NAME: "archon-api"
     MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
@@ -104,7 +90,7 @@ api:
       secretName: archon-secrets
       secretKey: agent-internal-secret
 
-# ── UI (React / Nginx) ──────────────────────────────────────────
+# ── UI (axiom-ui) ──────────────────────────────────────────────
 ui:
   replicaCount: 2
   image:
@@ -121,7 +107,7 @@ ui:
       cpu: 500m
       memory: 256Mi
 
-# ── Axiom Platform Gateway (Spring Cloud Gateway) ─────────────
+# ── Axiom Platform Gateway ─────────────────────────────────────
 axiomApi:
   replicaCount: 2
   image:
@@ -174,6 +160,50 @@ specweaverAgent:
     pullPolicy: IfNotPresent
   service:
     port: 8085
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPU: 70
+
+# ── Lens API ─────────────────────────────────────────────────────
+lensApi:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8083
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPU: 70
+
+# ── Lens Agent ───────────────────────────────────────────────────
+lensAgent:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8086
   resources:
     requests:
       cpu: 250m
@@ -243,19 +273,12 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
-    # HTTP to HTTPS redirect — nginx handles this automatically when TLS is
-    # configured on the ingress. Both annotations must be true together.
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
   tls:
     enabled: true
-    # Production issuer. Let's Encrypt prod CA is trusted by all browsers.
-    # Rate limit: 5 duplicate certificates per domain per week.
     issuer: letsencrypt-prod
     secretName: ai-architect-tls
-  # Overridden at deploy time from the terraform output ingress_fqdn.
-  # Set to a custom domain if one is configured; otherwise leave empty and the
-  # Azure-assigned FQDN is used (set via --set ingress.host=... during helm deploy).
   host: ""
 
 # ── Network Policy ──────────────────────────────────────────────
@@ -263,8 +286,6 @@ networkPolicy:
   enabled: true
 
 # ── Azure Key Vault CSI ─────────────────────────────────────────
-# Override individual keys at deploy time with --set, e.g.:
-#   --set keyVault.vaultName=kv-aiarchitect-dev
 keyVault:
   enabled: true
   vaultName: ""
@@ -281,3 +302,5 @@ keyVault:
       key: agent-internal-secret
     - name: specweaver-jwt-secret
       key: specweaver-jwt-secret
+    - name: lens-jwt-secret
+      key: lens-jwt-secret

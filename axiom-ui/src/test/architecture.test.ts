@@ -25,7 +25,12 @@ describe('architecture API', () => {
     expect(result).toEqual(mockData);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/sessions/session-1/architecture',
-      { headers: { Authorization: 'Bearer jwt-token' } },
+      {
+        headers: {
+          Authorization: 'Bearer jwt-token',
+          'X-Axiom-User-Id': 'guest',
+        },
+      },
     );
   });
 
@@ -64,7 +69,12 @@ describe('architecture API', () => {
     expect(result).toEqual(mockData);
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/sessions/s1/diagram',
-      { headers: { Authorization: 'Bearer jwt' } },
+      {
+        headers: {
+          Authorization: 'Bearer jwt',
+          'X-Axiom-User-Id': 'guest',
+        },
+      },
     );
   });
 });

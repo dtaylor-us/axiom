@@ -1,24 +1,23 @@
-You're right on all three points:
+# Copilot Coding Agent Instructions
 
-Repetitive — ARCHITECTURE.md and ADL.md already contain the rules. The instructions file should reference them, not duplicate them.
-Enforceable actions — Copilot works best with short, imperative directives it checks on every generation, not long prose it skimbles over.
-Context vs instructions — GitHub Copilot loads .github/copilot-instructions.md automatically in agent mode, but there is a token limit. Shorter = more reliably applied.
+## Output Discipline
+- Do not emit full diffs unless explicitly requested.
+- Summarize file changes in bullets.
+- Do not paste full logs.
+- For failures, include only:
+  - failing command
+  - failing test or step
+  - likely cause
+  - proposed fix
 
-The right structure is:
+## Validation Discipline
+- During implementation, run the smallest targeted test possible.
+- Do not repeat full `mvn verify` loops during iteration.
+- Run full verification only once before final response.
 
-.github/copilot-instructions.md — short, imperative, always-loaded. Mandatory checks only.
-ARCHITECTURE.md — full platform architecture reference. Copilot reads this when explicitly told to.
-ADL.md — governance rules with enforcement tests. Copilot reads this when explicitly told to.
-
-Here is the tightened version:
-
-markdown# Copilot Instructions — Axiom Platform
-
-Read ARCHITECTURE.md and ADL.md before generating any code.
-They are the authoritative source of truth. These instructions
-are a short enforcement checklist only — not a substitute.
-
----
+## Session Discipline
+- Keep work scoped to the requested milestone.
+- Recommend a new session before starting unrelated docs, tests, refactors, or cleanup
 
 ## MANDATORY PRE-GENERATION CHECKS
 
@@ -62,16 +61,39 @@ npx vitest run --coverage
 | archon-agent     | 8001 | FastAPI + LangGraph      | Active  |
 | specweaver-api   | 8082 | Spring Boot              | Active  |
 | specweaver-agent | 8085 | FastAPI + LangGraph      | Active  |
-| scout-api        | 8083 | Spring Boot              | Planned |
-| scout-agent      | 8086 | FastAPI + LangGraph      | Planned |
-| forge-api        | 8084 | Spring Boot              | Planned |
-| forge-agent      | 8087 | FastAPI + LangGraph      | Planned |
+| lens-api         | 8083 | Spring Boot              | Active  |
+| lens-agent       | 8086 | FastAPI + LangGraph      | Active  |
 
 All external traffic enters through axiom-api.
 Each pillar owns its own PostgreSQL database.
 See ARCHITECTURE.md for full topology and constraints.
 
 ---
+
+## LENS-SPECIFIC RULES
+
+- Gap elicitation never blocks the user from proceeding.
+- After `MAX_ROUNDS = 5`, `canProceed` is always `True`.
+- Unresolved gaps become `INSUFFICIENT_INFORMATION` findings.
+- Risk register is capped at `MAX_RISKS = 20`.
+- Recommendations are capped at `MAX_RECOMMENDATIONS = 15`.
+- `azure_waf_analysis` evaluates evidence coverage for the five Azure WAF pillars only: Reliability, Security, Cost, Operational Excellence, and Performance Efficiency.
+- Do not assume compliance. Missing evidence is a gap, not a pass.
+- Do not reference specific Azure services or products in the Azure WAF assessment.
+
+## PIPELINE STAGE ADDITIONS — Lens checklist
+
+Adding a Lens stage requires updating all of these in the same change:
+
+| File | What to update |
+|------|----------------|
+| `lens-agent/app/pipeline/graph.py` | Add the stage to `ORDERED_STAGES` |
+| `lens-agent/app/pipeline/nodes.py` | Implement the stage node |
+| `lens-agent/app/tools/` | Add any supporting tool files |
+| `axiom-ui/src/components/StageProgress.tsx` | Add the Lens stage label |
+| `ARCHITECTURE.md` | Update the Lens pipeline definition |
+| `ADL.md` | Update governance rules if the stage changes policy |
+| `tests/unit/test_pipeline_graph.py` | Update stage count and sequencing tests |
 
 ## PIPELINE STAGE ADDITIONS — atomic update checklist
 

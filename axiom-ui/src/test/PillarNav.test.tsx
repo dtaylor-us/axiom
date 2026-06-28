@@ -26,24 +26,14 @@ describe('PillarNav', () => {
     expect(screen.getByTestId('pillar-specweaver')).toHaveAttribute('href', '/specweaver');
   });
 
-  it('shows scout as enabled link', () => {
+  it('shows lens as enabled link', () => {
     render(
       <MemoryRouter>
         <PillarNav />
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId('pillar-scout')).toHaveAttribute('href', '/scout');
-  });
-
-  it('shows forge as enabled link', () => {
-    render(
-      <MemoryRouter>
-        <PillarNav />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByTestId('pillar-forge')).toHaveAttribute('href', '/forge');
+    expect(screen.getByTestId('pillar-lens')).toHaveAttribute('href', '/lens');
   });
 
   it('active pillar uses pillar colour for highlight', () => {

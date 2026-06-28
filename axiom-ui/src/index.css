@@ -31,13 +31,9 @@
   --color-pillar-specweaver-bg: rgba(17, 138, 178, 0.12);
   --color-pillar-specweaver-text: #118AB2;
 
-  --color-pillar-scout: #FB8500;
-  --color-pillar-scout-bg: rgba(251, 133, 0, 0.12);
-  --color-pillar-scout-text: #FB8500;
-
-  --color-pillar-forge: #EF476F;
-  --color-pillar-forge-bg: rgba(239, 71, 111, 0.12);
-  --color-pillar-forge-text: #EF476F;
+  --color-pillar-lens: #F77F00;
+  --color-pillar-lens-bg: rgba(247, 127, 0, 0.12);
+  --color-pillar-lens-text: #c2410c;
 }
 
 html, body, #root {
@@ -188,6 +184,37 @@ body {
   white-space: nowrap;
 }
 
+.sidebar-pillar-active--axiom {
+  --sidebar-active-color: var(--color-pillar-axiom);
+}
+
+.sidebar-pillar-active--archon {
+  --sidebar-active-color: var(--color-pillar-archon);
+}
+
+.sidebar-pillar-active--specweaver {
+  --sidebar-active-color: var(--color-pillar-specweaver);
+}
+
+.sidebar-pillar-active--lens {
+  --sidebar-active-color: var(--color-pillar-lens);
+}
+
+.sidebar-active-item {
+  background: color-mix(in srgb, var(--sidebar-active-color) 15%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sidebar-active-color) 40%, transparent);
+  color: #fff;
+}
+
+.sidebar-active-nav {
+  background: color-mix(in srgb, var(--sidebar-active-color) 14%, var(--color-sidebar-hover));
+  color: #fff;
+}
+
+.sidebar-active-dot {
+  background: var(--sidebar-active-color);
+}
+
 /* Pillar badges */
 .pillar-badge {
   align-items: center;
@@ -225,14 +252,9 @@ body {
   color: var(--color-pillar-specweaver-text);
 }
 
-.pillar-badge--scout {
-  background: var(--color-pillar-scout-bg);
-  color: var(--color-pillar-scout-text);
-}
-
-.pillar-badge--forge {
-  background: var(--color-pillar-forge-bg);
-  color: var(--color-pillar-forge-text);
+.pillar-badge--lens {
+  background: var(--color-pillar-lens-bg);
+  color: var(--color-pillar-lens-text);
 }
 
 .ownership-badge {

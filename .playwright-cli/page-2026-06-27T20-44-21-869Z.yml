@@ -1,0 +1,105 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - generic [ref=e11]:
+        - generic [ref=e12]: Axiom
+        - generic [ref=e13]: Architecture Intelligence
+    - generic [ref=e14]:
+      - navigation "Platform pillars" [ref=e15]:
+        - paragraph [ref=e17]: Platform pillars
+        - generic [ref=e18]:
+          - link "SpecWeaver Requirements Intelligence" [ref=e19] [cursor=pointer]:
+            - /url: /specweaver
+            - generic [ref=e20]:
+              - img [ref=e22]
+              - generic [ref=e26]:
+                - generic [ref=e27]: SpecWeaver
+                - generic [ref=e28]: Requirements Intelligence
+          - link "Archon Architecture Reasoning" [ref=e29] [cursor=pointer]:
+            - /url: /archon
+            - generic [ref=e30]:
+              - img [ref=e32]
+              - generic [ref=e37]:
+                - generic [ref=e38]: Archon
+                - generic [ref=e39]: Architecture Reasoning
+          - link "Lens Architecture Review Intelligence" [ref=e40] [cursor=pointer]:
+            - /url: /lens
+            - generic [ref=e41]:
+              - img [ref=e43]
+              - generic [ref=e48]:
+                - generic [ref=e49]: Lens
+                - generic [ref=e50]: Architecture Review Intelligence
+      - button "New chat" [ref=e52]:
+        - img [ref=e53]
+        - text: New chat
+      - navigation [ref=e55]:
+        - button "Home" [ref=e56]:
+          - img [ref=e57]
+          - text: Home
+        - button "Chat" [ref=e59]:
+          - img [ref=e60]
+          - text: Chat
+        - button "Workshop" [ref=e62]:
+          - img [ref=e63]
+          - text: Workshop
+      - generic [ref=e65]:
+        - heading "History" [level=3] [ref=e66]
+        - generic [ref=e67]: No chats yet
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e71]: G
+        - generic [ref=e72]: Guest
+      - button "Sign out" [ref=e73]:
+        - img [ref=e74]
+        - text: Sign out
+  - main [ref=e76]:
+    - generic [ref=e124]:
+      - generic [ref=e125]:
+        - generic [ref=e126]:
+          - generic [ref=e127]:
+            - img [ref=e128]
+            - generic [ref=e133]: Lens
+          - heading "Untitled review" [level=1] [ref=e134]
+          - paragraph [ref=e135]: Lens gap elicitation never blocks progress. Unresolved gaps become findings.
+        - generic [ref=e136]: READY_FOR_REVIEW
+      - generic [ref=e161]: Session details saved.
+      - generic [ref=e137]:
+        - generic [ref=e138]:
+          - generic [ref=e139]:
+            - text: Session title
+            - textbox [ref=e140]: Untitled review
+          - generic [ref=e141]:
+            - text: System description
+            - textbox [ref=e142]: Microservices e-commerce platform with API gateway and order service.
+          - button "Save details" [disabled] [ref=e144]
+          - generic [ref=e171]:
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - generic [ref=e174]: TEXT_DESCRIPTION
+                - generic [ref=e175]: Architecture description
+              - button "Delete" [ref=e176]
+            - paragraph [ref=e177]: "Microservices e-commerce platform with API gateway, order service, inventory service, and payment service. Services communicate via REST APIs. Orders and inventory use PostgreSQL. Sessions use Redis. Deployed on Kubernetes with autoscaling. Authentication via OAuth2 with JWT tokens issued by Azure AD. OpenTelemetry tracing enabled. Expected peak load: 5000 concurrent users. No defined RTO or RPO. No cost monitoring configured."
+          - generic [ref=e147]:
+            - button "Add Evidence" [ref=e148]
+            - button "Generate gap questions" [disabled] [ref=e149]
+        - generic [ref=e150]:
+          - generic [ref=e151]:
+            - heading "Gap elicitation" [level=2] [ref=e152]
+            - generic [ref=e153]: Round 2 of 5
+          - paragraph [ref=e308]: The architecture evidence and Q&A provide sufficient coverage across the required areas, including system purpose, primary components, deployment details, security, and reliability considerations. Although some questions remain unanswered, the existing information is adequate for a meaningful review.
+          - generic [ref=e154]:
+            - button "Submit answers" [ref=e155]
+            - button "Assess gaps" [ref=e156]
+            - button "Proceed anyway" [ref=e157]
+        - generic [ref=e158]:
+          - heading "Status and report" [level=2] [ref=e159]
+          - generic [ref=e315]:
+            - paragraph [ref=e316]:
+              - text: "Evidence items:"
+              - strong [ref=e317]: "1"
+            - paragraph [ref=e318]:
+              - text: "Unresolved gaps becoming findings:"
+              - strong [ref=e319]: "5"
+            - button "Start review" [ref=e320]
+          - generic [ref=e160]: The completed report appears here after review finalization.

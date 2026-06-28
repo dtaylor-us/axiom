@@ -10,8 +10,7 @@ const PILLAR_LABELS: Record<PillarId, string> = {
   axiom: 'Axiom',
   archon: 'Archon',
   specweaver: 'SpecWeaver',
-  scout: 'Scout',
-  forge: 'Forge',
+  lens: 'Lens',
 };
 
 /**

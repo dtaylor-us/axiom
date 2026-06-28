@@ -18,6 +18,54 @@ export class ApiError extends Error {
   }
 }
 
+function decodeJwtIdentity(token: string): string | null {
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  try {
+    const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const payload = JSON.parse(atob(padded)) as { sub?: unknown; email?: unknown; username?: unknown };
+    if (typeof payload.sub === 'string' && payload.sub.trim().length > 0) return payload.sub;
+    if (typeof payload.email === 'string' && payload.email.trim().length > 0) return payload.email;
+    if (typeof payload.username === 'string' && payload.username.trim().length > 0) return payload.username;
+  } catch {
+    // Ignore malformed token payloads and fall back to persisted identity.
+  }
+  return null;
+}
+
+function resolveUserIdentity(token?: string): string {
+  if (token && token.length > 0) {
+    const jwtIdentity = decodeJwtIdentity(token);
+    if (jwtIdentity) return jwtIdentity;
+  }
+  if (typeof window === 'undefined') return 'guest';
+  try {
+    const raw = window.localStorage.getItem('archon.auth');
+    if (!raw) return 'guest';
+    const parsed = JSON.parse(raw) as { username?: unknown };
+    if (typeof parsed.username === 'string' && parsed.username.trim().length > 0) {
+      return parsed.username;
+    }
+  } catch {
+    // Fall back to guest identity when local storage is unavailable or malformed.
+  }
+  return 'guest';
+}
+
+function buildAuthHeaders(token: string): HeadersInit {
+  const headers: Record<string, string> = {
+    'X-Axiom-User-Id': resolveUserIdentity(token),
+  };
+
+  const trimmedToken = token.trim();
+  if (trimmedToken.length > 0 && trimmedToken !== 'null' && trimmedToken !== 'undefined') {
+    headers.Authorization = `Bearer ${trimmedToken}`;
+  }
+
+  return headers;
+}
+
 /** Map an HTTP status to a user-readable sentence when the server hasn't given one. */
 function statusMessage(status: number): string {
   switch (status) {
@@ -44,7 +92,7 @@ export async function authFetchJson<T>(
   let res: Response;
   try {
     res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: buildAuthHeaders(token),
     });
   } catch {
     // Network failure (offline, DNS error, refused connection, etc.)

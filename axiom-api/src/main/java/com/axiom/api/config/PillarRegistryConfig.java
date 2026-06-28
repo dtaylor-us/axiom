@@ -15,8 +15,7 @@ public class PillarRegistryConfig {
 
     private PillarDefinition archon = new PillarDefinition();
     private PillarDefinition specweaver = new PillarDefinition();
-    private PillarDefinition scout = new PillarDefinition();
-    private PillarDefinition forge = new PillarDefinition();
+    private PillarDefinition lens = new PillarDefinition();
 
     public PillarDefinition getArchon() {
         return archon;
@@ -34,20 +33,12 @@ public class PillarRegistryConfig {
         this.specweaver = specweaver;
     }
 
-    public PillarDefinition getScout() {
-        return scout;
+    public PillarDefinition getLens() {
+        return lens;
     }
 
-    public void setScout(PillarDefinition scout) {
-        this.scout = scout;
-    }
-
-    public PillarDefinition getForge() {
-        return forge;
-    }
-
-    public void setForge(PillarDefinition forge) {
-        this.forge = forge;
+    public void setLens(PillarDefinition lens) {
+        this.lens = lens;
     }
 
     /**
@@ -59,8 +50,7 @@ public class PillarRegistryConfig {
         Map<String, PillarDefinition> pillars = new LinkedHashMap<>();
         pillars.put("archon", archon);
         pillars.put("specweaver", specweaver);
-        pillars.put("scout", scout);
-        pillars.put("forge", forge);
+        pillars.put("lens", lens);
         return pillars;
     }
 

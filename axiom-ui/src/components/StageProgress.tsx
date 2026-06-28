@@ -16,6 +16,16 @@ const STAGE_LABELS: Record<string, string> = {
   weakness_analysis: 'Weakness Analysis',
   fmea_analysis: 'FMEA Analysis',
   architecture_review: 'Architecture Review',
+  evidence_parsing: 'Evidence Parsing',
+  azure_waf_analysis: 'Azure WAF Analysis',
+  atam_analysis: 'ATAM Analysis',
+  sei_analysis: 'SEI Analysis',
+  structural_analysis: 'Structural Analysis',
+  risk_identification: 'Risk Identification',
+  recommendation_generation: 'Recommendation Generation',
+  executive_summary: 'Executive Summary',
+  report_assembly: 'Report Assembly',
+  review_complete: 'Review Complete',
 };
 
 function StatusIcon({ status }: { status: string }) {
@@ -93,15 +103,17 @@ function rowTextColor(status: string): string {
 
 interface StageProgressProps {
   stages: StageState[];
+  stageNames?: readonly string[];
 }
 
-export function StageProgress({ stages }: StageProgressProps) {
-  const stageMap = new Map(stages.map((s) => [s.name, s]));
+export function StageProgress({ stages, stageNames }: StageProgressProps) {
+  const stageMap = new Map<string, StageState>(stages.map((s) => [s.name, s]));
+  const names = stageNames ?? PIPELINE_STAGES;
 
   return (
     <div className="space-y-0.5" data-testid="stage-progress">
-      {PIPELINE_STAGES.map((name) => {
-        const stage = stageMap.get(name);
+      {names.map((name) => {
+        const stage = stageMap.get(name as string);
         const status = stage?.status ?? 'pending';
         return (
           <div

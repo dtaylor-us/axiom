@@ -16,13 +16,13 @@ import { ArchitectureView } from './views/ArchitectureView';
 import { GovernanceView } from './views/GovernanceView';
 import { AxiomHomePage } from './views/AxiomHomePage';
 import { ResetPasswordView } from './views/ResetPasswordView';
+import { LensHomePage } from './views/lens/LensHomePage';
+import { LensReviewPage } from './views/lens/LensReviewPage';
 import { WorkshopView } from './views/workshop/WorkshopView';
 import { ArchonHomePage } from './views/archon/ArchonHomePage';
-import { ForgeHomePage } from './views/forge/ForgeHomePage';
 import { PackageDetailView } from './views/specweaver/PackageDetailView';
 import { SessionListView } from './views/specweaver/SessionListView';
 import { SessionView } from './views/specweaver/SessionView';
-import { ScoutHomePage } from './views/scout/ScoutHomePage';
 import { SpecWeaverHomePage } from './views/specweaver/SpecWeaverHomePage';
 import { StageProgress } from './components/StageProgress';
 import { PillarNav } from './components/PillarNav';
@@ -30,6 +30,7 @@ import { PillarIcon } from './components/PillarIcon';
 import { ToastProvider, emitToast } from './components/Toast';
 import { getToken } from './api/auth';
 import { getPipelineStatus, getRunStatus, reattachStream } from './api/chat';
+import { listReviewSessions, type ReviewSession as LensReviewSession } from './api/lens';
 import { getSessionMessages, listSessions } from './api/sessions';
 import { listWorkshopSessions } from './api/workshop';
 import type { Session as SpecWeaverSession } from './api/specweaver';
@@ -38,6 +39,7 @@ import type { WorkshopSessionSummary } from './types/workshop';
 import { useSpecWeaverStore } from './store/useSpecWeaverStore';
 
 type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop' | 'specweaver';
+type Pillar = 'axiom' | 'archon' | 'specweaver' | 'lens';
 
 const STORAGE_KEYS = {
   lastView: 'archon.lastView',
@@ -47,10 +49,9 @@ const STORAGE_KEYS = {
 const CONVERSATION_HYDRATION_RETRY_ATTEMPTS = 5;
 const CONVERSATION_HYDRATION_RETRY_DELAY_MS = 400;
 
-function getCurrentPillar(pathname: string): 'axiom' | 'archon' | 'specweaver' | 'scout' | 'forge' {
+function getCurrentPillar(pathname: string): Pillar {
   if (pathname.startsWith('/specweaver')) return 'specweaver';
-  if (pathname.startsWith('/scout')) return 'scout';
-  if (pathname.startsWith('/forge')) return 'forge';
+  if (pathname.startsWith('/lens')) return 'lens';
   if (pathname === '/') return 'axiom';
   return 'archon';
 }
@@ -59,12 +60,11 @@ function getPillarTitle(pathname: string): string {
   const pillar = getCurrentPillar(pathname);
   if (pillar === 'specweaver') return 'SpecWeaver — Requirements Intelligence | Axiom';
   if (pillar === 'archon') return 'Archon — Architecture Reasoning | Axiom';
-  if (pillar === 'scout') return 'Scout — Repository Intelligence | Axiom';
-  if (pillar === 'forge') return 'Forge — Prototype Generation | Axiom';
+  if (pillar === 'lens') return 'Lens — Architecture Review Intelligence | Axiom';
   return 'Axiom — Architecture Intelligence Platform';
 }
 
-function getPillarFavicon(pillar: 'axiom' | 'archon' | 'specweaver' | 'scout' | 'forge'): string {
+function getPillarFavicon(pillar: Pillar): string {
   const iconMap: Record<typeof pillar, { stroke: string; path: string }> = {
     axiom: {
       stroke: '%237B2FBE',
@@ -78,19 +78,31 @@ function getPillarFavicon(pillar: 'axiom' | 'archon' | 'specweaver' | 'scout' | 
       stroke: '%23118AB2',
       path: 'M7 3h7l5 5v13H7a2 2 0 01-2-2V5a2 2 0 012-2z M14 3v5h5 M9 11h6 M9 14h6 M9 17h5',
     },
-    scout: {
-      stroke: '%2349A078',
-      path: 'M10 10a3 3 0 106 0 3 3 0 00-6 0m9 9l-4.35-4.35',
-    },
-    forge: {
-      stroke: '%23C78F1E',
-      path: 'M14 3l7 7-4 1-1 4-7-7 5-5z M3 21l6-6',
+    lens: {
+      stroke: '%23F77F00',
+      path: 'M10.5 5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11m4.3 9.3L20 20M9 10.5h3m-1.5-1.5v3',
     },
   };
 
   const { stroke, path } = iconMap[pillar];
 
   return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='${path}'/%3E%3C/svg%3E`;
+}
+
+function getSidebarPillarClass(pillar: Pillar): string {
+  return `sidebar-pillar-active--${pillar}`;
+}
+
+function getActiveSidebarItemClass(pillar: Pillar): string {
+  return `${getSidebarPillarClass(pillar)} sidebar-active-item`;
+}
+
+function getActiveSidebarNavClass(pillar: Pillar): string {
+  return `${getSidebarPillarClass(pillar)} sidebar-active-nav`;
+}
+
+function getActiveSidebarDotClass(pillar: Pillar): string {
+  return `${getSidebarPillarClass(pillar)} sidebar-active-dot`;
 }
 
 function getConversationIdFromPath(pathname: string): string | null {
@@ -225,6 +237,14 @@ function getSpecWeaverSessionTitle(session: SpecWeaverSession): string {
   return session.title?.trim() ? session.title : 'Untitled session';
 }
 
+function getLensSessionId(pathname: string): string | null {
+  const pathParts = pathname.split('/').filter(Boolean);
+  if (pathParts[0] !== 'lens') return null;
+  if (pathParts[1] !== 'sessions') return null;
+  if (!pathParts[2]) return null;
+  return pathParts[2];
+}
+
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -257,6 +277,9 @@ function AppContent() {
   const [workshopSessions, setWorkshopSessions] = useState<WorkshopSessionSummary[]>([]);
   const [workshopSessionsLoading, setWorkshopSessionsLoading] = useState(false);
   const [workshopSessionsError, setWorkshopSessionsError] = useState<string | null>(null);
+  const [lensSessions, setLensSessions] = useState<LensReviewSession[]>([]);
+  const [lensSessionsLoading, setLensSessionsLoading] = useState(false);
+  const [lensSessionsError, setLensSessionsError] = useState<string | null>(null);
   const [selectedWorkshopSessionId, setSelectedWorkshopSessionId] = useState<string | null>(null);
   const [workshopRefreshKey, setWorkshopRefreshKey] = useState(0);
   const [newWorkshopKey, setNewWorkshopKey] = useState(0);
@@ -282,14 +305,18 @@ function AppContent() {
 
   const isPlatformHomeRoute = location.pathname === '/';
   const isSpecWeaverRoute = location.pathname.startsWith('/specweaver');
-  const isScoutRoute = location.pathname.startsWith('/scout');
-  const isForgeRoute = location.pathname.startsWith('/forge');
+  const isLensRoute = location.pathname.startsWith('/lens');
   const isArchonHomeRoute = location.pathname === '/archon';
   const isArchonChatRoute = location.pathname === '/archon/chat';
   const isConversationRoute = !!getConversationIdFromPath(location.pathname);
+  const activeSidebarPillar: Pillar = isSpecWeaverRoute ? 'specweaver' : isLensRoute ? 'lens' : 'archon';
+  const activeSidebarItemClass = getActiveSidebarItemClass(activeSidebarPillar);
+  const activeSidebarNavClass = getActiveSidebarNavClass(activeSidebarPillar);
+  const activeSidebarDotClass = getActiveSidebarDotClass(activeSidebarPillar);
   const activeSpecWeaverSessionId = isSpecWeaverRoute
     ? getSpecWeaverSessionId(location.pathname)
     : null;
+  const activeLensSessionId = isLensRoute ? getLensSessionId(location.pathname) : null;
 
   useEffect(() => {
     document.title = getPillarTitle(location.pathname);
@@ -335,6 +362,16 @@ function AppContent() {
 
   const handleOpenSpecWeaverSession = (sessionId: string) => {
     navigate(`/specweaver/sessions/${sessionId}`);
+    setMobileDrawerOpen(false);
+  };
+
+  const handleCreateLensSession = () => {
+    navigate('/lens/new');
+    setMobileDrawerOpen(false);
+  };
+
+  const handleOpenLensSession = (sessionId: string) => {
+    navigate(`/lens/sessions/${sessionId}`);
     setMobileDrawerOpen(false);
   };
 
@@ -400,6 +437,29 @@ function AppContent() {
     void loadSpecWeaverSessionHistory();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, isSpecWeaverRoute]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!token) return;
+    if (!isLensRoute) return;
+
+    setLensSessionsLoading(true);
+    setLensSessionsError(null);
+    listReviewSessions(token)
+      .then((items) => {
+        if (!cancelled) setLensSessions(items);
+      })
+      .catch((error) => {
+        if (!cancelled) setLensSessionsError((error as Error).message ?? 'Failed to load Lens reviews');
+      })
+      .finally(() => {
+        if (!cancelled) setLensSessionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, isLensRoute, location.pathname]);
 
   // Conversation and chat URLs should render the chat shell immediately, even
   // while message hydration is still in-flight.
@@ -727,10 +787,8 @@ function AppContent() {
       ? 'Axiom'
       : isSpecWeaverRoute
       ? 'SpecWeaver'
-      : isScoutRoute
-      ? 'Scout'
-      : isForgeRoute
-      ? 'Forge'
+      : isLensRoute
+      ? 'Lens'
       : isArchonHomeRoute
       ? 'Archon'
       : activeView === 'home'
@@ -780,6 +838,17 @@ function AppContent() {
                 </svg>
                 {isCreatingSpecWeaverSession ? 'Creating session...' : 'New session'}
               </button>
+            ) : isLensRoute ? (
+              <button
+                onClick={handleCreateLensSession}
+                className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-2.5 text-[13px] text-gray-200 hover:bg-sidebar-hover transition-colors"
+                data-testid="new-lens-review"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M8 3v10M3 8h10" />
+                </svg>
+                New architecture review
+              </button>
             ) : (
               <>
                 <button
@@ -816,13 +885,27 @@ function AppContent() {
                   navigate('/specweaver/sessions');
                   setMobileDrawerOpen(false);
                 }}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors bg-sidebar-hover text-white"
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${activeSidebarNavClass}`}
                 data-testid="nav-specweaver-sessions"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4 6h16M4 12h16M4 18h10" />
                 </svg>
                 Sessions
+              </button>
+            ) : isLensRoute ? (
+              <button
+                onClick={() => {
+                  navigate('/lens');
+                  setMobileDrawerOpen(false);
+                }}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${activeSidebarNavClass}`}
+                data-testid="nav-lens-reviews"
+              >
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.5 5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11m4.3 9.3L20 20M9 10.5h3m-1.5-1.5v3" />
+                </svg>
+                Reviews
               </button>
             ) : (
               NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
@@ -831,7 +914,7 @@ function AppContent() {
                   onClick={() => handleNavigatePrimaryView(key)}
                   className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
                     activeView === key
-                      ? 'bg-sidebar-hover text-white'
+                      ? activeSidebarNavClass
                       : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                   }`}
                   data-testid={`nav-${key}`}
@@ -848,7 +931,7 @@ function AppContent() {
           {isSpecWeaverRoute && activeSpecWeaverSessionId && (
             <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
               <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
                 <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
                   Active session
                 </span>
@@ -861,7 +944,7 @@ function AppContent() {
                   }}
                   className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
                     location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}`
-                      ? 'bg-sidebar-hover text-white'
+                      ? activeSidebarNavClass
                       : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                   }`}
                   data-testid="nav-specweaver-session"
@@ -878,7 +961,7 @@ function AppContent() {
                   }}
                   className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
                     location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}/package`
-                      ? 'bg-sidebar-hover text-white'
+                      ? activeSidebarNavClass
                       : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                   }`}
                   data-testid="nav-specweaver-package"
@@ -892,10 +975,10 @@ function AppContent() {
             </div>
           )}
 
-          {!isSpecWeaverRoute && hasConversation && (
+          {!isSpecWeaverRoute && !isLensRoute && hasConversation && (
             <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
               <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
                 <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
                   Active session
                 </span>
@@ -907,7 +990,7 @@ function AppContent() {
                     onClick={() => setActiveView(key)}
                     className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
                       activeView === key
-                        ? 'bg-sidebar-hover text-white'
+                        ? activeSidebarNavClass
                         : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                     }`}
                     data-testid={`nav-${key}`}
@@ -924,7 +1007,7 @@ function AppContent() {
 
           <div className="mt-3 px-2">
             <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
-              {isSpecWeaverRoute ? 'Sessions' : activeView === 'workshop' ? 'Workshops' : 'History'}
+              {isSpecWeaverRoute ? 'Sessions' : isLensRoute ? 'Reviews' : activeView === 'workshop' ? 'Workshops' : 'History'}
             </h3>
             {isSpecWeaverRoute ? (
               specWeaverSessionsLoading ? (
@@ -943,18 +1026,53 @@ function AppContent() {
                         onClick={() => handleOpenSpecWeaverSession(session.id)}
                         className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
                           active
-                            ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                            ? activeSidebarItemClass
                             : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                         }`}
                         title={getSpecWeaverSessionTitle(session)}
                         data-testid={`specweaver-history-${session.id}`}
                       >
                         <div className="flex items-center gap-2">
-                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                          {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                           <span className={`truncate ${active ? 'font-medium' : ''}`}>{getSpecWeaverSessionTitle(session)}</span>
                         </div>
                         <div className="text-[10px] text-gray-500 mt-0.5 truncate">
                           {SPECWEAVER_STATUS_LABELS[session.status]}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )
+            ) : isLensRoute ? (
+              lensSessionsLoading ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">Loading...</div>
+              ) : lensSessionsError ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">{lensSessionsError}</div>
+              ) : lensSessions.length === 0 ? (
+                <div className="px-3 py-2 text-[12px] text-gray-500">No Lens reviews yet</div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {lensSessions.map((session) => {
+                    const active = session.id === activeLensSessionId;
+                    return (
+                      <button
+                        key={session.id}
+                        onClick={() => handleOpenLensSession(session.id)}
+                        className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
+                          active
+                            ? activeSidebarItemClass
+                            : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                        }`}
+                        title={session.title}
+                        data-testid={`lens-history-${session.id}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
+                          <span className={`truncate ${active ? 'font-medium' : ''}`}>{session.title || 'Untitled review'}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                          {session.status.replace(/_/g, ' ')}
                         </div>
                       </button>
                     );
@@ -978,15 +1096,14 @@ function AppContent() {
                         onClick={() => handleLoadWorkshopSession(ws.sessionId)}
                         className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors ${
                           active
-                            ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                            ? activeSidebarItemClass
                             : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                         }`}
                         title={ws.systemName}
                         data-testid={`workshop-history-${ws.sessionId}`}
                       >
                         <div className="flex items-center gap-2">
-                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
-                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                          {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                           <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
                         </div>
                         <div className="text-[10px] text-gray-500 mt-0.5 truncate">
@@ -1015,14 +1132,14 @@ function AppContent() {
                       disabled={isStreaming || loading}
                       className={`text-left rounded-lg px-3 py-2 text-[12px] transition-colors relative ${
                         active
-                          ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                          ? activeSidebarItemClass
                           : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                       } ${isStreaming || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                       title={s.title}
                       data-testid={`history-${s.id}`}
                     >
                       <div className="flex items-center gap-2">
-                        {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                        {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                         <span className={`truncate ${active ? 'font-medium' : ''}`}>{s.title}</span>
                       </div>
                     </button>
@@ -1126,6 +1243,17 @@ function AppContent() {
                     </svg>
                     {isCreatingSpecWeaverSession ? 'Creating session...' : 'New session'}
                   </button>
+                ) : isLensRoute ? (
+                  <button
+                    onClick={handleCreateLensSession}
+                    className="flex items-center gap-2 w-full border border-sidebar-border rounded-lg px-3 py-3 text-[14px] text-gray-100 hover:bg-sidebar-hover transition-colors"
+                    data-testid="mobile-new-lens-review"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M8 3v10M3 8h10" />
+                    </svg>
+                    New architecture review
+                  </button>
                 ) : (
                   <>
                     <button
@@ -1166,13 +1294,27 @@ function AppContent() {
                         navigate('/specweaver/sessions');
                         setMobileDrawerOpen(false);
                       }}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors bg-sidebar-hover text-white"
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${activeSidebarNavClass}`}
                       data-testid="mobile-drawer-nav-specweaver-sessions"
                     >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M4 6h16M4 12h16M4 18h10" />
                       </svg>
                       Sessions
+                    </button>
+                  ) : isLensRoute ? (
+                    <button
+                      onClick={() => {
+                        navigate('/lens');
+                        setMobileDrawerOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${activeSidebarNavClass}`}
+                      data-testid="mobile-drawer-nav-lens-reviews"
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.5 5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11m4.3 9.3L20 20M9 10.5h3m-1.5-1.5v3" />
+                      </svg>
+                      Reviews
                     </button>
                   ) : (
                     NAV_ITEMS.filter(({ key }) => key === 'home' || key === 'chat' || key === 'workshop').map(({ key, label, icon }) => (
@@ -1184,7 +1326,7 @@ function AppContent() {
                         }}
                         className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${
                           activeView === key
-                            ? 'bg-sidebar-hover text-white'
+                            ? activeSidebarNavClass
                             : 'text-gray-300 hover:bg-sidebar-hover hover:text-gray-100'
                         }`}
                         data-testid={`mobile-drawer-nav-${key}`}
@@ -1202,7 +1344,7 @@ function AppContent() {
               {isSpecWeaverRoute && activeSpecWeaverSessionId && (
                 <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
                   <div className="px-2 pt-1 pb-1 flex items-center gap-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
                     <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
                       Active session
                     </span>
@@ -1215,7 +1357,7 @@ function AppContent() {
                       }}
                       className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
                         location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}`
-                          ? 'bg-sidebar-hover text-white'
+                          ? activeSidebarNavClass
                           : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                       }`}
                       data-testid="mobile-drawer-nav-specweaver-session"
@@ -1232,7 +1374,7 @@ function AppContent() {
                       }}
                       className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
                         location.pathname === `/specweaver/sessions/${activeSpecWeaverSessionId}/package`
-                          ? 'bg-sidebar-hover text-white'
+                          ? activeSidebarNavClass
                           : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                       }`}
                       data-testid="mobile-drawer-nav-specweaver-package"
@@ -1246,10 +1388,10 @@ function AppContent() {
                 </section>
               )}
 
-              {!isSpecWeaverRoute && hasConversation && (
+              {!isSpecWeaverRoute && !isLensRoute && hasConversation && (
                 <section className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/30 p-2">
                   <div className="px-2 pt-1 pb-1 flex items-center gap-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
                     <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest truncate">
                       Active session
                     </span>
@@ -1264,7 +1406,7 @@ function AppContent() {
                         }}
                         className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
                           activeView === key
-                            ? 'bg-sidebar-hover text-white'
+                            ? activeSidebarNavClass
                             : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                         }`}
                         data-testid={`mobile-drawer-nav-${key}`}
@@ -1281,7 +1423,7 @@ function AppContent() {
 
               <details className="rounded-xl border border-sidebar-border/70 bg-sidebar-hover/20" open>
                 <summary className="list-none cursor-pointer px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest flex items-center justify-between">
-                  <span>{isSpecWeaverRoute ? 'Sessions' : activeView === 'workshop' ? 'Workshops' : 'History'}</span>
+                  <span>{isSpecWeaverRoute ? 'Sessions' : isLensRoute ? 'Reviews' : activeView === 'workshop' ? 'Workshops' : 'History'}</span>
                   <span className="text-gray-400 text-[11px] normal-case">Toggle</span>
                 </summary>
                 <div className="px-2 pb-3">
@@ -1302,18 +1444,53 @@ function AppContent() {
                               onClick={() => handleOpenSpecWeaverSession(session.id)}
                               className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors ${
                                 active
-                                  ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                  ? activeSidebarItemClass
                                   : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                               }`}
                               title={getSpecWeaverSessionTitle(session)}
                               data-testid={`mobile-specweaver-history-${session.id}`}
                             >
                               <div className="flex items-center gap-2">
-                                {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                                {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                                 <span className={`truncate ${active ? 'font-medium' : ''}`}>{getSpecWeaverSessionTitle(session)}</span>
                               </div>
                               <div className="text-[10px] text-gray-500 mt-0.5 truncate">
                                 {SPECWEAVER_STATUS_LABELS[session.status]}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )
+                  ) : isLensRoute ? (
+                    lensSessionsLoading ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">Loading...</div>
+                    ) : lensSessionsError ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">{lensSessionsError}</div>
+                    ) : lensSessions.length === 0 ? (
+                      <div className="px-3 py-2 text-[12px] text-gray-500">No Lens reviews yet</div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {lensSessions.map((session) => {
+                          const active = session.id === activeLensSessionId;
+                          return (
+                            <button
+                              key={session.id}
+                              onClick={() => handleOpenLensSession(session.id)}
+                              className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors ${
+                                active
+                                  ? activeSidebarItemClass
+                                  : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
+                              }`}
+                              title={session.title}
+                              data-testid={`mobile-lens-history-${session.id}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
+                                <span className={`truncate ${active ? 'font-medium' : ''}`}>{session.title || 'Untitled review'}</span>
+                              </div>
+                              <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                                {session.status.replace(/_/g, ' ')}
                               </div>
                             </button>
                           );
@@ -1337,13 +1514,13 @@ function AppContent() {
                               onClick={() => handleLoadWorkshopSession(ws.sessionId)}
                               className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors ${
                                 active
-                                  ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                  ? activeSidebarItemClass
                                   : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                               }`}
                               title={ws.systemName}
                             >
                               <div className="flex items-center gap-2">
-                                {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                                {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                                 <span className={`truncate ${active ? 'font-medium' : ''}`}>{ws.systemName}</span>
                               </div>
                               <div className="text-[10px] text-gray-500 mt-0.5 truncate">
@@ -1372,13 +1549,13 @@ function AppContent() {
                             disabled={isStreaming || loading}
                             className={`text-left rounded-lg px-3 py-2.5 text-[12px] transition-colors relative ${
                               active
-                                ? 'bg-accent/15 text-white ring-1 ring-accent/40'
+                                ? activeSidebarItemClass
                                 : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-200'
                             } ${isStreaming || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                             title={s.title}
                           >
                             <div className="flex items-center gap-2">
-                              {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                              {active && <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />}
                               <span className={`truncate ${active ? 'font-medium' : ''}`}>{s.title}</span>
                             </div>
                           </button>
@@ -1454,12 +1631,16 @@ function AppContent() {
                   void handleCreateSpecWeaverSession();
                   return;
                 }
+                if (isLensRoute) {
+                  handleCreateLensSession();
+                  return;
+                }
                 handleStartNewChat();
               }}
-              disabled={isSpecWeaverRoute ? isCreatingSpecWeaverSession : isStreaming}
+              disabled={isSpecWeaverRoute ? isCreatingSpecWeaverSession : isLensRoute ? false : isStreaming}
               className="text-xs font-medium rounded-lg px-2.5 py-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
             >
-              {isSpecWeaverRoute ? 'New session' : 'New'}
+              {isSpecWeaverRoute ? 'New session' : isLensRoute ? 'New review' : 'New'}
             </button>
           </div>
         </div>
@@ -1475,10 +1656,12 @@ function AppContent() {
               <Route path="/specweaver/sessions/:sessionId" element={<SessionView />} />
               <Route path="/specweaver/sessions/:sessionId/package" element={<PackageDetailView />} />
             </Routes>
-          ) : isScoutRoute ? (
-            <ScoutHomePage />
-          ) : isForgeRoute ? (
-            <ForgeHomePage />
+          ) : isLensRoute ? (
+            <Routes>
+              <Route path="/lens" element={<LensHomePage />} />
+              <Route path="/lens/new" element={<LensReviewPage />} />
+              <Route path="/lens/sessions/:sessionId" element={<LensReviewPage />} />
+            </Routes>
           ) : isArchonHomeRoute ? (
             <ArchonHomePage />
           ) : (

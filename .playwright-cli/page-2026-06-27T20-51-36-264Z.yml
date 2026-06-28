@@ -1,0 +1,170 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - generic [ref=e11]:
+        - generic [ref=e12]: Axiom
+        - generic [ref=e13]: Architecture Intelligence
+    - generic [ref=e14]:
+      - navigation "Platform pillars" [ref=e15]:
+        - paragraph [ref=e17]: Platform pillars
+        - generic [ref=e18]:
+          - link "SpecWeaver Requirements Intelligence" [active] [ref=e19] [cursor=pointer]:
+            - /url: /specweaver
+            - generic [ref=e20]:
+              - img [ref=e22]
+              - generic [ref=e26]:
+                - generic [ref=e27]: SpecWeaver
+                - generic [ref=e28]: Requirements Intelligence
+          - link "Archon Architecture Reasoning" [ref=e29] [cursor=pointer]:
+            - /url: /archon
+            - generic [ref=e30]:
+              - img [ref=e32]
+              - generic [ref=e37]:
+                - generic [ref=e38]: Archon
+                - generic [ref=e39]: Architecture Reasoning
+          - link "Lens Architecture Review Intelligence" [ref=e40] [cursor=pointer]:
+            - /url: /lens
+            - generic [ref=e41]:
+              - img [ref=e43]
+              - generic [ref=e48]:
+                - generic [ref=e49]: Lens
+                - generic [ref=e50]: Architecture Review Intelligence
+      - button "New chat" [ref=e52]:
+        - img [ref=e53]
+        - text: New chat
+      - navigation [ref=e55]:
+        - button "Home" [ref=e56]:
+          - img [ref=e57]
+          - text: Home
+        - button "Chat" [ref=e59]:
+          - img [ref=e60]
+          - text: Chat
+        - button "Workshop" [ref=e62]:
+          - img [ref=e63]
+          - text: Workshop
+      - generic [ref=e65]:
+        - heading "History" [level=3] [ref=e66]
+        - generic [ref=e67]: No chats yet
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e71]: G
+        - generic [ref=e72]: Guest
+      - button "Sign out" [ref=e73]:
+        - img [ref=e74]
+        - text: Sign out
+  - main [ref=e76]:
+    - generic [ref=e78]:
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - generic [ref=e81]:
+            - img [ref=e82]
+            - generic [ref=e87]: Lens
+          - heading "Untitled review" [level=1] [ref=e88]
+          - paragraph [ref=e89]: Lens gap elicitation never blocks progress. Unresolved gaps become findings.
+        - generic [ref=e90]: COMPLETE
+      - generic [ref=e115]: Session details saved.
+      - generic [ref=e91]:
+        - generic [ref=e92]:
+          - generic [ref=e93]:
+            - text: Session title
+            - textbox [ref=e94]: Untitled review
+          - generic [ref=e95]:
+            - text: System description
+            - textbox [ref=e96]: Event-driven analytics platform with ingestion API and reporting dashboard.
+          - button "Save details" [disabled] [ref=e98]
+          - generic [ref=e125]:
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - generic [ref=e128]: TEXT_DESCRIPTION
+                - generic [ref=e129]: Analytics architecture
+              - button "Delete" [ref=e130]
+            - paragraph [ref=e131]: Event-driven analytics platform with ingestion API, Kafka topics, stream processors, reporting dashboard, PostgreSQL metadata store, and object storage for raw events. Deployed on Kubernetes with horizontal autoscaling. Uses OAuth2 authentication and OpenTelemetry metrics. Multi-region disaster recovery and cost controls are not defined.
+          - generic [ref=e101]:
+            - button "Add Evidence" [ref=e102]
+            - button "Generate gap questions" [disabled] [ref=e103]
+        - generic [ref=e104]:
+          - generic [ref=e105]:
+            - heading "Gap elicitation" [level=2] [ref=e106]
+            - generic [ref=e107]: Round 1 of 5
+          - generic [ref=e108]:
+            - button "Submit answers" [disabled] [ref=e109]
+            - button "Assess gaps" [disabled] [ref=e110]
+            - button "Proceed anyway" [ref=e111]
+        - generic [ref=e112]:
+          - heading "Status and report" [level=2] [ref=e113]
+          - generic [ref=e150]:
+            - generic [ref=e151]:
+              - button "Overview" [ref=e152]
+              - button "Azure WAF" [ref=e153]
+              - button "ATAM" [ref=e154]
+              - button "SEI" [ref=e155]
+              - button "Structural" [ref=e156]
+              - button "Risks" [ref=e157]
+              - button "Recommendations" [ref=e158]
+            - generic [ref=e193]:
+              - generic [ref=e194]:
+                - generic [ref=e195]: Severity
+                - combobox "Severity" [ref=e196]:
+                  - option "All" [selected]
+                  - option "Critical"
+                  - option "High"
+                  - option "Medium"
+                  - option "Low"
+              - table [ref=e198]:
+                - rowgroup [ref=e199]:
+                  - row "Severity Title Likelihood Area Mitigation" [ref=e200]:
+                    - columnheader "Severity" [ref=e201]
+                    - columnheader "Title" [ref=e202]
+                    - columnheader "Likelihood" [ref=e203]
+                    - columnheader "Area" [ref=e204]
+                    - columnheader "Mitigation" [ref=e205]
+                - rowgroup [ref=e206]:
+                  - row "CRITICAL Lack of Multi-Region Disaster Recovery HIGH Availability Implement multi-region disaster recovery strategies to ensure system availability during regional failures." [ref=e207]:
+                    - cell "CRITICAL" [ref=e208]
+                    - cell "Lack of Multi-Region Disaster Recovery" [ref=e209]
+                    - cell "HIGH" [ref=e210]
+                    - cell "Availability" [ref=e211]
+                    - cell "Implement multi-region disaster recovery strategies to ensure system availability during regional failures." [ref=e212]
+                  - row "CRITICAL Insufficient Security Measures HIGH Security Enhance security measures by implementing data encryption, network security protocols, secret management solutions, and threat detection systems." [ref=e213]:
+                    - cell "CRITICAL" [ref=e214]
+                    - cell "Insufficient Security Measures" [ref=e215]
+                    - cell "HIGH" [ref=e216]
+                    - cell "Security" [ref=e217]
+                    - cell "Enhance security measures by implementing data encryption, network security protocols, secret management solutions, and threat detection systems." [ref=e218]
+                  - row "HIGH Absence of Cost Controls HIGH Cost Implement cost monitoring tools and right-sizing strategies to manage and predict expenses effectively." [ref=e219]:
+                    - cell "HIGH" [ref=e220]
+                    - cell "Absence of Cost Controls" [ref=e221]
+                    - cell "HIGH" [ref=e222]
+                    - cell "Cost" [ref=e223]
+                    - cell "Implement cost monitoring tools and right-sizing strategies to manage and predict expenses effectively." [ref=e224]
+                  - row "HIGH Insufficient Performance Information MEDIUM Performance Conduct a detailed performance assessment to identify and address potential bottlenecks." [ref=e225]:
+                    - cell "HIGH" [ref=e226]
+                    - cell "Insufficient Performance Information" [ref=e227]
+                    - cell "MEDIUM" [ref=e228]
+                    - cell "Performance" [ref=e229]
+                    - cell "Conduct a detailed performance assessment to identify and address potential bottlenecks." [ref=e230]
+                  - row "HIGH Lack of Fault Detection and Recovery MEDIUM Availability Implement fault detection and recovery mechanisms to enhance system resilience." [ref=e231]:
+                    - cell "HIGH" [ref=e232]
+                    - cell "Lack of Fault Detection and Recovery" [ref=e233]
+                    - cell "MEDIUM" [ref=e234]
+                    - cell "Availability" [ref=e235]
+                    - cell "Implement fault detection and recovery mechanisms to enhance system resilience." [ref=e236]
+                  - row "MEDIUM Weak Incident Response and Change Management MEDIUM Operational Excellence Develop and implement comprehensive incident response and change management processes." [ref=e237]:
+                    - cell "MEDIUM" [ref=e238]
+                    - cell "Weak Incident Response and Change Management" [ref=e239]
+                    - cell "MEDIUM" [ref=e240]
+                    - cell "Operational Excellence" [ref=e241]
+                    - cell "Develop and implement comprehensive incident response and change management processes." [ref=e242]
+                  - row "MEDIUM Lack of Performance Targets and SLAs MEDIUM Performance Define and monitor performance targets and SLAs to ensure system performance meets expectations." [ref=e243]:
+                    - cell "MEDIUM" [ref=e244]
+                    - cell "Lack of Performance Targets and SLAs" [ref=e245]
+                    - cell "MEDIUM" [ref=e246]
+                    - cell "Performance" [ref=e247]
+                    - cell "Define and monitor performance targets and SLAs to ensure system performance meets expectations." [ref=e248]
+                  - row "MEDIUM Increased Complexity from Kubernetes Deployment MEDIUM Operational Excellence Simplify deployment processes and provide adequate training for managing Kubernetes environments." [ref=e249]:
+                    - cell "MEDIUM" [ref=e250]
+                    - cell "Increased Complexity from Kubernetes Deployment" [ref=e251]
+                    - cell "MEDIUM" [ref=e252]
+                    - cell "Operational Excellence" [ref=e253]
+                    - cell "Simplify deployment processes and provide adequate training for managing Kubernetes environments." [ref=e254]
