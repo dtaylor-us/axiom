@@ -8,6 +8,11 @@ output "server_name" {
   value       = azurerm_postgresql_flexible_server.main.name
 }
 
+output "server_id" {
+  description = "Resource ID of the PostgreSQL Flexible Server. Used by database resources that reference this server."
+  value       = azurerm_postgresql_flexible_server.main.id
+}
+
 output "admin_password" {
   description = "Generated administrator password for the PostgreSQL server. Sensitive."
   value       = random_password.db_admin.result
