@@ -211,14 +211,40 @@ jobs:
             --name "${{ secrets.AKS_CLUSTER_NAME }}" \
             --overwrite-existing
           echo "Waiting for API server to become reachable..."
+          API_REACHABLE=false
           for i in $(seq 1 20); do
             if kubectl get nodes --request-timeout=10s >/dev/null 2>&1; then
               echo "API server reachable after $i attempt(s)"
+              API_REACHABLE=true
               break
             fi
             echo "  [$i/20] API server not yet reachable, retrying in 15s..."
             sleep 15
           done
+          if [ "$API_REACHABLE" != "true" ]; then
+            echo "Error: API server did not become reachable within 5 minutes"
+            exit 1
+          fi
+          echo "Waiting for Kubernetes nodes to register..."
+          NODE_COUNT=0
+          for i in $(seq 1 40); do
+            NODE_NAMES=$(kubectl get nodes \
+              --request-timeout=10s \
+              --output jsonpath='{.items[*].metadata.name}' \
+              2>/dev/null || true)
+            NODE_COUNT=$(echo "$NODE_NAMES" | wc -w | tr -d ' ')
+            if [ "$NODE_COUNT" -gt 0 ]; then
+              echo "$NODE_COUNT node(s) registered after $i attempt(s)"
+              break
+            fi
+            echo "  [$i/40] No nodes registered yet, retrying in 15s..."
+            sleep 15
+          done
+          if [ "$NODE_COUNT" -eq 0 ]; then
+            echo "Error: no Kubernetes nodes registered within 10 minutes"
+            kubectl get nodes || true
+            exit 1
+          fi
           echo "Waiting for all nodes to be Ready..."
           kubectl wait nodes \
             --all \
@@ -258,14 +284,20 @@ jobs:
             --name "${{ secrets.AKS_CLUSTER_NAME }}" \
             --overwrite-existing
           echo "Waiting for API server to become reachable..."
+          API_REACHABLE=false
           for i in $(seq 1 20); do
             if kubectl get nodes --request-timeout=10s >/dev/null 2>&1; then
               echo "API server reachable after $i attempt(s)"
+              API_REACHABLE=true
               break
             fi
             echo "  [$i/20] API server not yet reachable, retrying in 15s..."
             sleep 15
           done
+          if [ "$API_REACHABLE" != "true" ]; then
+            echo "Error: API server did not become reachable within 5 minutes"
+            exit 1
+          fi
 
       - name: "Restart API deployment"
         run: |
