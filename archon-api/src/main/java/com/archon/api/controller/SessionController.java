@@ -37,7 +37,7 @@ public class SessionController {
     @GetMapping("/{id}/messages")
     public List<MessageDto> getMessages(
             @PathVariable UUID id,
-            @AuthenticationPrincipal String userId) {
-        return conversationService.getRecentMessages(id, userId, 100);
+            @AuthenticationPrincipal String authenticatedUserId) {
+        return conversationService.getRecentMessages(id, authenticatedUserId, 100);
     }
 }
