@@ -63,6 +63,8 @@ npx vitest run --coverage
 | specweaver-agent | 8085 | FastAPI + LangGraph      | Active  |
 | lens-api         | 8083 | Spring Boot              | Active  |
 | lens-agent       | 8086 | FastAPI + LangGraph      | Active  |
+| memoria-api      | 8084 | Spring Boot              | Active  |
+| memoria-agent    | 8087 | FastAPI + LangGraph      | Active  |
 
 All external traffic enters through axiom-api.
 Each pillar owns its own PostgreSQL database.
@@ -80,6 +82,26 @@ See ARCHITECTURE.md for full topology and constraints.
 - `azure_waf_analysis` evaluates evidence coverage for the five Azure WAF pillars only: Reliability, Security, Cost, Operational Excellence, and Performance Efficiency.
 - Do not assume compliance. Missing evidence is a gap, not a pass.
 - Do not reference specific Azure services or products in the Azure WAF assessment.
+
+## MEMORIA-SPECIFIC RULES
+
+- Memory entries are NEVER deleted — only superseded (status=SUPERSEDED
+  with a superseded_by pointer) or archived (status=ARCHIVED).
+  Deletion of MemoryEntry is a hard violation — see ADL-100.
+- Only ACTIVE DECISION and REQUIREMENT entries are injected into LLM context.
+  STALE, SUPERSEDED, ARCHIVED, and SESSION_SUMMARY entries are always excluded
+  from the context assembly — see ADL-099.
+- Human confirmation is required before promoting an episodic memory
+  entry to an ADR. No automatic promotion.
+- gen_random_uuid() is used for UUIDs. pgcrypto is NOT allow-listed
+  on Azure PostgreSQL Flexible Server — never use CREATE EXTENSION pgcrypto.
+- pgvector is used for semantic search. The memory_entries.embedding column
+  type is vector(1536) with an ivfflat index.
+- memoria-agent is called only by memoria-api. Pillar agents
+  (archon-agent, specweaver-agent, lens-agent) must never call
+  memoria-agent directly — see ADL-103 and ADL-104.
+- The distillation pipeline is triggered by a webhook from each pillar API
+  POST /api/v1/memoria/internal/distill — not by the pillar agent.
 
 ## PIPELINE STAGE ADDITIONS — Lens checklist
 

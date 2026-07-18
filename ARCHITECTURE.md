@@ -31,6 +31,13 @@
 | lens-api | Spring Boot 3.x / Java 21 | 8083 | Review sessions, evidence storage, gap elicitation, review reports |
 | lens-agent | FastAPI + LangGraph / Python 3.11 | 8086 | Evidence parsing, framework analysis, risk synthesis, report generation |
 
+### Memoria — Project Memory
+
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| memoria-api | Spring Boot 3.x / Java 21 | 8084 | Project management, session linking, memory CRUD, ADR register, context assembly |
+| memoria-agent | FastAPI + LangGraph / Python 3.11 | 8087 | Session distillation, fact extraction, conflict detection, embedding generation |
+
 ### Future pillars
 
 | Pillar | API Port | Agent Port | Status |
@@ -49,6 +56,8 @@ Browser
       → specweaver-agent:8085 (SpecWeaver extraction pipeline)
     → lens-api:8083 (Lens pillar API)
       → lens-agent:8086 (Lens review pipeline)
+    → memoria-api:8084 (Memoria pillar API)
+      → memoria-agent:8087 (Memoria distillation pipeline)
 ```
 
 ### Two-service rule
@@ -58,11 +67,17 @@ Each pillar has exactly two services: one API service
 No pillar may have more than two services.
 This is enforced by ADL.
 
+FOREACH $X IN {archon, specweaver, lens, memoria} DO
+  ASSERT($X CONTAINS AT MOST MAX_SERVICES_PER_PILLAR SERVICES)
+END
+
 ### Cross-pillar communication
 
 Pillars communicate via HTTP only. There are no shared
 databases, no shared in-process objects, and no shared
 libraries containing business logic between pillars.
+Pillar APIs call memoria-api via HTTP webhook when a session closes.
+Only memoria-api calls memoria-agent.
 
 ### Pillar implementation status
 
@@ -71,6 +86,7 @@ libraries containing business logic between pillars.
 | Archon | Production-capable | Full 13-stage pipeline + QAW |
 | SpecWeaver | Phase 1 active | Extraction + classification |
 | Lens | Active | Architecture reviews and gap elicitation |
+| Memoria | Phase 1 — scaffolding | Project CRUD and session linking. Distillation not yet active. |
 
 ### Platform service boundaries
 
@@ -102,9 +118,9 @@ ASSERT platform-boundaries {
 
 DEFINE system ArchonAssistant {
   RESPONSIBILITY: "AI-powered architecture and requirements intelligence platform"
-  SERVICES: [axiom-api, archon-api, archon-agent, specweaver-api, specweaver-agent, axiom-ui]
-  DATABASES: [PostgreSQL, Qdrant, object storage]
-  COMMUNICATION: [HTTP from client to axiom-api, HTTP/SSE between axiom-api and pillar APIs, HTTP/NDJSON between pillar APIs and agents]
+  SERVICES: [axiom-api, archon-api, archon-agent, specweaver-api, specweaver-agent, lens-api, lens-agent, memoria-api, memoria-agent, axiom-ui]
+  DATABASES: [PostgreSQL, memoria PostgreSQL, Qdrant, object storage]
+  COMMUNICATION: [HTTP from client to axiom-api, HTTP/SSE between axiom-api and pillar APIs, HTTP/NDJSON between pillar APIs and agents, HTTP webhook from pillar APIs to memoria-api on session close]
   DEPLOYMENT: Docker Compose (local), AKS (production)
 }
 
@@ -732,6 +748,118 @@ DEFINE sub-graph ReviewAgent {
 
 ---
 
+## SERVICE: memoria-api (Spring Boot)
+
+DEFINE service memoria-api {
+  LANGUAGE: Java 21
+  FRAMEWORK: Spring Boot 3.3.x
+  RESPONSIBILITY: "Memoria pillar API — project memory management,
+    session linking, ADR register, context assembly for LLM injection"
+  OWNS: [Project, SessionLink, MemoryEntry, ArchitectureDecision]
+  DOES_NOT_OWN: [pipeline logic, LLM calls, embedding generation]
+  EXPOSES: [
+    POST   /api/v1/memoria/projects,
+    GET    /api/v1/memoria/projects,
+    GET    /api/v1/memoria/projects/{id},
+    PUT    /api/v1/memoria/projects/{id},
+    DELETE /api/v1/memoria/projects/{id},
+    POST   /api/v1/memoria/projects/{id}/sessions,
+    GET    /api/v1/memoria/projects/{id}/sessions,
+    DELETE /api/v1/memoria/projects/{id}/sessions/{sessionId},
+    POST   /api/v1/memoria/projects/{id}/memory,
+    GET    /api/v1/memoria/projects/{id}/memory,
+    PUT    /api/v1/memoria/projects/{id}/memory/{entryId},
+    DELETE /api/v1/memoria/projects/{id}/memory/{entryId},
+    POST   /api/v1/memoria/projects/{id}/memory/{entryId}/supersede,
+    GET    /api/v1/memoria/projects/{id}/adrs,
+    POST   /api/v1/memoria/projects/{id}/adrs,
+    PUT    /api/v1/memoria/projects/{id}/adrs/{adrId},
+    GET    /api/v1/memoria/projects/{id}/context,
+    POST   /api/v1/memoria/internal/distill
+  ]
+  CALLS: [memoria-agent via MemoriaAgentClient (WebClient)]
+  ROOT_PACKAGE: com.memoria.api
+}
+
+ASSERT memoria-api {
+  MUST use Flyway for all schema changes
+    — ddl-auto MUST be "validate"
+
+  MUST NOT contain LLM API calls
+    — no openai, azure-openai, or langchain dependencies
+
+  MUST use WebClient (not RestTemplate) for calls to memoria-agent
+
+  MUST NOT enable open-in-view
+    — spring.jpa.open-in-view MUST be false
+
+  MUST validate JWT via X-Axiom-User-Id header forwarded by
+  axiom-api — never parse JWT directly (AXIOM_GATEWAY_BYPASS=false)
+
+  MUST use pgvector for semantic search on memory entries
+    — embedding column type: vector(1536)
+    — index type: ivfflat with vector_cosine_ops
+
+  MUST implement TTL-aware staleness:
+    — a scheduled job MUST mark entries STALE when expires_at < NOW()
+    — STALE entries MUST NOT be included in context assembly
+
+  MUST never inject STALE, SUPERSEDED, ARCHIVED, or SESSION_SUMMARY
+  entries into the LLM context package
+
+  MUST require human confirmation before promoting an episodic
+  memory entry to an ADR — no automatic promotion
+
+  MUST NOT delete memory entries on supersession
+    — set status=SUPERSEDED and link superseded_by to the new entry
+
+  MUST expose GET /api/v1/memoria/projects/{id}/context
+    — returns ACTIVE DECISION and REQUIREMENT entries only
+    — used by pillar APIs to inject project context at session start
+}
+
+---
+
+## SERVICE: memoria-agent (Python / FastAPI)
+
+DEFINE service memoria-agent {
+  LANGUAGE: Python 3.11
+  FRAMEWORK: FastAPI + LangGraph
+  RESPONSIBILITY: "Session distillation — extract facts, decisions,
+    risks, and assumptions from completed pillar sessions"
+  OWNS: [distillation pipeline, conflict detection, embedding logic]
+  DOES_NOT_OWN: [memory persistence, project state, ADR records]
+  EXPOSES: [POST /distill, GET /health]
+  ROOT_MODULE: app
+}
+
+ASSERT memoria-agent {
+  MUST NOT connect to PostgreSQL directly
+    — all persistence goes through memoria-api
+
+  MUST NOT be called by pillar agents (archon-agent, specweaver-agent,
+  lens-agent) — only memoria-api may call memoria-agent
+
+  MUST validate X-Internal-Secret on every request to POST /distill
+    — return HTTP 401 if header is absent or incorrect
+
+  MUST return structured distillation output — list of candidate
+  memory entries with type, content, confidence, and rationale
+
+  MUST NOT persist anything — all writes go back to memoria-api
+  via the response payload, never via a direct DB call
+
+  MUST generate embeddings for each extracted fact before returning
+    — embedding model: text-embedding-3-small, dimension 1536
+
+  MUST detect conflicts between new facts and existing memory entries
+    — existing entries are passed in the request payload
+    — conflicts are flagged in the response, not resolved
+    — conflict resolution requires human review in the UI
+}
+
+---
+
 ## DATA LAYER
 
 DEFINE database PostgreSQL {
@@ -792,6 +920,42 @@ DEFINE component MemoryStore {
   INVARIANT: All public methods MUST catch exceptions and log warnings — never raise to caller
 }
 
+DEFINE database memoria {
+  OWNS: [projects, project_session_links, memory_entries,
+         architecture_decisions]
+  USED_BY: [memoria-api only]
+  SCHEMA_MANAGEMENT: Flyway
+
+  TABLE projects {
+    id UUID PK, name, description, status, created_at, updated_at
+  }
+
+  TABLE project_session_links {
+    id UUID PK, project_id FK, pillar (ARCHON|SPECWEAVER|LENS),
+    session_id UUID, linked_at
+    UNIQUE(pillar, session_id)
+  }
+
+  TABLE memory_entries {
+    id UUID PK, project_id FK, memory_type, tier,
+    content, rationale, source_pillar, source_session_id,
+    source_excerpt, confidence, status, superseded_by FK,
+    expires_at, last_accessed_at, access_count, tags text[],
+    embedding vector(1536), created_at, updated_at
+    INDEX: ivfflat on embedding (vector_cosine_ops)
+    INDEX: idx_memory_expires on (expires_at) WHERE expires_at IS NOT NULL
+  }
+
+  TABLE architecture_decisions {
+    id UUID PK, project_id FK, adr_number INT,
+    title, status (PROPOSED|ACCEPTED|SUPERSEDED|DEPRECATED),
+    context, decision, consequences, alternatives_considered,
+    source_pillar, source_session_id, superseded_by INT,
+    created_at
+    UNIQUE(project_id, adr_number)
+  }
+}
+
 ASSERT data-layer {
   MUST NOT allow archon-agent to connect to PostgreSQL directly
     — agent has no PostgreSQL connection string in its environment
@@ -807,6 +971,13 @@ ASSERT data-layer {
 
   MUST use UUID primary keys on all tables
     — no integer or serial primary keys
+
+  MUST NOT allow memoria-agent to connect to PostgreSQL directly
+    — agent has no PostgreSQL connection string in its environment
+
+  MUST use pgvector extension for memory_entries.embedding column
+    — gen_random_uuid() is used for UUIDs (not pgcrypto)
+    — pgcrypto is NOT allow-listed on Azure PostgreSQL Flexible Server
 }
 
 

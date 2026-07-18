@@ -8,7 +8,7 @@ The platform is live at: **<https://axiom-dev.eastus2.cloudapp.azure.com/>**
 
 ## Platform Overview
 
-Axiom is organised as a gateway plus three active pillars. Each pillar is a pair of services: a Spring Boot API and a Python/FastAPI agent.
+Axiom is organised as a gateway plus four active pillars. Each pillar is a pair of services: a Spring Boot API and a Python/FastAPI agent.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -18,17 +18,17 @@ Axiom is organised as a gateway plus three active pillars. Each pillar is a pair
 ┌───────────────────────────▼──────────────────────────────────────┐
 │               axiom-api  :8080  (platform gateway)               │
 │          JWT validation · pillar routing · health aggregation    │
-└──────────┬─────────────────────┬────────────────────┬────────────┘
-           │                     │                    │
-  ┌────────▼───────┐   ┌─────────▼──────┐   ┌────────▼───────┐
-  │  archon-api    │   │ specweaver-api  │   │   lens-api     │
-  │  :8081         │   │ :8082           │   │   :8083        │
-  └────────┬───────┘   └─────────┬──────┘   └────────┬───────┘
-           │                     │                    │
-  ┌────────▼───────┐   ┌─────────▼──────┐   ┌────────▼───────┐
-  │ archon-agent   │   │specweaver-agent │   │  lens-agent    │
-  │  :8001         │   │ :8085           │   │  :8086         │
-  └────────────────┘   └────────────────┘   └────────────────┘
+└──────────┬──────────────┬───────────────┬──────────────┬─────────┘
+           │              │               │              │
+  ┌────────▼───────┐ ┌────▼─────────┐ ┌───▼───────┐ ┌───▼────────┐
+  │  archon-api    │ │specweaver-api│ │ lens-api  │ │memoria-api │
+  │  :8081         │ │ :8082        │ │ :8083     │ │ :8084      │
+  └────────┬───────┘ └────┬─────────┘ └───┬───────┘ └───┬────────┘
+           │              │               │             │
+  ┌────────▼───────┐ ┌────▼─────────┐ ┌───▼───────┐ ┌───▼────────┐
+  │ archon-agent   │ │specweaver-   │ │lens-agent │ │memoria-    │
+  │  :8001         │ │agent :8085   │ │ :8086     │ │agent :8087 │
+  └────────────────┘ └──────────────┘ └───────────┘ └────────────┘
 ```
 
 | Service | Stack | Port | Responsibility |
@@ -41,6 +41,8 @@ Axiom is organised as a gateway plus three active pillars. Each pillar is a pair
 | **specweaver-agent** | FastAPI + LangGraph / Python 3.11 | 8085 | Requirements extraction, consolidation, gap analysis, conflict detection |
 | **lens-api** | Spring Boot 3.x / Java 21 | 8083 | Architecture review — session management, gap elicitation, report storage |
 | **lens-agent** | FastAPI + LangGraph / Python 3.11 | 8086 | 10-stage architecture review pipeline |
+| **memoria-api** | Spring Boot 3.x / Java 21 | 8084 | Project memory — project management, session linking, ADR register, context assembly |
+| **memoria-agent** | FastAPI + LangGraph / Python 3.11 | 8087 | Session distillation, fact extraction, conflict detection, embedding generation |
 
 ---
 
@@ -57,6 +59,20 @@ Accepts messy stakeholder input (meeting notes, emails, PDFs, informal bullets) 
 ### Lens — Architecture Review Intelligence
 
 Evaluates existing architectures against the Azure Well-Architected Framework (five pillars), SEI ATAM, SEI quality attribute principles, and structural health principles. Conducts iterative gap elicitation — asking targeted questions until sufficient information is gathered — then generates a structured review report with a risk register and prioritised recommendations. The system never blocks the user: unresolved gaps become findings in the report.
+
+### Memoria — Project Memory
+
+Maintains a persistent, structured knowledge store for each project.
+Draws from SpecWeaver sessions (requirements, gaps), Archon conversations
+(architecture decisions, trade-offs, risks), and Lens reviews (WAF scores,
+ATAM findings, risk register). Stores knowledge in three tiers: working
+memory (in-session, ephemeral), episodic memory (TTL-aware facts with
+vector search), and semantic memory (ADR register, never expires, human-confirmed).
+
+Pillar APIs call memoria-api at session start to inject relevant project context
+and at session close to trigger distillation of the session into memory entries.
+Stale, superseded, and archived entries are never injected into LLM context —
+only active decisions and requirements flow into the context package.
 
 ---
 
@@ -118,6 +134,14 @@ docker compose --profile lens up --build
 
 Adds: `lens-api`, `lens-agent`
 
+#### Memoria pillar added
+
+```bash
+docker compose --profile memoria up --build
+```
+
+Adds: `memoria-api`, `memoria-agent`
+
 #### Full Axiom platform (all pillars + gateway)
 
 Starts all services including `axiom-api` as the platform gateway.
@@ -128,12 +152,13 @@ docker compose --profile platform up --build
 ```
 
 Adds: `axiom-api` (gateway), `specweaver-api`, `specweaver-agent`,
-`lens-api`, `lens-agent`, `minio`
+`lens-api`, `lens-agent`, `memoria-api`, `memoria-agent`, `minio`
 
 Access at: <http://localhost:3000> (traffic routes through axiom-api on :8080)
 
 > **Note:** In `platform` mode the gateway validates JWTs and routes all
-> `/api/v1/archon/**`, `/api/v1/specweaver/**`, and `/api/v1/lens/**`
+> `/api/v1/archon/**`, `/api/v1/specweaver/**`, `/api/v1/lens/**`,
+> and `/api/v1/memoria/**`
 > traffic. In the other modes each pillar API handles auth directly
 > (`AXIOM_GATEWAY_BYPASS=true`).
 
@@ -274,6 +299,9 @@ axiom/
 │
 ├── lens-api/                   # Spring Boot — Lens pillar API
 ├── lens-agent/                 # FastAPI + LangGraph — Lens pipeline
+│
+├── memoria-api/                # Spring Boot — Memoria pillar API
+├── memoria-agent/              # FastAPI + LangGraph — Memoria distillation pipeline
 │
 ├── helm/                       # Helm chart for AKS deployment
 ├── terraform/                  # Azure infrastructure
