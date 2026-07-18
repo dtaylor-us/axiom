@@ -91,3 +91,4 @@ async def test_distill_keeps_requirements_hint_when_no_explicit_label():
 
     assert len(response.candidates) == 1
     assert response.candidates[0].memory_type == "REQUIREMENT"
+    assert response.candidates[0].content == "System must support 10k users."
