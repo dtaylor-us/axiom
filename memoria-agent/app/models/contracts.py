@@ -27,6 +27,6 @@ class ConflictFlag(BaseModel):
 
 class DistillResponse(BaseModel):
     session_id: str
-    candidates: list[MemoryCandidate] = []
-    conflicts: list[ConflictFlag] = []
+    candidates: list[MemoryCandidate] = Field(default_factory=list)
+    conflicts: list[ConflictFlag] = Field(default_factory=list)
     message: str = ""
