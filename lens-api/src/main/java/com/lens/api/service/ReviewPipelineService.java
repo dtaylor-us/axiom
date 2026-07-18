@@ -73,7 +73,7 @@ public class ReviewPipelineService {
                             allQuestions.stream().map(this::toGapQuestionPayload).toList(),
                             allQuestions.stream().filter(GapQuestion::isAnswered).map(this::toGapAnswerPayload).toList(),
                             insufficientInfoGaps,
-                            memoriaContext == null ? null : memoriaContext.orElse(null))
+                            memoriaContext.orElse(null))
                     .block(timeout);
 
             if (reportPayload == null) {
