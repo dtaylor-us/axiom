@@ -161,7 +161,7 @@ export function AxiomHomePage() {
 
         <section className="landing-section">
           <SectionHeading
-            title="The four pillars"
+            title="the three pillars"
             subtitle="Each pillar owns a distinct phase of the architecture lifecycle."
             accent="var(--color-pillar-axiom)"
           />
