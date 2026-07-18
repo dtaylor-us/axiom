@@ -44,12 +44,17 @@ public class ChatService {
         conversationService.saveMessage(
                 conversation, MessageRole.USER, request.getMessage(), null);
 
+        var memoriaContext = memoriaNotificationClient.fetchConversationContext(conversation.getId());
+
         AgentRequest agentRequest = AgentRequest.builder()
                 .conversationId(conversation.getId().toString())
                 .userMessage(request.getMessage())
                 .mode(request.getMode().name())
                 .history(conversationService.getRecentMessages(
                              conversation.getId(), 20))
+                .context(memoriaContext == null ? null : memoriaContext
+                        .map(context -> Map.of("project_memory_context", (Object) context))
+                        .orElse(null))
                 .build();
 
         AtomicReference<StringBuilder> buffer =

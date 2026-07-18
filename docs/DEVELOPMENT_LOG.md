@@ -182,3 +182,88 @@ Context injection into new pillar sessions remains out of scope for this commit.
 - PASS: `cd archon-api && mvn test -q` with escalation because MockWebServer/Testcontainers probes need local socket/Docker access.
 - NOTE: Non-escalated `specweaver-api` and `archon-api` test runs failed only on sandbox `SocketException: Operation not permitted` from MockWebServer local port binding.
 - NOTE: SpecWeaver PDFBox/font warnings appeared during tests and are pre-existing expected negative-path/test-environment noise; the escalated test run passed.
+
+# Memoria Phase 4 Development Log
+
+## Scope
+
+Phase 4 adds curated project context assembly and best-effort context injection into SpecWeaver, Archon, and Lens workflows. The goal is to let each pillar see current project memory without reintroducing stale, superseded, archived, expired, or session-summary facts.
+
+## Guardrails
+
+- `memoria-api` remains the only owner of persistence, lifecycle transitions, context assembly, and memory access mutation.
+- `memoria-agent` remains database-free and unchanged for memory persistence.
+- Context assembly excludes `SUPERSEDED`, `STALE`, `ARCHIVED`, `SESSION_SUMMARY`, and expired active memory entries.
+- Context assembly includes only active decisions, requirements, constraints, risks, and quality scores.
+- ADR context includes `ACCEPTED` and `PROPOSED` entries by default, excluding `SUPERSEDED` and `DEPRECATED` entries.
+- Access metadata is updated only for memory entries actually included in a context package.
+- Pillar context fetches are best-effort and must not fail package generation, architecture chat, or Lens review.
+- Injected context is treated by agents as prior project memory, not as user instruction. Current session input wins.
+
+## Implementation Plan
+
+1. Add a structured Memoria context DTO contract.
+2. Add `ProjectContextService` for project and session-linked context assembly.
+3. Add REST endpoints for project and session context retrieval.
+4. Extend pillar Memoria clients with best-effort context fetches.
+5. Thread optional context into SpecWeaver, Archon, and Lens agent requests.
+6. Add agent-side schema/state acceptance for optional `project_memory_context`.
+7. Add focused tests for Memoria exclusion/inclusion/access rules and pillar/agent context forwarding.
+8. Run core verification commands and record known local limitations.
+
+## Work Notes
+
+- 2026-07-18: Added Memoria context DTOs:
+  - `ProjectContextResponse`
+  - `ContextMemoryItem`
+  - `ContextAdrItem`
+  - `ContextOmittedCounts`
+- 2026-07-18: Added `ProjectContextService`:
+  - Resolves project context directly by project ID.
+  - Resolves linked session context via `(pillar, sessionId)` in `project_session_links`.
+  - Filters memory to active, unexpired, context-eligible types.
+  - Updates `accessCount` and `lastAccessedAt` only for included memory entries.
+  - Returns omitted counts for stale, superseded, archived, expired, and session-summary entries.
+- 2026-07-18: Added context endpoints:
+  - `GET /api/v1/memoria/projects/{projectId}/context`
+  - `GET /api/v1/memoria/sessions/{pillar}/{sessionId}/context`
+- 2026-07-18: Extended SpecWeaver API:
+  - `MemoriaNotificationClient` can fetch linked session context.
+  - `PackageGenerationService` includes optional context on `AgentExtractionRequest`.
+  - Context fetch failures are logged and swallowed.
+- 2026-07-18: Extended Archon API:
+  - `MemoriaNotificationClient` can fetch conversation context through the Archon session endpoint.
+  - `ChatService` attaches context under `context.project_memory_context` on `AgentRequest`.
+  - Context fetch failures are logged and swallowed.
+- 2026-07-18: Extended Lens API:
+  - `MemoriaNotificationClient` can fetch linked session context.
+  - `ReviewPipelineService` passes optional context to `LensAgentClient.runReview`.
+  - `LensAgentClient` emits `project_memory_context` only when context is present.
+- 2026-07-18: Extended agent-side contracts:
+  - SpecWeaver accepts and carries `project_memory_context` through `ExtractionRequest` and `SpecWeaverContext`.
+  - Archon accepts `context.project_memory_context`, stores it on `ArchitectureContext`, and renders it into requirement parsing and architecture generation prompts as prior project memory, not instructions.
+  - Lens accepts and carries `project_memory_context` through review request state and `ReviewContext`.
+
+## Current Local Development State
+
+- Context assembly is deterministic and does not depend on vector search or an LLM.
+- Pillar context fetches use the session-based Memoria endpoint, so pillars do not need Memoria project IDs.
+- A missing Memoria project link is non-fatal to the originating pillar workflow.
+- `MEMORIA_API_BASE_URL`, `MEMORIA_API_TIMEOUT_SECONDS`, and `MEMORIA_NOTIFICATIONS_ENABLED` now govern both distillation notifications and context fetches in pillar APIs.
+
+## Verification Log
+
+- PASS: `cd memoria-api && mvn test -q`
+- PASS: `cd memoria-agent && .venv/bin/pytest tests/ -q`
+- PASS: `cd specweaver-api && mvn test -q` with escalation because MockWebServer needs local socket binding.
+- PASS: `cd archon-api && mvn test -q` with escalation because MockWebServer/Testcontainers probes need local socket/Docker access.
+- PASS: `cd lens-api && mvn test -q`
+- PASS: `cd specweaver-agent && .venv/bin/pytest tests/unit/api/test_agent_endpoint.py -q`
+- NOTE: Non-escalated `specweaver-api` and `archon-api` test runs failed only on sandbox `SocketException: Operation not permitted` from MockWebServer local port binding.
+- NOTE: Focused `archon-agent` and `lens-agent` pytest runs were blocked by the global Python 3.10 environment loading an incompatible `charset_normalizer` binary through `requests`/LangGraph. This is the same class of local Python environment issue previously noted for plain system pytest; service-local `.venv` tests passed where available.
+
+## Known Limitations
+
+- Risk filtering currently includes all active unexpired risks; severity-aware filtering can be added when severity metadata is modeled on memory entries.
+- Context assembly is deterministic list-based filtering. Semantic retrieval/vector ranking remains out of scope for Phase 4.
+- Superseded/deprecated ADR lineage is excluded by default. A future explicit lineage flag can expose those entries when a caller needs historical traceability.

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +27,7 @@ class SpecWeaverContext(BaseModel):
 
     session_id: str
     documents: list[DocumentPayload] = Field(default_factory=list)
+    project_memory_context: dict[str, Any] | None = None
     extraction_results: list[ExtractionResult] = Field(default_factory=list)
     classified_requirements: Optional[ClassifiedRequirementSet] = None
     consolidation_result: Optional[ConsolidationResult] = None

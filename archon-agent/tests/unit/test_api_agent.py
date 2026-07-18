@@ -179,3 +179,31 @@ class TestAgentStreamEndpoint:
             )
 
         assert response.status_code == 200
+
+    def test_project_memory_context_is_accepted(
+        self, app_client: TestClient, monkeypatch
+    ):
+        monkeypatch.setenv("INTERNAL_SECRET", "test-secret")
+        captured: list = []
+
+        async def _fake_pipeline(ctx, memory_store=None):
+            captured.append(ctx.project_memory_context)
+            yield chunk("TOKEN", content="ok")
+
+        with patch("app.api.agent.run_pipeline", side_effect=_fake_pipeline):
+            response = app_client.post(
+                "/agent/stream",
+                json={
+                    "conversationId": "c4",
+                    "userMessage": "request",
+                    "context": {
+                        "project_memory_context": {
+                            "decisions": [{"content": "Use PostgreSQL"}],
+                        },
+                    },
+                },
+                headers={"x-internal-secret": "test-secret"},
+            )
+
+        assert response.status_code == 200
+        assert captured[0]["decisions"][0]["content"] == "Use PostgreSQL"

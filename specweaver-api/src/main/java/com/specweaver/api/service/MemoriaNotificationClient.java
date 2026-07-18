@@ -8,6 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -53,6 +54,26 @@ public class MemoriaNotificationClient {
                     .block(timeout);
         } catch (RuntimeException ex) {
             log.warn("Memoria distillation notification failed for SpecWeaver session {}", sessionId, ex);
+        }
+    }
+
+    public Optional<Map<String, Object>> fetchSessionContext(UUID sessionId) {
+        if (!enabled) {
+            return Optional.empty();
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> context = webClient.get()
+                    .uri("/api/v1/memoria/sessions/SPECWEAVER/{sessionId}/context", sessionId)
+                    .header("X-Axiom-User-Id", "system")
+                    .header("X-Axiom-Internal-Secret", internalSecret)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block(timeout);
+            return Optional.ofNullable(context);
+        } catch (RuntimeException ex) {
+            log.warn("Memoria context fetch failed for SpecWeaver session {}", sessionId, ex);
+            return Optional.empty();
         }
     }
 

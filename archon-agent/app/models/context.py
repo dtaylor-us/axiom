@@ -180,6 +180,7 @@ class ArchitectureContext(BaseModel):
 
     raw_requirements: str = ""
     history: list[HistoryMessage] = Field(default_factory=list)
+    project_memory_context: dict[str, Any] | None = None
 
     # Stage outputs — populated phase by phase
     parsed_entities: dict[str, Any] = Field(default_factory=dict)

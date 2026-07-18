@@ -165,6 +165,11 @@ class ArchitectureGeneratorTool(BaseTool):
             architecture_override=context.architecture_override,
             buy_vs_build_preferences=context.buy_vs_build_preferences,
             canonical_decisions=context.canonical_decisions,
+            project_memory_context=json.dumps(
+                context.project_memory_context or {},
+                indent=2,
+                sort_keys=True,
+            ),
         )
 
         raw = await self.llm_client.complete(

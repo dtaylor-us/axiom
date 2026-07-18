@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -80,6 +82,20 @@ class PackageGenerationServiceTest {
         packageGenerationService.generatePackage(session.getId(), session.getUserId());
 
         verify(agentClient).extract(any());
+    }
+
+    @Test
+    void generatePackage_includesMemoriaContextWhenFetchSucceeds() {
+        Session session = session();
+        stubSuccessfulGeneration(session);
+        when(memoriaNotificationClient.fetchSessionContext(session.getId()))
+                .thenReturn(Optional.of(Map.of("projectId", "p1")));
+
+        packageGenerationService.generatePackage(session.getId(), session.getUserId());
+
+        var captor = forClass(com.specweaver.api.agent.AgentExtractionRequest.class);
+        verify(agentClient).extract(captor.capture());
+        assertEquals("p1", captor.getValue().projectMemoryContext().get("projectId"));
     }
 
     @Test

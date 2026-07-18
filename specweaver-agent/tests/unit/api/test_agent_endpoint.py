@@ -13,8 +13,10 @@ from app.models.contracts import ArchInputPackage
 class SuccessfulGraph:
     def __init__(self, package):
         self.package = package
+        self.context = None
 
     async def ainvoke(self, context):
+        self.context = context
         context.arch_input_package = self.package
         return context
 
@@ -48,6 +50,22 @@ def test_post_agent_extract_returns_extraction_response_with_json(
     )
     body = response.json()
     assert json.loads(body["archInputPackageJson"])["sessionId"] == "session-1"
+
+
+def test_post_agent_extract_accepts_project_memory_context(monkeypatch, document, classified_set):
+    package = _package(classified_set)
+    graph = SuccessfulGraph(package)
+    monkeypatch.setattr("app.api.agent.build_graph", lambda llm: graph)
+    response = TestClient(app).post(
+        "/agent/extract",
+        json={
+            "sessionId": "session-1",
+            "documents": [document.model_dump(by_alias=True)],
+            "projectMemoryContext": {"requirements": [{"content": "Keep data in region"}]},
+        },
+    )
+    assert response.status_code == 200
+    assert graph.context.project_memory_context["requirements"][0]["content"] == "Keep data in region"
 
 
 def test_post_agent_extract_returns_success_false_on_pipeline_error(
