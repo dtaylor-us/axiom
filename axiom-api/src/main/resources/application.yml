@@ -42,6 +42,16 @@ spring:
           filters:
             - StripPrefix=0
             - AddRequestHeader=X-Axiom-Pillar, lens
+        - id: memoria
+          uri: ${MEMORIA_API_BASE_URL:http://memoria-api:8084}
+          predicates:
+            - Path=/api/v1/memoria/**
+          filters:
+            - StripPrefix=0
+            - name: AddRequestHeader
+              args:
+                name: X-Axiom-Pillar
+                value: memoria
         - id: auth
           uri: ${ARCHON_API_BASE_URL:http://archon-api:8081}
           predicates:
@@ -82,6 +92,10 @@ axiom:
       health-path: /actuator/health
     lens:
       base-url: ${LENS_API_BASE_URL:http://lens-api:8083}
+      enabled: true
+      health-path: /actuator/health
+    memoria:
+      base-url: ${MEMORIA_API_BASE_URL:http://memoria-api:8084}
       enabled: true
       health-path: /actuator/health
 

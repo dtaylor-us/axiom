@@ -1,4 +1,5 @@
 services:
+  # Local DB setup: CREATE DATABASE memoria; (run once after postgres starts)
   postgres:
     image: postgres:16-alpine
     container_name: archon-postgres
@@ -335,6 +336,66 @@ services:
       - default
     restart: unless-stopped
 
+  memoria-agent:
+    build:
+      context: ./memoria-agent
+      dockerfile: Dockerfile
+    container_name: memoria-agent
+    profiles:
+      - memoria
+      - platform
+    ports:
+      - "8087:8087"
+    environment:
+      - MEMORIA_AGENT_PORT=8087
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - INTERNAL_SECRET=${INTERNAL_SECRET:-dev-secret-change-in-prod}
+      - OTEL_SDK_DISABLED=true
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8087/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - default
+
+  memoria-api:
+    build:
+      context: ./memoria-api
+      dockerfile: Dockerfile
+    container_name: memoria-api
+    profiles:
+      - memoria
+      - platform
+    ports:
+      - "8084:8084"
+    environment:
+      - MEMORIA_API_PORT=8084
+      - SPRING_PROFILES_ACTIVE=local
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/memoria
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-localdev}
+      - MEMORIA_AGENT_BASE_URL=http://memoria-agent:8087
+      - AXIOM_GATEWAY_BYPASS=true
+      - AXIOM_INTERNAL_SECRET=${INTERNAL_SECRET:-dev-secret-change-in-prod}
+      - OTEL_SDK_DISABLED=true
+      - MANAGEMENT_TRACING_ENABLED=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      memoria-agent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks:
+      - default
+
   # ── Platform gateway ──────────────────────────────────────────────────────
   # Profile: platform
   # Requires all three pillars. Starts with:
@@ -358,6 +419,7 @@ services:
       - ARCHON_API_BASE_URL=http://api:8081
       - SPECWEAVER_API_BASE_URL=http://specweaver-api:8082
       - LENS_API_BASE_URL=http://lens-api:8083
+      - MEMORIA_API_BASE_URL=http://memoria-api:8084
       - AXIOM_GATEWAY_BYPASS=false
       - SPRING_PROFILES_ACTIVE=local
       - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-minimum-32-chars-here}
@@ -369,6 +431,8 @@ services:
       specweaver-api:
         condition: service_healthy
       lens-api:
+        condition: service_healthy
+      memoria-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
