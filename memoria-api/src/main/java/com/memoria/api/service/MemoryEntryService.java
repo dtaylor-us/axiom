@@ -14,13 +14,16 @@ import com.memoria.api.exception.ResourceNotFoundException;
 import com.memoria.api.repository.ArchitectureDecisionRepository;
 import com.memoria.api.repository.MemoryEntryRepository;
 import com.memoria.api.repository.ProjectRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -69,18 +72,57 @@ public class MemoryEntryService {
     @Transactional(readOnly = true)
     public List<MemoryEntry> searchEntries(UUID projectId, MemoryEntryQuery query) {
         requireProject(projectId);
-        return memoryEntryRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream()
-                .filter(entry -> query.status() == null || entry.getStatus() == query.status())
-                .filter(entry -> query.memoryType() == null || entry.getMemoryType() == query.memoryType())
-                .filter(entry -> query.tier() == null || entry.getTier() == query.tier())
-                .filter(entry -> query.sourcePillar() == null || entry.getSourcePillar() == query.sourcePillar())
-                .filter(entry -> query.createdAfter() == null || !entry.getCreatedAt().isBefore(query.createdAfter()))
-                .filter(entry -> query.createdBefore() == null || !entry.getCreatedAt().isAfter(query.createdBefore()))
-                .filter(entry -> query.expiresBefore() == null
-                        || entry.getExpiresAt() != null && !entry.getExpiresAt().isAfter(query.expiresBefore()))
-                .filter(entry -> matchesTag(entry, query.tag()))
-                .filter(entry -> matchesText(entry, query.q()))
-                .toList();
+        String normalizedTextQuery = query.q() == null ? null : query.q().trim().toLowerCase();
+        String normalizedTagQuery = query.tag() == null ? null : query.tag().trim().toLowerCase();
+        return memoryEntryRepository
+                .findAll((root, criteriaQuery, criteriaBuilder) -> {
+                    List<Predicate> predicates = new ArrayList<>();
+                    predicates.add(criteriaBuilder.equal(root.get("project").get("id"), projectId));
+                    if (query.status() != null) {
+                        predicates.add(criteriaBuilder.equal(root.get("status"), query.status()));
+                    }
+                    if (query.memoryType() != null) {
+                        predicates.add(criteriaBuilder.equal(root.get("memoryType"), query.memoryType()));
+                    }
+                    if (query.tier() != null) {
+                        predicates.add(criteriaBuilder.equal(root.get("tier"), query.tier()));
+                    }
+                    if (query.sourcePillar() != null) {
+                        predicates.add(criteriaBuilder.equal(root.get("sourcePillar"), query.sourcePillar()));
+                    }
+                    if (query.createdAfter() != null) {
+                        predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), query.createdAfter()));
+                    }
+                    if (query.createdBefore() != null) {
+                        predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), query.createdBefore()));
+                    }
+                    if (query.expiresBefore() != null) {
+                        predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("expiresAt"), query.expiresBefore()));
+                    }
+                    if (normalizedTextQuery != null && !normalizedTextQuery.isBlank()) {
+                        String textLike = "%" + normalizedTextQuery + "%";
+                        predicates.add(criteriaBuilder.or(
+                                criteriaBuilder.like(criteriaBuilder.lower(root.get("content")), textLike),
+                                criteriaBuilder.like(criteriaBuilder.lower(root.get("rationale")), textLike),
+                                criteriaBuilder.like(criteriaBuilder.lower(root.get("sourceExcerpt")), textLike)));
+                    }
+                    if (normalizedTagQuery != null && !normalizedTagQuery.isBlank()) {
+                        Predicate hasTags = criteriaBuilder.isNotNull(root.get("tags"));
+                        Predicate matchesTag = criteriaBuilder.like(
+                                criteriaBuilder.concat(
+                                        criteriaBuilder.concat(
+                                                criteriaBuilder.literal(","),
+                                                criteriaBuilder.lower(criteriaBuilder.function(
+                                                        "array_to_string",
+                                                        String.class,
+                                                        root.get("tags"),
+                                                        criteriaBuilder.literal(",")))),
+                                        criteriaBuilder.literal(",")),
+                                "%," + normalizedTagQuery + ",%");
+                        predicates.add(criteriaBuilder.and(hasTags, matchesTag));
+                    }
+                    return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+                }, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     @Transactional
@@ -229,35 +271,6 @@ public class MemoryEntryService {
             throw new ResourceNotFoundException("Memory entry not found");
         }
         return entry;
-    }
-
-    private boolean matchesTag(MemoryEntry entry, String tag) {
-        if (tag == null || tag.isBlank()) {
-            return true;
-        }
-        if (entry.getTags() == null) {
-            return false;
-        }
-        for (String entryTag : entry.getTags()) {
-            if (entryTag.equalsIgnoreCase(tag.trim())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean matchesText(MemoryEntry entry, String query) {
-        if (query == null || query.isBlank()) {
-            return true;
-        }
-        String normalized = query.trim().toLowerCase();
-        return contains(entry.getContent(), normalized)
-                || contains(entry.getRationale(), normalized)
-                || contains(entry.getSourceExcerpt(), normalized);
-    }
-
-    private boolean contains(String value, String query) {
-        return value != null && value.toLowerCase().contains(query);
     }
 
     private long countStatus(List<MemoryEntry> entries, MemoryStatus status) {

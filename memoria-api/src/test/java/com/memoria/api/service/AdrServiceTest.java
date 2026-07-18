@@ -17,6 +17,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AdrServiceTest {
@@ -101,13 +102,13 @@ class AdrServiceTest {
     void searchAdrs_filtersByStatusAndText() {
         ArchitectureDecision accepted = adr(UUID.randomUUID(), 1, "PostgreSQL", AdrStatus.ACCEPTED);
         accepted.setContext("Order consistency");
-        ArchitectureDecision proposed = adr(UUID.randomUUID(), 2, "Redis", AdrStatus.PROPOSED);
-        proposed.setContext("Cache latency");
-        when(adrRepository.findByProjectIdOrderByAdrNumberAsc(projectId)).thenReturn(List.of(accepted, proposed));
+        when(adrRepository.searchByProjectId(projectId, AdrStatus.ACCEPTED, "order"))
+                .thenReturn(List.of(accepted));
 
         List<ArchitectureDecision> adrs = adrService.searchAdrs(projectId, AdrStatus.ACCEPTED, "order");
 
         assertThat(adrs).containsExactly(accepted);
+        verify(adrRepository).searchByProjectId(projectId, AdrStatus.ACCEPTED, "order");
     }
 
     @Test
