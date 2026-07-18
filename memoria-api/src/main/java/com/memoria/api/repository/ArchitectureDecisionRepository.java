@@ -2,7 +2,6 @@ package com.memoria.api.repository;
 
 import com.memoria.api.domain.model.AdrStatus;
 import com.memoria.api.domain.model.ArchitectureDecision;
-import com.memoria.api.domain.model.AdrStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
