@@ -73,6 +73,7 @@ public class MemoryEntryService {
     public List<MemoryEntry> searchEntries(UUID projectId, MemoryEntryQuery query) {
         requireProject(projectId);
         String normalizedTextQuery = query.q() == null ? null : query.q().trim().toLowerCase();
+        String normalizedTagQuery = query.tag() == null ? null : query.tag().trim().toLowerCase();
         return memoryEntryRepository
                 .findAll((root, criteriaQuery, criteriaBuilder) -> {
                     List<Predicate> predicates = new ArrayList<>();
@@ -105,11 +106,23 @@ public class MemoryEntryService {
                                 criteriaBuilder.like(criteriaBuilder.lower(root.get("rationale")), textLike),
                                 criteriaBuilder.like(criteriaBuilder.lower(root.get("sourceExcerpt")), textLike)));
                     }
+                    if (normalizedTagQuery != null && !normalizedTagQuery.isBlank()) {
+                        Predicate hasTags = criteriaBuilder.isNotNull(root.get("tags"));
+                        Predicate matchesTag = criteriaBuilder.like(
+                                criteriaBuilder.concat(
+                                        criteriaBuilder.concat(
+                                                criteriaBuilder.literal(","),
+                                                criteriaBuilder.lower(criteriaBuilder.function(
+                                                        "array_to_string",
+                                                        String.class,
+                                                        root.get("tags"),
+                                                        criteriaBuilder.literal(",")))),
+                                        criteriaBuilder.literal(",")),
+                                "%," + normalizedTagQuery + ",%");
+                        predicates.add(criteriaBuilder.and(hasTags, matchesTag));
+                    }
                     return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
-                }, Sort.by(Sort.Direction.DESC, "createdAt"))
-                .stream()
-                .filter(entry -> matchesTag(entry, query.tag()))
-                .toList();
+                }, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     @Transactional
@@ -258,21 +271,6 @@ public class MemoryEntryService {
             throw new ResourceNotFoundException("Memory entry not found");
         }
         return entry;
-    }
-
-    private boolean matchesTag(MemoryEntry entry, String tag) {
-        if (tag == null || tag.isBlank()) {
-            return true;
-        }
-        if (entry.getTags() == null) {
-            return false;
-        }
-        for (String entryTag : entry.getTags()) {
-            if (entryTag.equalsIgnoreCase(tag.trim())) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private long countStatus(List<MemoryEntry> entries, MemoryStatus status) {
