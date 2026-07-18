@@ -8,6 +8,7 @@ class DistillRequest(BaseModel):
     project_id: str
     pillar: str  # ARCHON | SPECWEAVER | LENS
     session_summary: Optional[str] = None
+    session_payload: Optional[dict] = None
     existing_entries: list[dict] = Field(default_factory=list)
 
 
@@ -23,6 +24,7 @@ class ConflictFlag(BaseModel):
     existing_entry_id: str
     new_candidate_index: int
     conflict_description: str
+    supersedes: bool = True
 
 
 class DistillResponse(BaseModel):

@@ -1,8 +1,14 @@
 package com.memoria.api.controller;
 
 import com.memoria.api.domain.model.MemoryStatus;
+import com.memoria.api.domain.model.MemoryTier;
+import com.memoria.api.domain.model.MemoryType;
+import com.memoria.api.domain.model.Pillar;
+import com.memoria.api.dto.ArchitectureDecisionResponse;
 import com.memoria.api.dto.CreateMemoryEntryRequest;
+import com.memoria.api.dto.MemoryEntryQuery;
 import com.memoria.api.dto.MemoryEntryResponse;
+import com.memoria.api.dto.PromoteMemoryEntryRequest;
 import com.memoria.api.dto.SupersedeMemoryEntryRequest;
 import com.memoria.api.dto.UpdateMemoryEntryRequest;
 import com.memoria.api.service.MemoryEntryService;
@@ -20,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,8 +48,26 @@ public class MemoryEntryController {
     @GetMapping
     public List<MemoryEntryResponse> listEntries(
             @PathVariable UUID projectId,
-            @RequestParam(required = false) MemoryStatus status) {
-        return memoryEntryService.listEntries(projectId, status).stream()
+            @RequestParam(required = false) MemoryStatus status,
+            @RequestParam(required = false) MemoryType memoryType,
+            @RequestParam(required = false) MemoryTier tier,
+            @RequestParam(required = false) Pillar sourcePillar,
+            @RequestParam(required = false) String tag,
+            @RequestParam(required = false) LocalDateTime createdAfter,
+            @RequestParam(required = false) LocalDateTime createdBefore,
+            @RequestParam(required = false) LocalDateTime expiresBefore,
+            @RequestParam(required = false) String q) {
+        MemoryEntryQuery query = new MemoryEntryQuery(
+                status,
+                memoryType,
+                tier,
+                sourcePillar,
+                tag,
+                createdAfter,
+                createdBefore,
+                expiresBefore,
+                q);
+        return memoryEntryService.searchEntries(projectId, query).stream()
                 .map(ResponseMapper::toMemoryEntryResponse)
                 .toList();
     }
@@ -62,5 +87,36 @@ public class MemoryEntryController {
             @Valid @RequestBody SupersedeMemoryEntryRequest request) {
         return ResponseMapper.toMemoryEntryResponse(
                 memoryEntryService.supersede(projectId, entryId, request.newEntryId()));
+    }
+
+    @PostMapping("/{entryId}/mark-stale")
+    public MemoryEntryResponse markStale(
+            @PathVariable UUID projectId,
+            @PathVariable UUID entryId) {
+        return ResponseMapper.toMemoryEntryResponse(memoryEntryService.markStale(projectId, entryId));
+    }
+
+    @PostMapping("/{entryId}/archive")
+    public MemoryEntryResponse archive(
+            @PathVariable UUID projectId,
+            @PathVariable UUID entryId) {
+        return ResponseMapper.toMemoryEntryResponse(memoryEntryService.archive(projectId, entryId));
+    }
+
+    @PostMapping("/{entryId}/restore")
+    public MemoryEntryResponse restore(
+            @PathVariable UUID projectId,
+            @PathVariable UUID entryId) {
+        return ResponseMapper.toMemoryEntryResponse(memoryEntryService.restore(projectId, entryId));
+    }
+
+    @PostMapping("/{entryId}/promote-to-adr")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ArchitectureDecisionResponse promoteToAdr(
+            @PathVariable UUID projectId,
+            @PathVariable UUID entryId,
+            @Valid @RequestBody PromoteMemoryEntryRequest request) {
+        return ResponseMapper.toArchitectureDecisionResponse(
+                memoryEntryService.promoteToAdr(projectId, entryId, request));
     }
 }

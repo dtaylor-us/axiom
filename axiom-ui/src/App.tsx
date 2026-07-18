@@ -18,6 +18,7 @@ import { AxiomHomePage } from './views/AxiomHomePage';
 import { ResetPasswordView } from './views/ResetPasswordView';
 import { LensHomePage } from './views/lens/LensHomePage';
 import { LensReviewPage } from './views/lens/LensReviewPage';
+import { MemoriaHomePage } from './views/memoria/MemoriaHomePage';
 import { WorkshopView } from './views/workshop/WorkshopView';
 import { ArchonHomePage } from './views/archon/ArchonHomePage';
 import { PackageDetailView } from './views/specweaver/PackageDetailView';
@@ -39,7 +40,7 @@ import type { WorkshopSessionSummary } from './types/workshop';
 import { useSpecWeaverStore } from './store/useSpecWeaverStore';
 
 type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop' | 'specweaver';
-type Pillar = 'axiom' | 'archon' | 'specweaver' | 'lens';
+type Pillar = 'axiom' | 'archon' | 'specweaver' | 'lens' | 'memoria';
 
 interface MobileBottomNavItem {
   id: string;
@@ -61,6 +62,7 @@ const CONVERSATION_HYDRATION_RETRY_DELAY_MS = 400;
 function getCurrentPillar(pathname: string): Pillar {
   if (pathname.startsWith('/specweaver')) return 'specweaver';
   if (pathname.startsWith('/lens')) return 'lens';
+  if (pathname.startsWith('/memoria')) return 'memoria';
   if (pathname === '/') return 'axiom';
   return 'archon';
 }
@@ -70,6 +72,7 @@ function getPillarTitle(pathname: string): string {
   if (pillar === 'specweaver') return 'SpecWeaver — Requirements Intelligence | Axiom';
   if (pillar === 'archon') return 'Archon — Architecture Reasoning | Axiom';
   if (pillar === 'lens') return 'Lens — Architecture Review Intelligence | Axiom';
+  if (pillar === 'memoria') return 'Memoria — Project Memory | Axiom';
   return 'Axiom — Architecture Intelligence Platform';
 }
 
@@ -90,6 +93,10 @@ function getPillarFavicon(pillar: Pillar): string {
     lens: {
       stroke: '%23F77F00',
       path: 'M10.5 5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11m4.3 9.3L20 20M9 10.5h3m-1.5-1.5v3',
+    },
+    memoria: {
+      stroke: '%230F766E',
+      path: 'M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z M5 5.5v15M9 7h6M9 11h6M9 15h4',
     },
   };
 
@@ -323,10 +330,11 @@ function AppContent() {
   const isPlatformHomeRoute = location.pathname === '/';
   const isSpecWeaverRoute = location.pathname.startsWith('/specweaver');
   const isLensRoute = location.pathname.startsWith('/lens');
+  const isMemoriaRoute = location.pathname.startsWith('/memoria');
   const isArchonHomeRoute = location.pathname === '/archon';
   const isArchonChatRoute = location.pathname === '/archon/chat';
   const isConversationRoute = !!getConversationIdFromPath(location.pathname);
-  const activeSidebarPillar: Pillar = isSpecWeaverRoute ? 'specweaver' : isLensRoute ? 'lens' : 'archon';
+  const activeSidebarPillar: Pillar = isSpecWeaverRoute ? 'specweaver' : isLensRoute ? 'lens' : isMemoriaRoute ? 'memoria' : 'archon';
   const activeSidebarItemClass = getActiveSidebarItemClass(activeSidebarPillar);
   const activeSidebarNavClass = getActiveSidebarNavClass(activeSidebarPillar);
   const activeSidebarDotClass = getActiveSidebarDotClass(activeSidebarPillar);
@@ -806,6 +814,8 @@ function AppContent() {
       ? 'SpecWeaver'
       : isLensRoute
       ? 'Lens'
+      : isMemoriaRoute
+      ? 'Memoria'
       : isArchonHomeRoute
       ? 'Archon'
       : activeView === 'home'
@@ -893,7 +903,17 @@ function AppContent() {
           ]
           : []),
       ]
-      : NAV_ITEMS.map(({ key, label, icon }) => ({
+      : isMemoriaRoute
+        ? [
+          {
+            id: 'memoria-home',
+            label: 'Memory',
+            icon: MOBILE_ICON_PATHS.package,
+            active: location.pathname === '/memoria',
+            onClick: () => navigate('/memoria'),
+          },
+        ]
+        : NAV_ITEMS.map(({ key, label, icon }) => ({
         id: key,
         label,
         icon,
@@ -930,7 +950,7 @@ function AppContent() {
         <div className="flex-1 min-h-0 overflow-y-auto sidebar-scroll">
           <PillarNav />
           <div className="p-2 flex flex-col gap-1.5">
-            {isSpecWeaverRoute ? (
+            {isMemoriaRoute ? null : isSpecWeaverRoute ? (
               <button
                 onClick={() => {
                   void handleCreateSpecWeaverSession();
@@ -985,7 +1005,21 @@ function AppContent() {
           </div>
 
           <nav className="flex flex-col gap-0.5 px-2 mt-1">
-            {isSpecWeaverRoute ? (
+            {isMemoriaRoute ? (
+              <button
+                onClick={() => {
+                  navigate('/memoria');
+                  setMobileDrawerOpen(false);
+                }}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${activeSidebarNavClass}`}
+                data-testid="nav-memoria-memory"
+              >
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z M5 5.5v15M9 7h6M9 11h6M9 15h4" />
+                </svg>
+                Memory workspace
+              </button>
+            ) : isSpecWeaverRoute ? (
               <button
                 onClick={() => {
                   navigate('/specweaver/sessions');
@@ -1081,7 +1115,7 @@ function AppContent() {
             </div>
           )}
 
-          {!isSpecWeaverRoute && !isLensRoute && hasConversation && (
+          {!isSpecWeaverRoute && !isLensRoute && !isMemoriaRoute && hasConversation && (
             <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
               <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
                 <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
@@ -1113,9 +1147,11 @@ function AppContent() {
 
           <div className="mt-3 px-2">
             <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
-              {isSpecWeaverRoute ? 'Sessions' : isLensRoute ? 'Reviews' : activeView === 'workshop' ? 'Workshops' : 'History'}
+              {isMemoriaRoute ? 'Memory' : isSpecWeaverRoute ? 'Sessions' : isLensRoute ? 'Reviews' : activeView === 'workshop' ? 'Workshops' : 'History'}
             </h3>
-            {isSpecWeaverRoute ? (
+            {isMemoriaRoute ? (
+              <div className="px-3 py-2 text-[12px] text-gray-500">Project memory, ADRs, and session links</div>
+            ) : isSpecWeaverRoute ? (
               specWeaverSessionsLoading ? (
                 <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
               ) : specWeaverSessionsError ? (
@@ -1767,6 +1803,10 @@ function AppContent() {
               <Route path="/lens" element={<LensHomePage />} />
               <Route path="/lens/new" element={<LensReviewPage />} />
               <Route path="/lens/sessions/:sessionId" element={<LensReviewPage />} />
+            </Routes>
+          ) : isMemoriaRoute ? (
+            <Routes>
+              <Route path="/memoria" element={<MemoriaHomePage />} />
             </Routes>
           ) : isArchonHomeRoute ? (
             <ArchonHomePage />

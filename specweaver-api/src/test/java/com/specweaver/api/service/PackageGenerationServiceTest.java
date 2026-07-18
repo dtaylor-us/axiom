@@ -39,6 +39,7 @@ class PackageGenerationServiceTest {
     @Mock private GeneratedPackageRepository packageRepository;
     @Mock private SpecWeaverAgentClient agentClient;
     @Mock private BriefFormatter briefFormatter;
+    @Mock private MemoriaNotificationClient memoriaNotificationClient;
     private PackageGenerationService packageGenerationService;
 
     @BeforeEach
@@ -51,7 +52,8 @@ class PackageGenerationServiceTest {
                 agentClient,
                 new ObjectMapper(),
                 new ReadinessScoreService(),
-                briefFormatter);
+                briefFormatter,
+                memoriaNotificationClient);
     }
 
     @Test

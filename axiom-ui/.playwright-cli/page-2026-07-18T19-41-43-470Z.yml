@@ -1,0 +1,23 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - img "Axiom" [ref=e6]
+    - heading "Axiom" [level=1] [ref=e7]
+    - paragraph [ref=e8]: Sign in to your account
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: Email
+        - textbox "Email" [ref=e13]:
+          - /placeholder: you@example.com
+      - generic [ref=e14]:
+        - generic [ref=e15]: Password
+        - textbox "Password" [ref=e16]:
+          - /placeholder: ••••••••
+      - link "Forgot your password?" [ref=e18] [cursor=pointer]:
+        - /url: /forgot-password
+      - button "Sign in" [ref=e19]
+    - generic [ref=e20]: or
+    - button "Continue as Guest" [ref=e25]
+  - paragraph [ref=e26]:
+    - text: Don't have an account?
+    - button "Sign up" [ref=e27]

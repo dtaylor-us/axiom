@@ -1,7 +1,7 @@
 services:
   # Local DB setup: CREATE DATABASE memoria; (run once after postgres starts)
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: archon-postgres
     environment:
       POSTGRES_DB: archon
@@ -375,11 +375,12 @@ services:
       - MEMORIA_API_PORT=8084
       - SPRING_PROFILES_ACTIVE=local
       - POSTGRES_URL=jdbc:postgresql://postgres:5432/memoria
-      - POSTGRES_USERNAME=postgres
+      - POSTGRES_USERNAME=archon
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-localdev}
+      - JWT_SECRET=${MEMORIA_JWT_SECRET:-dev-jwt-secret-minimum-32-chars-here}
       - MEMORIA_AGENT_BASE_URL=http://memoria-agent:8087
       - AXIOM_GATEWAY_BYPASS=true
-      - AXIOM_INTERNAL_SECRET=${INTERNAL_SECRET:-dev-secret-change-in-prod}
+      - AXIOM_INTERNAL_SECRET=
       - OTEL_SDK_DISABLED=true
       - MANAGEMENT_TRACING_ENABLED=false
     depends_on:

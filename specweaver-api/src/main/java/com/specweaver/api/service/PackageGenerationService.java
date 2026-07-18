@@ -45,6 +45,7 @@ public class PackageGenerationService {
     private final ObjectMapper objectMapper;
     private final ReadinessScoreService readinessScoreService;
     private final BriefFormatter briefFormatter;
+    private final MemoriaNotificationClient memoriaNotificationClient;
 
     @Transactional
     public PackageResponse generatePackage(UUID sessionId, UUID userId) {
@@ -82,6 +83,10 @@ public class PackageGenerationService {
             GeneratedPackage saved = packageRepository.save(generatedPackage);
             session.setStatus(SessionStatus.PACKAGE_READY);
             sessionRepository.save(session);
+            memoriaNotificationClient.notifySessionReady(
+                    sessionId,
+                    generatedPackage.getBriefText(),
+                    memoriaNotificationClient.parsePayload(response.archInputPackageJson()));
             return ResponseMapper.toPackageResponse(saved, objectMapper);
         } catch (RuntimeException e) {
             session.setStatus(SessionStatus.ACTIVE);

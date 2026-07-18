@@ -33,6 +33,7 @@ public class ChatService {
     private final UsageService usageService;
     private final PipelineRunService pipelineRunService;
     private final PipelineRunBroadcaster pipelineRunBroadcaster;
+    private final MemoriaNotificationClient memoriaNotificationClient;
     private final ObjectMapper objectMapper;
 
     public Flux<AgentResponse> streamChat(ChatRequest request, String userId) {
@@ -238,6 +239,10 @@ public class ChatService {
                                         if (cp != null) {
                                             persistTokenUsage(conversation.getId(), cp);
                                         }
+                                        memoriaNotificationClient.notifyConversationComplete(
+                                                conversation.getId(),
+                                                text,
+                                                so);
                                         // Mark pipeline run complete — persist has_gaps and
                                         // pipeline_gaps from the COMPLETE payload so degraded
                                         // runs are not reported as clean successful runs.

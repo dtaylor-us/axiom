@@ -18,10 +18,7 @@ async def distill_endpoint(
     request: DistillRequest,
     x_internal_secret: str = Header(None),
 ):
-    """
-    Phase 1 stub — distillation pipeline not yet implemented.
-    Returns empty candidate list. Real implementation in Phase 3.
-    """
+    """Distil a completed pillar session into memory candidates."""
     expected = os.getenv("INTERNAL_SECRET", "")
     if not expected or x_internal_secret != expected:
         raise HTTPException(status_code=401, detail="Unauthorized")

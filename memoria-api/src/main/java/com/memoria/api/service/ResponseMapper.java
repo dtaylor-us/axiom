@@ -68,6 +68,7 @@ public final class ResponseMapper {
                 adr.getAlternativesConsidered(),
                 adr.getSourcePillar(),
                 adr.getSourceSessionId(),
+                adr.getSourceMemoryEntryId(),
                 adr.getSupersededByAdrNumber(),
                 adr.getCreatedAt());
     }

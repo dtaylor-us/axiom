@@ -10,6 +10,7 @@ import com.memoria.api.repository.ProjectRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -96,7 +97,47 @@ class AdrServiceTest {
         assertThat(updated.getSupersededByAdrNumber()).isEqualTo(1);
     }
 
+    @Test
+    void searchAdrs_filtersByStatusAndText() {
+        ArchitectureDecision accepted = adr(UUID.randomUUID(), 1, "PostgreSQL", AdrStatus.ACCEPTED);
+        accepted.setContext("Order consistency");
+        ArchitectureDecision proposed = adr(UUID.randomUUID(), 2, "Redis", AdrStatus.PROPOSED);
+        proposed.setContext("Cache latency");
+        when(adrRepository.findByProjectIdOrderByAdrNumberAsc(projectId)).thenReturn(List.of(accepted, proposed));
+
+        List<ArchitectureDecision> adrs = adrService.searchAdrs(projectId, AdrStatus.ACCEPTED, "order");
+
+        assertThat(adrs).containsExactly(accepted);
+    }
+
+    @Test
+    void supersedeAdr_setsStatusAndSupersededByNumber() {
+        UUID oldAdrId = UUID.randomUUID();
+        UUID newAdrId = UUID.randomUUID();
+        ArchitectureDecision oldAdr = adr(oldAdrId, 1, "Old", AdrStatus.ACCEPTED);
+        ArchitectureDecision newAdr = adr(newAdrId, 2, "New", AdrStatus.ACCEPTED);
+        when(adrRepository.findById(oldAdrId)).thenReturn(Optional.of(oldAdr));
+        when(adrRepository.findById(newAdrId)).thenReturn(Optional.of(newAdr));
+
+        ArchitectureDecision superseded = adrService.supersedeAdr(projectId, oldAdrId, newAdrId);
+
+        assertThat(superseded.getStatus()).isEqualTo(AdrStatus.SUPERSEDED);
+        assertThat(superseded.getSupersededByAdrNumber()).isEqualTo(2);
+    }
+
     private CreateAdrRequest createRequest() {
         return new CreateAdrRequest("Title", "Context", "Decision", null, null, null, null);
+    }
+
+    private ArchitectureDecision adr(UUID id, int adrNumber, String title, AdrStatus status) {
+        return ArchitectureDecision.builder()
+                .id(id)
+                .project(project)
+                .adrNumber(adrNumber)
+                .title(title)
+                .status(status)
+                .context("Context")
+                .decision("Decision")
+                .build();
     }
 }

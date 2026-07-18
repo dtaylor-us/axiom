@@ -25,6 +25,7 @@ public class ReviewPipelineService {
     private final EvidenceIngestionService evidenceIngestionService;
     private final GapElicitationService gapElicitationService;
     private final ReviewReportService reviewReportService;
+    private final MemoriaNotificationClient memoriaNotificationClient;
     private final Duration timeout;
 
     public ReviewPipelineService(
@@ -33,12 +34,14 @@ public class ReviewPipelineService {
             EvidenceIngestionService evidenceIngestionService,
             GapElicitationService gapElicitationService,
             ReviewReportService reviewReportService,
+            MemoriaNotificationClient memoriaNotificationClient,
             @Value("${lens.agent.timeout-seconds:${AGENT_TIMEOUT_SECONDS:300}}") int timeoutSeconds) {
         this.lensAgentClient = lensAgentClient;
         this.reviewSessionService = reviewSessionService;
         this.evidenceIngestionService = evidenceIngestionService;
         this.gapElicitationService = gapElicitationService;
         this.reviewReportService = reviewReportService;
+        this.memoriaNotificationClient = memoriaNotificationClient;
         this.timeout = Duration.ofSeconds(timeoutSeconds);
     }
 
@@ -77,6 +80,7 @@ public class ReviewPipelineService {
 
             ReviewReport savedReport = reviewReportService.saveReport(sessionId, reportPayload);
             reviewSessionService.transitionStatus(sessionId, ReviewStatus.COMPLETE);
+            memoriaNotificationClient.notifyReviewComplete(sessionId, savedReport);
             return savedReport;
         } catch (RuntimeException ex) {
             reviewSessionService.transitionStatus(sessionId, ReviewStatus.READY_FOR_REVIEW);

@@ -48,6 +48,7 @@ class ChatServiceTest {
     @Mock private UsageService usageService;
     @Mock private PipelineRunService pipelineRunService;
     @Mock private PipelineRunBroadcaster pipelineRunBroadcaster;
+    @Mock private MemoriaNotificationClient memoriaNotificationClient;
     @Spy  private ObjectMapper objectMapper = new ObjectMapper();
     @InjectMocks private ChatService chatService;
 

@@ -26,6 +26,7 @@ spring:
 memoria:
   agent:
     base-url: ${MEMORIA_AGENT_BASE_URL:http://memoria-agent:8087}
+    internal-secret: ${MEMORIA_AGENT_INTERNAL_SECRET:${AXIOM_INTERNAL_SECRET:}}
     timeout-seconds: ${AGENT_TIMEOUT_SECONDS:120}
 
 axiom:

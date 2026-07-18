@@ -51,6 +51,15 @@ public class AdrService {
         return adrRepository.findByProjectIdOrderByAdrNumberAsc(projectId);
     }
 
+    @Transactional(readOnly = true)
+    public List<ArchitectureDecision> searchAdrs(UUID projectId, AdrStatus status, String q) {
+        requireProject(projectId);
+        return adrRepository.findByProjectIdOrderByAdrNumberAsc(projectId).stream()
+                .filter(adr -> status == null || adr.getStatus() == status)
+                .filter(adr -> matchesText(adr, q))
+                .toList();
+    }
+
     @Transactional
     public ArchitectureDecision updateAdr(UUID projectId, UUID adrId, UpdateAdrRequest req) {
         requireProject(projectId);
@@ -83,8 +92,43 @@ public class AdrService {
         return adrRepository.save(adr);
     }
 
+    @Transactional
+    public ArchitectureDecision supersedeAdr(UUID projectId, UUID oldAdrId, UUID newAdrId) {
+        ArchitectureDecision oldAdr = requireProjectAdr(projectId, oldAdrId);
+        ArchitectureDecision newAdr = requireProjectAdr(projectId, newAdrId);
+        oldAdr.setStatus(AdrStatus.SUPERSEDED);
+        oldAdr.setSupersededByAdrNumber(newAdr.getAdrNumber());
+        return adrRepository.save(oldAdr);
+    }
+
     private Project requireProject(UUID projectId) {
         return projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+    }
+
+    private ArchitectureDecision requireProjectAdr(UUID projectId, UUID adrId) {
+        requireProject(projectId);
+        ArchitectureDecision adr = adrRepository.findById(adrId)
+                .orElseThrow(() -> new ResourceNotFoundException("Architecture decision not found"));
+        if (!adr.getProject().getId().equals(projectId)) {
+            throw new ResourceNotFoundException("Architecture decision not found");
+        }
+        return adr;
+    }
+
+    private boolean matchesText(ArchitectureDecision adr, String query) {
+        if (query == null || query.isBlank()) {
+            return true;
+        }
+        String normalized = query.trim().toLowerCase();
+        return contains(adr.getTitle(), normalized)
+                || contains(adr.getContext(), normalized)
+                || contains(adr.getDecision(), normalized)
+                || contains(adr.getConsequences(), normalized)
+                || contains(adr.getAlternativesConsidered(), normalized);
+    }
+
+    private boolean contains(String value, String query) {
+        return value != null && value.toLowerCase().contains(query);
     }
 }

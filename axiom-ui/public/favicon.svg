@@ -1,12 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
-  <rect width="48" height="48" rx="10" fill="#863bff"/>
-  <g stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M10 38h28"/>
-    <path d="M10 20h28"/>
-    <path d="M24 8l14 12H10l14-12z"/>
-    <path d="M14 20v18"/>
-    <path d="M21 20v18"/>
-    <path d="M27 20v18"/>
-    <path d="M34 20v18"/>
+  <rect width="48" height="48" rx="10" fill="#7B2FBE"/>
+  <g stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 8l16 8v16l-16 8-16-8V16l16-8z"/>
+    <path d="M24 16l8 4v8l-8 4-8-4v-8l8-4z"/>
   </g>
 </svg>

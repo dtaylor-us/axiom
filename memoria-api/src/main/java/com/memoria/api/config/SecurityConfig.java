@@ -4,9 +4,9 @@ import com.memoria.api.security.GatewayHeaderAuthFilter;
 import com.memoria.api.security.JwtAuthFilter;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -23,9 +23,7 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
-
-    @Value("${axiom.gateway.bypass:false}")
-    private boolean gatewayBypass;
+    private final Environment environment;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -40,8 +38,14 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(
-                        gatewayBypass ? jwtAuthFilter : gatewayHeaderAuthFilter,
+                        isGatewayBypassEnabled() ? jwtAuthFilter : gatewayHeaderAuthFilter,
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    private boolean isGatewayBypassEnabled() {
+        return Boolean.parseBoolean(environment.getProperty(
+                "AXIOM_GATEWAY_BYPASS",
+                environment.getProperty("axiom.gateway.bypass", "false")));
     }
 }
