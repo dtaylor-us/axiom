@@ -1,0 +1,91 @@
+name: "\U0001F916 Copilot Agent Task — Implementation"
+description: "Structured task for the Copilot coding agent to implement"
+labels: ["copilot-agent", "implementation"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Instructions for the Copilot coding agent
+        Read `.github/copilot-instructions.md`, `ARCHITECTURE.md`, and
+        `ADL.md` before making any changes. Apply every rule without exception.
+
+  - type: input
+    id: pillar
+    attributes:
+      label: Pillar
+      description: Which Axiom pillar does this task belong to?
+      placeholder: "archon | specweaver | lens | platform"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and background
+      description: What is the purpose of this task? Why is it needed?
+      placeholder: "Describe the background and motivation..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: files_to_read
+    attributes:
+      label: Files to read first
+      description: List the files the agent must read before writing any code.
+      placeholder: |
+        - specweaver-api/src/main/java/com/specweaver/api/service/SessionService.java
+        - lens-api/src/main/java/com/lens/api/client/LensAgentClient.java
+        - ARCHITECTURE.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: task
+    attributes:
+      label: Task description
+      description: Precise description of what to implement. Be specific about method signatures, return types, and behaviour.
+      placeholder: "Implement ReviewSessionService.java — createSession(), getSession(), listSessions()..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: How will you know the task is complete?
+      placeholder: |
+        - [ ] mvn compile passes with zero errors
+        - [ ] mvn verify passes with >= 80% coverage
+        - [ ] No stub implementations remain (no return [], return {}, pass)
+        - [ ] All ADL rules verified
+    validations:
+      required: true
+
+  - type: textarea
+    id: hard_rules
+    attributes:
+      label: Hard rules for this task
+      description: Any additional rules beyond copilot-instructions.md that apply to this specific task.
+      placeholder: |
+        - Never use RestTemplate — WebClient only
+        - ddl-auto must remain validate
+        - lens-agent never imports psycopg2 or sqlalchemy
+    validations:
+      required: false
+
+  - type: textarea
+    id: deviation_summary
+    attributes:
+      label: Deviation summary (agent completes this)
+      description: The agent must fill this in at the end of the session.
+      value: |
+        | Area | Status | Note |
+        |------|--------|------|
+        | ADL rules verified | COMPLETE / VIOLATION | |
+        | Tests written | COMPLETE / DEFERRED | |
+        | Coverage gate | PASS / FAIL / SKIP | |
+        | No hardcoded secrets | PASS / VIOLATION | |
+        | No stub implementations | PASS / VIOLATION | |
+    validations:
+      required: false
