@@ -16,6 +16,7 @@ public class PillarRegistryConfig {
     private PillarDefinition archon = new PillarDefinition();
     private PillarDefinition specweaver = new PillarDefinition();
     private PillarDefinition lens = new PillarDefinition();
+    private PillarDefinition memoria = new PillarDefinition();
 
     public PillarDefinition getArchon() {
         return archon;
@@ -41,6 +42,14 @@ public class PillarRegistryConfig {
         this.lens = lens;
     }
 
+    public PillarDefinition getMemoria() {
+        return memoria;
+    }
+
+    public void setMemoria(PillarDefinition memoria) {
+        this.memoria = memoria;
+    }
+
     /**
      * Returns all pillar definitions in a stable order for deterministic health output.
      *
@@ -51,6 +60,7 @@ public class PillarRegistryConfig {
         pillars.put("archon", archon);
         pillars.put("specweaver", specweaver);
         pillars.put("lens", lens);
+        pillars.put("memoria", memoria);
         return pillars;
     }
 

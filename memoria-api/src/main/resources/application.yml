@@ -1,0 +1,53 @@
+server:
+  port: ${MEMORIA_API_PORT:8084}
+  shutdown: graceful
+
+spring:
+  application:
+    name: memoria-api
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/memoria}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:localdev}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+memoria:
+  agent:
+    base-url: ${MEMORIA_AGENT_BASE_URL:http://memoria-agent:8087}
+    timeout-seconds: ${AGENT_TIMEOUT_SECONDS:120}
+
+axiom:
+  gateway:
+    bypass: ${AXIOM_GATEWAY_BYPASS:false}
+    internal-secret: ${AXIOM_INTERNAL_SECRET:}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:super-secret-dev-key-change-in-prod-must-be-at-least-32-bytes}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  health:
+    show-details: always
+  tracing:
+    enabled: false
+
+logging:
+  pattern:
+    console: "%d{ISO8601} [%thread] %-5level %logger{36} [traceId=%X{traceId:-} projectId=%X{projectId:-}] - %msg%n"
