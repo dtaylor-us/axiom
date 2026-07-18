@@ -92,9 +92,7 @@ public class MemoryEntry {
     @Column(name = "tags", columnDefinition = "TEXT[]")
     private String[] tags;
 
-    // pgvector mapping is added in Phase 2.
-    @Column(name = "embedding", insertable = false, updatable = false)
-    private float[] embedding;
+    // embedding column exists in DB; pgvector mapping is added in Phase 2.
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
