@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientException;
 
 import java.time.Duration;
 
@@ -30,7 +31,7 @@ public class MemoriaAgentClient {
                     .retrieve()
                     .bodyToMono(AgentDistillResponse.class)
                     .block(Duration.ofSeconds(config.getTimeoutSeconds()));
-        } catch (RuntimeException ex) {
+        } catch (WebClientException | IllegalStateException ex) {
             log.error(
                     "Memoria agent distill call failed sessionId={} timeoutSeconds={} error={}",
                     request.sessionId(),

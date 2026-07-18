@@ -2,6 +2,7 @@ package com.memoria.api.service;
 
 import com.memoria.api.config.MemoriaAgentConfig;
 import com.memoria.api.dto.AgentDistillRequest;
+import com.memoria.api.dto.AgentDistillResponse;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -47,7 +48,10 @@ class MemoriaAgentClientTest {
 
         MemoriaAgentClient client = new MemoriaAgentClient(WebClient.builder(), config);
 
-        assertThat(client.distill(buildDistillRequest())).isNotNull();
+        AgentDistillResponse response = client.distill(buildDistillRequest());
+        assertThat(response).isNotNull();
+        assertThat(response.sessionId()).isEqualTo("s1");
+        assertThat(response.message()).isEqualTo("ok");
         RecordedRequest recordedRequest = mockWebServer.takeRequest();
         assertThat(recordedRequest.getPath()).isEqualTo("/distill");
         assertThat(recordedRequest.getHeader("X-Internal-Secret")).isEqualTo("test-secret");
