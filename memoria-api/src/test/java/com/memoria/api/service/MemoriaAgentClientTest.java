@@ -38,7 +38,7 @@ class MemoriaAgentClientTest {
     }
 
     @Test
-    void distill_postsToAgentAndReturnsResponse() throws Exception {
+    void distill_shouldPostToDistillEndpointWithHeaderAndReturnResponse() throws Exception {
         mockWebServer.enqueue(new MockResponse()
                 .setHeader("Content-Type", "application/json")
                 .setBody("""
@@ -47,7 +47,7 @@ class MemoriaAgentClientTest {
 
         MemoriaAgentClient client = new MemoriaAgentClient(WebClient.builder(), config);
 
-        assertThat(client.distill(request())).isNotNull();
+        assertThat(client.distill(buildDistillRequest())).isNotNull();
         RecordedRequest recordedRequest = mockWebServer.takeRequest();
         assertThat(recordedRequest.getPath()).isEqualTo("/distill");
         assertThat(recordedRequest.getHeader("X-Internal-Secret")).isEqualTo("test-secret");
@@ -58,7 +58,7 @@ class MemoriaAgentClientTest {
         mockWebServer.enqueue(new MockResponse().setResponseCode(500).setBody("down"));
         MemoriaAgentClient client = new MemoriaAgentClient(WebClient.builder(), config);
 
-        assertThat(client.distill(request())).isNull();
+        assertThat(client.distill(buildDistillRequest())).isNull();
     }
 
     @Test
@@ -71,10 +71,10 @@ class MemoriaAgentClientTest {
                         """));
         MemoriaAgentClient client = new MemoriaAgentClient(WebClient.builder(), config);
 
-        assertThat(client.distill(request())).isNull();
+        assertThat(client.distill(buildDistillRequest())).isNull();
     }
 
-    private AgentDistillRequest request() {
+    private AgentDistillRequest buildDistillRequest() {
         return new AgentDistillRequest("s1", "p1", null, "summary", Map.of(), List.of());
     }
 }
