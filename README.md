@@ -90,15 +90,9 @@ Axiom supports three startup modes depending on what you are working on:
 
 #### Archon only (fastest — default)
 
-Starts Archon API + agent + UI. No gateway required. This is the
-default for local Archon development.
-
 ```bash
 docker compose up --build
 ```
-
-Services started: `postgres`, `qdrant`, `mailhog`, `agent` (archon-agent),
-`api` (archon-api), `ui`, `jaeger`, `prometheus`, `grafana`
 
 Access at: <http://localhost:3000>
 
@@ -108,29 +102,17 @@ Access at: <http://localhost:3000>
 docker compose --profile specweaver up --build
 ```
 
-Adds: `specweaver-api`, `specweaver-agent`, `minio`
-
 #### Lens pillar added
 
 ```bash
 docker compose --profile lens up --build
 ```
 
-Adds: `lens-api`, `lens-agent`
-
 #### Full Axiom platform (all pillars + gateway)
-
-Starts all services including `axiom-api` as the platform gateway.
-This is the production-equivalent local configuration.
 
 ```bash
 docker compose --profile platform up --build
 ```
-
-Adds: `axiom-api` (gateway), `specweaver-api`, `specweaver-agent`,
-`lens-api`, `lens-agent`, `minio`
-
-Access at: <http://localhost:3000> (traffic routes through axiom-api on :8080)
 
 > **Note:** In `platform` mode the gateway validates JWTs and routes all
 > `/api/v1/archon/**`, `/api/v1/specweaver/**`, and `/api/v1/lens/**`
@@ -175,63 +157,22 @@ The Lens agent runs a 10-stage review pipeline:
 
 ---
 
-## Environment Variables
+## Development Agent Workflow
 
-### Required
+This project uses a three-agent development workflow:
 
-| Variable | Description |
-|----------|-------------|
-| `LLM_PROVIDER` | `openai` or `ollama` |
-| `OPENAI_API_KEY` | OpenAI API key (when `LLM_PROVIDER=openai`) |
+| Agent | Where | Best for |
+|-------|-------|----------|
+| **Claude** | claude.ai / Claude Desktop | Architecture, planning, debugging, cross-service decisions |
+| **Copilot** | GitHub Issues → PRs | Async background implementation, Playwright QA |
+| **Codex** | Terminal (`codex`) | Local interactive work, when Copilot quota is low |
 
-### Optional
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `POSTGRES_PASSWORD` | `localdev` | PostgreSQL password |
-| `INTERNAL_SECRET` | `dev-secret-change-in-prod` | Service-to-service auth secret |
-| `JWT_SECRET` | `dev-jwt-secret-minimum-32-chars-here` | JWT signing secret |
-| `LOG_LEVEL` | `INFO` | Agent log level |
-| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Ollama endpoint (when `LLM_PROVIDER=ollama`) |
-
----
-
-## Development
-
-### Agent services (Python)
-
-```bash
-# Archon agent
-cd archon-agent
-python -m venv .venv && source .venv/bin/activate
-pip install uv && uv pip install -e ".[dev]"
-pytest
-uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
-
-# Lens agent
-cd lens-agent
-pip install -e ".[dev]" --break-system-packages
-pytest
-uvicorn app.main:app --host 0.0.0.0 --port 8086 --reload
-```
-
-### API services (Java)
-
-```bash
-# Archon API
-cd archon-api
-./mvnw test          # unit + integration (Testcontainers)
-./mvnw verify        # + JaCoCo coverage gate (80% minimum)
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
-
-# SpecWeaver API
-cd specweaver-api
-./mvnw verify
-
-# Lens API
-cd lens-api
-./mvnw verify
-```
+See **[docs/AGENTS.md](docs/AGENTS.md)** for the full agent workflow guide including:
+- How to create agent-ready GitHub issues
+- How to run Playwright QA sessions via Copilot
+- How to switch between agents when quota runs low
+- Claude Desktop MCP server configuration
+- Token conservation strategy
 
 ---
 
@@ -277,7 +218,12 @@ axiom/
 │
 ├── helm/                       # Helm chart for AKS deployment
 ├── terraform/                  # Azure infrastructure
-└── observability/              # Prometheus, Grafana, Jaeger config
+├── observability/              # Prometheus, Grafana, Jaeger config
+└── docs/                       # Extended documentation
+    ├── AGENTS.md               # Multi-agent development workflow guide
+    ├── DEPLOYMENT.md           # Production deployment guide
+    ├── RUNNING.md              # Local development guide
+    └── SUPPORT.md              # Troubleshooting guide
 ```
 
 ## License
