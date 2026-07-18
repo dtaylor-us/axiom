@@ -1,0 +1,50 @@
+name: Copilot Agent — Implementation
+
+# Triggered when an issue is assigned to @copilot
+# or when a comment @mentions copilot on an issue.
+# This workflow sets the agent up with the right context
+# before it starts working.
+
+on:
+  issues:
+    types: [assigned]
+
+jobs:
+  copilot-setup:
+    if: github.event.assignee.login == 'copilot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm agent context files exist
+        run: |
+          echo "=== Verifying agent context files ==="
+          for f in \
+            ARCHITECTURE.md \
+            ADL.md \
+            .github/copilot-instructions.md; do
+            if [ -f "$f" ]; then
+              echo "OK: $f"
+            else
+              echo "MISSING: $f — agent will lack context"
+            fi
+          done
+
+      - name: Print platform topology for agent context
+        run: |
+          echo "=== Axiom Platform Services ==="
+          echo "axiom-api      :8080  Spring Boot WebFlux  (gateway)"
+          echo "archon-api     :8081  Spring Boot"
+          echo "archon-agent   :8001  FastAPI + LangGraph"
+          echo "specweaver-api :8082  Spring Boot"
+          echo "specweaver-agent :8085 FastAPI + LangGraph"
+          echo "lens-api       :8083  Spring Boot"
+          echo "lens-agent     :8086  FastAPI + LangGraph"
+          echo ""
+          echo "ADL hard rules:"
+          echo "  - Two services per pillar max (API + agent)"
+          echo "  - No LLM calls in API services"
+          echo "  - No PostgreSQL access in agent services"
+          echo "  - No RestTemplate — WebClient only"
+          echo "  - ddl-auto must be validate"
+          echo "  - No hardcoded secrets"
