@@ -1,6 +1,9 @@
 import os
+
 from fastapi import APIRouter, Header, HTTPException
+
 from app.models.contracts import DistillRequest, DistillResponse
+from app.pipeline.distiller import distill as run_distill
 
 router = APIRouter()
 
@@ -11,7 +14,7 @@ async def health():
 
 
 @router.post("/distill", response_model=DistillResponse)
-async def distill(
+async def distill_endpoint(
     request: DistillRequest,
     x_internal_secret: str = Header(None),
 ):
@@ -22,9 +25,5 @@ async def distill(
     expected = os.getenv("INTERNAL_SECRET", "")
     if not expected or x_internal_secret != expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return DistillResponse(
-        session_id=request.session_id,
-        candidates=[],
-        conflicts=[],
-        message="Distillation pipeline not yet active (Phase 1 stub)",
-    )
+
+    return await run_distill(request)
