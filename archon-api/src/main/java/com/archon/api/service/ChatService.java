@@ -52,7 +52,7 @@ public class ChatService {
                 .mode(request.getMode().name())
                 .history(conversationService.getRecentMessages(
                              conversation.getId(), 20))
-                .context(memoriaContext == null ? null : memoriaContext
+                .context(memoriaContext
                         .map(context -> Map.of("project_memory_context", (Object) context))
                         .orElse(null))
                 .build();
