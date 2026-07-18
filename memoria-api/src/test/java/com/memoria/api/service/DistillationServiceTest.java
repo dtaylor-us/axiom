@@ -143,4 +143,23 @@ class DistillationServiceTest {
         assertThat(existing.getStatus()).isEqualTo(MemoryStatus.SUPERSEDED);
         verify(memoryEntryRepository).save(existing);
     }
+
+    @Test
+    void distillLinkedSession_returnsEmptyResultWhenAgentCallFails() {
+        when(memoryEntryRepository.findByProjectIdAndStatusOrderByCreatedAtDesc(projectId, MemoryStatus.ACTIVE))
+                .thenReturn(List.of());
+        when(memoriaAgentClient.distill(any())).thenReturn(null);
+
+        DistillSessionResponse response = distillationService.distillLinkedSession(new DistillSessionRequest(
+                projectId,
+                Pillar.ARCHON,
+                sessionId,
+                null,
+                Map.of()));
+
+        assertThat(response.candidatesReceived()).isZero();
+        assertThat(response.entriesCreated()).isZero();
+        assertThat(response.entriesSuperseded()).isZero();
+        assertThat(response.message()).isEqualTo("No distillation response");
+    }
 }
