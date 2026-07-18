@@ -38,5 +38,12 @@ public class PipelineEvent {
     private String payload;
 
     private Instant emittedAt;
+
+    @PrePersist
+    void prePersist() {
+        if (emittedAt == null) {
+            emittedAt = Instant.now();
+        }
+    }
 }
 
