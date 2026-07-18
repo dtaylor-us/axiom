@@ -37,6 +37,7 @@ public class PipelineEvent {
     @Column(columnDefinition = "jsonb")
     private String payload;
 
-    private Instant emittedAt;
+    @Builder.Default
+    private Instant emittedAt = Instant.now();
 }
 

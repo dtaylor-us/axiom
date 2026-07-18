@@ -40,12 +40,14 @@ public class PipelineRun {
     @JdbcType(PostgreSQLEnumJdbcType.class)
     private PipelineRunStatus status;
 
-    private Instant startedAt;
+    @Builder.Default
+    private Instant startedAt = Instant.now();
     private Instant completedAt;
     private String lastStageCompleted;
     private Integer governanceScore;
     private String governanceConfidence;
-    private Boolean hasGaps;
+    @Builder.Default
+    private Boolean hasGaps = false;
     private String gapSummary;
     private String errorStage;
     private String errorMessage;
