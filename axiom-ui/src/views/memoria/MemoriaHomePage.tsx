@@ -94,14 +94,14 @@ export function MemoriaHomePage() {
   const [memoryStatus, setMemoryStatus] = useState<MemoryStatus | ''>('ACTIVE');
   const [memorySearch, setMemorySearch] = useState('');
   const [memoryTagFilter, setMemoryTagFilter] = useState('');
-  const [supersedeTarget, setSupersedeTarget] = useState('');
+  const [supersedeTargets, setSupersedeTargets] = useState<Record<string, string>>({});
   const [promoteEntryId, setPromoteEntryId] = useState('');
   const [adrTitle, setAdrTitle] = useState('');
   const [adrContext, setAdrContext] = useState('');
   const [adrDecision, setAdrDecision] = useState('');
   const [adrStatus, setAdrStatus] = useState<AdrStatus | ''>('');
   const [adrSearch, setAdrSearch] = useState('');
-  const [adrSupersedeTarget, setAdrSupersedeTarget] = useState('');
+  const [adrSupersedeTargets, setAdrSupersedeTargets] = useState<Record<string, string>>({});
   const [linkPillar, setLinkPillar] = useState<Pillar>('ARCHON');
   const [linkSessionId, setLinkSessionId] = useState('');
 
@@ -205,9 +205,10 @@ export function MemoriaHomePage() {
   }
 
   async function handleSupersede(entryId: string) {
+    const supersedeTarget = supersedeTargets[entryId];
     if (!token || !selectedProjectId || !supersedeTarget) return;
     await supersedeMemoryEntry(token, selectedProjectId, entryId, supersedeTarget);
-    setSupersedeTarget('');
+    setSupersedeTargets((current) => ({ ...current, [entryId]: '' }));
     reload();
   }
 
@@ -239,9 +240,10 @@ export function MemoriaHomePage() {
   }
 
   async function handleSupersedeAdr(adrId: string) {
+    const adrSupersedeTarget = adrSupersedeTargets[adrId];
     if (!token || !selectedProjectId || !adrSupersedeTarget) return;
     await supersedeAdr(token, selectedProjectId, adrId, adrSupersedeTarget);
-    setAdrSupersedeTarget('');
+    setAdrSupersedeTargets((current) => ({ ...current, [adrId]: '' }));
     reload();
   }
 
@@ -370,7 +372,11 @@ export function MemoriaHomePage() {
                         <button type="button" className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50" onClick={() => void handleTransition(entry.id, 'mark-stale')}>Mark stale</button>
                         <button type="button" className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50" onClick={() => void handleTransition(entry.id, 'archive')}>Archive</button>
                         <button type="button" className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50" onClick={() => void handleTransition(entry.id, 'restore')}>Restore</button>
-                        <select className="rounded-md border border-slate-300 px-2 py-1 text-xs" value={supersedeTarget} onChange={(event) => setSupersedeTarget(event.target.value)}>
+                        <select
+                          className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                          value={supersedeTargets[entry.id] ?? ''}
+                          onChange={(event) => setSupersedeTargets((current) => ({ ...current, [entry.id]: event.target.value }))}
+                        >
                           <option value="">Superseded by...</option>
                           {entries.filter((candidate) => candidate.id !== entry.id).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.content.slice(0, 42)}</option>)}
                         </select>
@@ -434,7 +440,11 @@ export function MemoriaHomePage() {
                       <p className="mt-2 text-xs text-slate-500">{adr.context}</p>
                       {adr.sourceMemoryEntryId && <p className="mt-2 text-xs text-[var(--color-pillar-memoria-text)]">Promoted from memory entry {adr.sourceMemoryEntryId.slice(0, 8)}</p>}
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <select className="rounded-md border border-slate-300 px-2 py-1 text-xs" value={adrSupersedeTarget} onChange={(event) => setAdrSupersedeTarget(event.target.value)}>
+                        <select
+                          className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                          value={adrSupersedeTargets[adr.id] ?? ''}
+                          onChange={(event) => setAdrSupersedeTargets((current) => ({ ...current, [adr.id]: event.target.value }))}
+                        >
                           <option value="">Superseded by...</option>
                           {adrs.filter((candidate) => candidate.id !== adr.id).map((candidate) => <option key={candidate.id} value={candidate.id}>ADR {candidate.adrNumber}</option>)}
                         </select>
