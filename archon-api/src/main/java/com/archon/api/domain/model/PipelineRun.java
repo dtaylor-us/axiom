@@ -40,8 +40,7 @@ public class PipelineRun {
     @JdbcType(PostgreSQLEnumJdbcType.class)
     private PipelineRunStatus status;
 
-    @Builder.Default
-    private Instant startedAt = Instant.now();
+    private Instant startedAt;
     private Instant completedAt;
     private String lastStageCompleted;
     private Integer governanceScore;
@@ -60,5 +59,12 @@ public class PipelineRun {
     @OrderBy("sequenceNum ASC")
     @Builder.Default
     private List<PipelineEvent> events = new ArrayList<>();
+
+    @PrePersist
+    void prePersist() {
+        if (startedAt == null) {
+            startedAt = Instant.now();
+        }
+    }
 }
 
