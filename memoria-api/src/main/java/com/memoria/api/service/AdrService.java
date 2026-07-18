@@ -54,10 +54,7 @@ public class AdrService {
     @Transactional(readOnly = true)
     public List<ArchitectureDecision> searchAdrs(UUID projectId, AdrStatus status, String q) {
         requireProject(projectId);
-        return adrRepository.findByProjectIdOrderByAdrNumberAsc(projectId).stream()
-                .filter(adr -> status == null || adr.getStatus() == status)
-                .filter(adr -> matchesText(adr, q))
-                .toList();
+        return adrRepository.searchByProjectId(projectId, status, normalizeQuery(q));
     }
 
     @Transactional
@@ -116,19 +113,10 @@ public class AdrService {
         return adr;
     }
 
-    private boolean matchesText(ArchitectureDecision adr, String query) {
+    private String normalizeQuery(String query) {
         if (query == null || query.isBlank()) {
-            return true;
+            return null;
         }
-        String normalized = query.trim().toLowerCase();
-        return contains(adr.getTitle(), normalized)
-                || contains(adr.getContext(), normalized)
-                || contains(adr.getDecision(), normalized)
-                || contains(adr.getConsequences(), normalized)
-                || contains(adr.getAlternativesConsidered(), normalized);
-    }
-
-    private boolean contains(String value, String query) {
-        return value != null && value.toLowerCase().contains(query);
+        return query.trim().toLowerCase();
     }
 }
