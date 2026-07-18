@@ -16,6 +16,8 @@ import com.memoria.api.repository.MemoryEntryRepository;
 import com.memoria.api.repository.ProjectRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -172,7 +174,7 @@ class MemoryEntryServiceTest {
         other.setMemoryType(MemoryType.DECISION);
         other.setTags(new String[] {"frontend"});
         other.setContent("React shell decision");
-        when(memoryEntryRepository.findByProjectIdOrderByCreatedAtDesc(projectId)).thenReturn(List.of(matching, other));
+        when(memoryEntryRepository.findAll(any(Specification.class), any(Sort.class))).thenReturn(List.of(matching, other));
 
         List<MemoryEntry> entries = memoryEntryService.searchEntries(
                 projectId,
