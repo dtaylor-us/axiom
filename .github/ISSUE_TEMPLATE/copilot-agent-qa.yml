@@ -1,0 +1,62 @@
+name: "\U0001F50D Copilot Agent Task — QA / Testing"
+description: "Structured QA task for the Copilot coding agent"
+labels: ["copilot-agent", "qa", "testing"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Instructions for the Copilot coding agent
+        Read `.github/copilot-instructions.md`, `ARCHITECTURE.md`, and
+        `ADL.md` before making any changes. Apply every rule without exception.
+
+  - type: input
+    id: service
+    attributes:
+      label: Service under test
+      placeholder: "lens-api | lens-agent | specweaver-api | archon-agent"
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Test scope
+      description: What exactly needs to be tested?
+      placeholder: |
+        Write unit tests for ReviewSessionService.java covering:
+        - createSession() returns session with EVIDENCE_COLLECTION status
+        - getSession() throws 404 when session not found
+        - forceProceed() transitions status to READY_FOR_REVIEW regardless of gap state
+    validations:
+      required: true
+
+  - type: textarea
+    id: files_to_read
+    attributes:
+      label: Files to read first
+      placeholder: |
+        - lens-api/src/main/java/com/lens/api/service/ReviewSessionService.java
+        - lens-api/src/test/java/com/lens/api/AbstractIntegrationTest.java
+    validations:
+      required: true
+
+  - type: textarea
+    id: coverage_gate
+    attributes:
+      label: Coverage gate
+      placeholder: "mvn verify — minimum 80% line coverage on the service under test"
+      value: "mvn verify — minimum 80% line coverage"
+    validations:
+      required: true
+
+  - type: textarea
+    id: deviation_summary
+    attributes:
+      label: Deviation summary (agent completes this)
+      value: |
+        | Area | Status | Note |
+        |------|--------|------|
+        | Tests written | COMPLETE / PARTIAL | |
+        | Coverage gate | PASS / FAIL | |
+        | ADL rules verified | PASS / VIOLATION | |
