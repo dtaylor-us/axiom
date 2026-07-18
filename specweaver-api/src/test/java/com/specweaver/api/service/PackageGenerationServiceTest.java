@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronizationUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +29,7 @@ import java.util.ArrayList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -178,6 +181,26 @@ class PackageGenerationServiceTest {
                 () -> packageGenerationService.generatePackage(session.getId(), session.getUserId()));
 
         assertEquals(SessionStatus.ACTIVE, session.getStatus());
+    }
+
+    @Test
+    void generatePackage_notifiesMemoriaAfterCommitWhenTransactionIsActive() {
+        Session session = session();
+        stubSuccessfulGeneration(session);
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            packageGenerationService.generatePackage(session.getId(), session.getUserId());
+
+            verify(memoriaNotificationClient, never()).notifySessionReady(any(), any(), any());
+
+            TransactionSynchronizationUtils.triggerAfterCommit();
+
+            verify(memoriaNotificationClient).notifySessionReady(any(), any(), any());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
