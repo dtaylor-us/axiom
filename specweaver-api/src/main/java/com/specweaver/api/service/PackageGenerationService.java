@@ -118,7 +118,7 @@ public class PackageGenerationService {
         return new AgentExtractionRequest(
                 sessionId.toString(),
                 payloads,
-                memoriaContext == null ? null : memoriaContext.orElse(null));
+                memoriaContext.orElse(null));
     }
 
     private void notifyMemoriaAfterCommit(UUID sessionId, String summary, java.util.Map<String, Object> payload) {
