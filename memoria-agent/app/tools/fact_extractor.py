@@ -95,7 +95,7 @@ def _extract_from_value(value: Any, hinted_type: str | None, source_key: str) ->
 def _extract_from_text(text: str, hinted_type: str | None = None) -> list[MemoryCandidate]:
     candidates: list[MemoryCandidate] = []
     for statement in _statements(text):
-        memory_type = hinted_type or _infer_type(statement)
+        memory_type = _label_type(statement) or hinted_type or _infer_type(statement)
         if not memory_type:
             continue
         candidates.append(
@@ -112,13 +112,21 @@ def _extract_from_text(text: str, hinted_type: str | None = None) -> list[Memory
 
 
 def _infer_type(text: str) -> str | None:
+    label_type = _label_type(text)
+    if label_type:
+        return label_type
+    normalized = text.lower()
+    for memory_type, keywords in TYPE_KEYWORDS.items():
+        if any(keyword in normalized for keyword in keywords):
+            return memory_type
+    return None
+
+
+def _label_type(text: str) -> str | None:
     normalized = text.lower()
     label_match = re.match(r"^\s*(decision|requirement|risk|assumption|constraint|quality score)\s*[:\-]", normalized)
     if label_match:
         return label_match.group(1).upper().replace(" ", "_")
-    for memory_type, keywords in TYPE_KEYWORDS.items():
-        if any(keyword in normalized for keyword in keywords):
-            return memory_type
     return None
 
 
