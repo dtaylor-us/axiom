@@ -24,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -74,6 +76,21 @@ public class MemoryEntryService {
         requireProject(projectId);
         String normalizedTextQuery = query.q() == null ? null : query.q().trim().toLowerCase();
         String normalizedTagQuery = query.tag() == null ? null : query.tag().trim().toLowerCase();
+
+        // When a tag filter is present use the native PostgreSQL @> array containment
+        // query to resolve matching IDs first. This uses the GIN index on memory_entries.tags
+        // and produces exact matches only — "decision" does not match "decision-record".
+        // The previous array_to_string+LIKE approach bypassed index support and could
+        // match substring tags incorrectly.
+        Set<UUID> tagMatchIds = null;
+        if (normalizedTagQuery != null && !normalizedTagQuery.isBlank()) {
+            tagMatchIds = memoryEntryRepository.findIdsByProjectIdAndTag(projectId, normalizedTagQuery);
+            if (tagMatchIds.isEmpty()) {
+                return Collections.emptyList();
+            }
+        }
+        final Set<UUID> resolvedTagIds = tagMatchIds;
+
         return memoryEntryRepository
                 .findAll((root, criteriaQuery, criteriaBuilder) -> {
                     List<Predicate> predicates = new ArrayList<>();
@@ -106,20 +123,9 @@ public class MemoryEntryService {
                                 criteriaBuilder.like(criteriaBuilder.lower(root.get("rationale")), textLike),
                                 criteriaBuilder.like(criteriaBuilder.lower(root.get("sourceExcerpt")), textLike)));
                     }
-                    if (normalizedTagQuery != null && !normalizedTagQuery.isBlank()) {
-                        Predicate hasTags = criteriaBuilder.isNotNull(root.get("tags"));
-                        Predicate matchesTag = criteriaBuilder.like(
-                                criteriaBuilder.concat(
-                                        criteriaBuilder.concat(
-                                                criteriaBuilder.literal(","),
-                                                criteriaBuilder.lower(criteriaBuilder.function(
-                                                        "array_to_string",
-                                                        String.class,
-                                                        root.get("tags"),
-                                                        criteriaBuilder.literal(",")))),
-                                        criteriaBuilder.literal(",")),
-                                "%," + normalizedTagQuery + ",%");
-                        predicates.add(criteriaBuilder.and(hasTags, matchesTag));
+                    // Tag filter resolved to IDs via native @> array containment above.
+                    if (resolvedTagIds != null) {
+                        predicates.add(root.get("id").in(resolvedTagIds));
                     }
                     return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
                 }, Sort.by(Sort.Direction.DESC, "createdAt"));
