@@ -1,7 +1,9 @@
 package com.memoria.api.controller;
 
+import com.memoria.api.domain.model.AdrStatus;
 import com.memoria.api.dto.ArchitectureDecisionResponse;
 import com.memoria.api.dto.CreateAdrRequest;
+import com.memoria.api.dto.SupersedeAdrRequest;
 import com.memoria.api.dto.UpdateAdrRequest;
 import com.memoria.api.service.AdrService;
 import com.memoria.api.service.ResponseMapper;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,8 +39,11 @@ public class AdrController {
     }
 
     @GetMapping
-    public List<ArchitectureDecisionResponse> listAdrs(@PathVariable UUID projectId) {
-        return adrService.listAdrs(projectId).stream()
+    public List<ArchitectureDecisionResponse> listAdrs(
+            @PathVariable UUID projectId,
+            @RequestParam(required = false) AdrStatus status,
+            @RequestParam(required = false) String q) {
+        return adrService.searchAdrs(projectId, status, q).stream()
                 .map(ResponseMapper::toArchitectureDecisionResponse)
                 .toList();
     }
@@ -48,5 +54,14 @@ public class AdrController {
             @PathVariable UUID adrId,
             @RequestBody UpdateAdrRequest request) {
         return ResponseMapper.toArchitectureDecisionResponse(adrService.updateAdr(projectId, adrId, request));
+    }
+
+    @PostMapping("/{adrId}/supersede")
+    public ArchitectureDecisionResponse supersedeAdr(
+            @PathVariable UUID projectId,
+            @PathVariable UUID adrId,
+            @Valid @RequestBody SupersedeAdrRequest request) {
+        return ResponseMapper.toArchitectureDecisionResponse(
+                adrService.supersedeAdr(projectId, adrId, request.newAdrId()));
     }
 }

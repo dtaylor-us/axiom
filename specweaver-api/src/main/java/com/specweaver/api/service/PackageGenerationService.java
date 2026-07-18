@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.specweaver.api.agent.AgentExtractionRequest;
 import com.specweaver.api.agent.AgentExtractionResponse;
@@ -45,6 +47,7 @@ public class PackageGenerationService {
     private final ObjectMapper objectMapper;
     private final ReadinessScoreService readinessScoreService;
     private final BriefFormatter briefFormatter;
+    private final MemoriaNotificationClient memoriaNotificationClient;
 
     @Transactional
     public PackageResponse generatePackage(UUID sessionId, UUID userId) {
@@ -82,6 +85,10 @@ public class PackageGenerationService {
             GeneratedPackage saved = packageRepository.save(generatedPackage);
             session.setStatus(SessionStatus.PACKAGE_READY);
             sessionRepository.save(session);
+            notifyMemoriaAfterCommit(
+                    sessionId,
+                    generatedPackage.getBriefText(),
+                    memoriaNotificationClient.parsePayload(response.archInputPackageJson()));
             return ResponseMapper.toPackageResponse(saved, objectMapper);
         } catch (RuntimeException e) {
             session.setStatus(SessionStatus.ACTIVE);
@@ -108,6 +115,21 @@ public class PackageGenerationService {
                         document.getSourceLabel()))
                 .toList();
         return new AgentExtractionRequest(sessionId.toString(), payloads);
+    }
+
+    private void notifyMemoriaAfterCommit(UUID sessionId, String summary, java.util.Map<String, Object> payload) {
+        Runnable notification = () -> memoriaNotificationClient.notifySessionReady(sessionId, summary, payload);
+        if (!TransactionSynchronizationManager.isSynchronizationActive()
+                || !TransactionSynchronizationManager.isActualTransactionActive()) {
+            notification.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                notification.run();
+            }
+        });
     }
 
     private ArchInputPackageDto parsePackage(String packageJson) {

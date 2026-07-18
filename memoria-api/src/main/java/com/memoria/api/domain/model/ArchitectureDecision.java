@@ -70,6 +70,9 @@ public class ArchitectureDecision {
     @Column(name = "source_session_id")
     private UUID sourceSessionId;
 
+    @Column(name = "source_memory_entry_id")
+    private UUID sourceMemoryEntryId;
+
     @Column(name = "superseded_by_adr_number")
     private Integer supersededByAdrNumber;
 

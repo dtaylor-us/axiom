@@ -21,6 +21,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/lens-api/, ''),
       },
+      '/memoria-api': {
+        target: process.env.MEMORIA_API_PROXY_TARGET || 'http://localhost:8084',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/memoria-api/, ''),
+      },
     },
   },
   test: {

@@ -11,6 +11,7 @@ const PILLAR_LABELS: Record<PillarId, string> = {
   archon: 'Archon',
   specweaver: 'SpecWeaver',
   lens: 'Lens',
+  memoria: 'Memoria',
 };
 
 /**

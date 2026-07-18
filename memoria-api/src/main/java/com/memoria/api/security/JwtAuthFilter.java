@@ -5,7 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -21,25 +21,32 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private static final int BEARER_PREFIX_LENGTH = 7;
 
     private final JwtService jwtService;
-
-    @Value("${axiom.gateway.bypass:false}")
-    private boolean gatewayBypass;
+    private final Environment environment;
 
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
+        if (isGatewayBypassEnabled()) {
+            setAuthentication("local-dev");
+            filterChain.doFilter(request, response);
+            return;
+        }
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             String subject = jwtService.extractSubject(header.substring(BEARER_PREFIX_LENGTH));
             if (subject != null) {
                 setAuthentication(subject);
             }
-        } else if (gatewayBypass) {
-            setAuthentication("local-dev");
         }
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isGatewayBypassEnabled() {
+        return Boolean.parseBoolean(environment.getProperty(
+                "AXIOM_GATEWAY_BYPASS",
+                environment.getProperty("axiom.gateway.bypass", "false")));
     }
 
     private void setAuthentication(String subject) {

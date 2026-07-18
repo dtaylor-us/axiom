@@ -34,6 +34,10 @@
   --color-pillar-lens: #F77F00;
   --color-pillar-lens-bg: rgba(247, 127, 0, 0.12);
   --color-pillar-lens-text: #c2410c;
+
+  --color-pillar-memoria: #DF5E8D;
+  --color-pillar-memoria-bg: rgba(223, 94, 141, 0.14);
+  --color-pillar-memoria-text: #BE185D;
 }
 
 html, body, #root {
@@ -200,6 +204,10 @@ body {
   --sidebar-active-color: var(--color-pillar-lens);
 }
 
+.sidebar-pillar-active--memoria {
+  --sidebar-active-color: var(--color-pillar-memoria);
+}
+
 .sidebar-active-item {
   background: color-mix(in srgb, var(--sidebar-active-color) 15%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sidebar-active-color) 40%, transparent);
@@ -233,6 +241,10 @@ body {
 
 .mobile-bottom-nav--lens {
   --mobile-nav-active-color: var(--color-pillar-lens);
+}
+
+.mobile-bottom-nav--memoria {
+  --mobile-nav-active-color: var(--color-pillar-memoria);
 }
 
 .mobile-bottom-nav-item--active {
@@ -279,6 +291,11 @@ body {
 .pillar-badge--lens {
   background: var(--color-pillar-lens-bg);
   color: var(--color-pillar-lens-text);
+}
+
+.pillar-badge--memoria {
+  background: var(--color-pillar-memoria-bg);
+  color: var(--color-pillar-memoria-text);
 }
 
 .ownership-badge {

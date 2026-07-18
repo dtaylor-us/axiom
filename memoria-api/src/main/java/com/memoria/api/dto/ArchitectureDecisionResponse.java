@@ -18,6 +18,7 @@ public record ArchitectureDecisionResponse(
         String alternativesConsidered,
         Pillar sourcePillar,
         UUID sourceSessionId,
+        UUID sourceMemoryEntryId,
         Integer supersededByAdrNumber,
         LocalDateTime createdAt) {
 }

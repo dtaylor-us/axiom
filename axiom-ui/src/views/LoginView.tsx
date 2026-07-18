@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getToken, login, register } from '../api/auth';
+import { PillarIcon } from '../components/PillarIcon';
 import { useAuth } from '../hooks/useAuth';
 
 const MIN_PASSWORD_LENGTH = 12;
@@ -58,10 +59,8 @@ export function LoginView() {
       <div className="w-full max-w-sm mx-4">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-14 h-14 mx-auto bg-accent/90 rounded-2xl flex items-center justify-center shadow-sm mb-4">
-            <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 21h18M3 10h18M12 3l9 7H3l9-7zM5 10v11m4-11v11m4-11v11m4-11v11" />
-            </svg>
+          <div className="w-14 h-14 mx-auto bg-accent/10 text-accent rounded-2xl flex items-center justify-center shadow-sm mb-4 ring-1 ring-accent/15">
+            <PillarIcon pillar="axiom" size={30} />
           </div>
           <h1 className="text-2xl font-semibold text-gray-800">Axiom</h1>
           <p className="text-sm text-gray-500 mt-1">

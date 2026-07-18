@@ -1,8 +1,10 @@
 package com.memoria.api.controller;
 
 import com.memoria.api.dto.CreateProjectRequest;
+import com.memoria.api.dto.ProjectMemorySummaryResponse;
 import com.memoria.api.dto.ProjectResponse;
 import com.memoria.api.dto.UpdateProjectRequest;
+import com.memoria.api.service.MemoryEntryService;
 import com.memoria.api.service.AuthenticationUserResolver;
 import com.memoria.api.service.ProjectService;
 import com.memoria.api.service.ResponseMapper;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +33,7 @@ import java.util.UUID;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final MemoryEntryService memoryEntryService;
     private final AuthenticationUserResolver userResolver;
 
     @PostMapping
@@ -61,6 +65,15 @@ public class ProjectController {
         return ResponseMapper.toProjectResponse(projectService.getProject(id));
     }
 
+    @GetMapping("/{id}/summary")
+    public ProjectMemorySummaryResponse getProjectSummary(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
+            Authentication authentication) {
+        resolveUser(userIdHeader, authentication);
+        return memoryEntryService.summarizeProject(id);
+    }
+
     @PutMapping("/{id}")
     public ProjectResponse updateProject(
             @PathVariable UUID id,
@@ -82,7 +95,11 @@ public class ProjectController {
 
     private UUID resolveUser(String userIdHeader, Authentication authentication) {
         if (userIdHeader != null && !userIdHeader.isBlank()) {
-            return UUID.fromString(userIdHeader);
+            try {
+                return UUID.fromString(userIdHeader);
+            } catch (IllegalArgumentException e) {
+                return UUID.nameUUIDFromBytes(userIdHeader.getBytes(StandardCharsets.UTF_8));
+            }
         }
         return userResolver.resolveUserId(authentication);
     }
