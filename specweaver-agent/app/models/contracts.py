@@ -102,6 +102,7 @@ class ExtractionRequest(ApiModel):
 
     session_id: str
     documents: list[DocumentPayload]
+    project_memory_context: dict[str, Any] | None = None
 
 
 class ExtractedRequirement(ApiModel):

@@ -12,6 +12,7 @@ import java.util.UUID;
 
 public interface ArchitectureDecisionRepository extends JpaRepository<ArchitectureDecision, UUID> {
     List<ArchitectureDecision> findByProjectIdOrderByAdrNumberAsc(UUID projectId);
+    List<ArchitectureDecision> findByProjectIdAndStatusInOrderByAdrNumberAsc(UUID projectId, List<AdrStatus> statuses);
 
     @Query("""
             SELECT a

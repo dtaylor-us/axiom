@@ -95,7 +95,7 @@ function getPillarFavicon(pillar: Pillar): string {
       path: 'M10.5 5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11m4.3 9.3L20 20M9 10.5h3m-1.5-1.5v3',
     },
     memoria: {
-      stroke: '%230F766E',
+      stroke: '%23DF5E8D',
       path: 'M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z M5 5.5v15M9 7h6M9 11h6M9 15h4',
     },
   };

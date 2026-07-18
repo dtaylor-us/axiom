@@ -21,6 +21,7 @@ import reactor.test.StepVerifier;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -161,6 +162,32 @@ class ChatServiceTest {
                 ArgumentCaptor.forClass(AgentRequest.class);
         verify(agentBridgeService).stream(captor.capture());
         assertEquals(existing.toString(), captor.getValue().getConversationId());
+    }
+
+    @Test
+    void streamChat_includesMemoriaContextWhenFetchSucceeds() {
+        UUID convId = UUID.randomUUID();
+        Conversation conv = Conversation.builder()
+                .id(convId).userId("user1").title("t").build();
+        when(conversationService.resolveConversation(any(), eq("user1"), any()))
+                .thenReturn(conv);
+        when(conversationService.getRecentMessages(convId, 20))
+                .thenReturn(List.of());
+        when(memoriaNotificationClient.fetchConversationContext(convId))
+                .thenReturn(Optional.of(Map.of("projectId", "p1")));
+        when(agentBridgeService.stream(any())).thenReturn(Flux.empty());
+
+        StepVerifier.create(chatService.streamChat(
+                createRequest("design", convId), "user1"))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        ArgumentCaptor<AgentRequest> captor =
+                ArgumentCaptor.forClass(AgentRequest.class);
+        verify(agentBridgeService).stream(captor.capture());
+        assertEquals(
+                "p1",
+                ((Map<?, ?>) captor.getValue().getContext().get("project_memory_context")).get("projectId"));
     }
 
     @Test

@@ -64,6 +64,7 @@ public class ReviewPipelineService {
                             || question.getAnswer().isBlank())
                     .map(GapQuestion::getQuestion)
                     .toList();
+            var memoriaContext = memoriaNotificationClient.fetchSessionContext(sessionId);
 
             var reportPayload = lensAgentClient.runReview(
                             sessionId,
@@ -71,7 +72,8 @@ public class ReviewPipelineService {
                             evidence.stream().map(this::toEvidencePayload).toList(),
                             allQuestions.stream().map(this::toGapQuestionPayload).toList(),
                             allQuestions.stream().filter(GapQuestion::isAnswered).map(this::toGapAnswerPayload).toList(),
-                            insufficientInfoGaps)
+                            insufficientInfoGaps,
+                            memoriaContext.orElse(null))
                     .block(timeout);
 
             if (reportPayload == null) {

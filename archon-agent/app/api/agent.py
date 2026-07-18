@@ -59,6 +59,7 @@ async def agent_stream(
     ctx = ArchitectureContext(
         conversation_id=request.conversationId,
         raw_requirements=request.userMessage,
+        project_memory_context=(request.context or {}).get("project_memory_context"),
         mode=(PipelineMode(request.mode)
               if request.mode in PipelineMode.__members__
               else PipelineMode.AUTO),

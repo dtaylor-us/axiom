@@ -8,6 +8,7 @@ class ReviewContext:
     session_id: str
     system_description: str
     evidence: list[dict]
+    project_memory_context: dict | None = None
     gap_questions: list[dict] = field(default_factory=list)
     gap_answers: list[dict] = field(default_factory=list)
     insufficient_info_gaps: list[str] = field(default_factory=list)

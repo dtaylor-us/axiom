@@ -49,6 +49,7 @@ class ReviewState(TypedDict, total=False):
     session_id: str
     system_description: str
     evidence: list[dict]
+    project_memory_context: dict
     gap_questions: list[dict]
     gap_answers: list[dict]
     insufficient_info_gaps: list[str]
@@ -116,6 +117,7 @@ def _wrap(node_fn):
             session_id=state.get("session_id", ""),
             system_description=state.get("system_description", ""),
             evidence=state.get("evidence", []),
+            project_memory_context=state.get("project_memory_context"),
             gap_questions=state.get("gap_questions", []),
             gap_answers=state.get("gap_answers", []),
             insufficient_info_gaps=state.get("insufficient_info_gaps", []),
@@ -138,6 +140,7 @@ def _wrap(node_fn):
             "session_id": updated_context.session_id,
             "system_description": updated_context.system_description,
             "evidence": updated_context.evidence,
+            "project_memory_context": updated_context.project_memory_context,
             "gap_questions": updated_context.gap_questions,
             "gap_answers": updated_context.gap_answers,
             "insufficient_info_gaps": updated_context.insufficient_info_gaps,

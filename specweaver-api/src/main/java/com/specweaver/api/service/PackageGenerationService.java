@@ -114,7 +114,11 @@ public class PackageGenerationService {
                         document.getFilename(),
                         document.getSourceLabel()))
                 .toList();
-        return new AgentExtractionRequest(sessionId.toString(), payloads);
+        var memoriaContext = memoriaNotificationClient.fetchSessionContext(sessionId);
+        return new AgentExtractionRequest(
+                sessionId.toString(),
+                payloads,
+                memoriaContext.orElse(null));
     }
 
     private void notifyMemoriaAfterCommit(UUID sessionId, String summary, java.util.Map<String, Object> payload) {

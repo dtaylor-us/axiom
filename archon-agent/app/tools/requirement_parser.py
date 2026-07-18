@@ -25,7 +25,15 @@ class RequirementParserTool(BaseTool):
         if not context.raw_requirements:
             raise ToolExecutionException("raw_requirements is empty; nothing to parse")
 
-        prompt = load_prompt("requirement_parser", raw_requirements=context.raw_requirements)
+        prompt = load_prompt(
+            "requirement_parser",
+            raw_requirements=context.raw_requirements,
+            project_memory_context=json.dumps(
+                context.project_memory_context or {},
+                indent=2,
+                sort_keys=True,
+            ),
+        )
 
         raw = await self.llm_client.complete(
             prompt,

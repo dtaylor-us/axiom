@@ -167,6 +167,7 @@ async def review(request: dict):
         "session_id": request["session_id"],
         "system_description": request.get("system_description", ""),
         "evidence": request.get("evidence", []),
+        "project_memory_context": request.get("project_memory_context"),
         "gap_questions": request.get("gap_questions", []),
         "gap_answers": request.get("gap_answers", []),
         "insufficient_info_gaps": request.get("insufficient_info_gaps", []),

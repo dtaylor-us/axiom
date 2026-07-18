@@ -7,6 +7,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -49,6 +50,26 @@ public class MemoriaNotificationClient {
                     .block(timeout);
         } catch (RuntimeException ex) {
             log.warn("Memoria distillation notification failed for Archon conversation {}", conversationId, ex);
+        }
+    }
+
+    public Optional<Map<String, Object>> fetchConversationContext(UUID conversationId) {
+        if (!enabled) {
+            return Optional.empty();
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> context = webClient.get()
+                    .uri("/api/v1/memoria/sessions/ARCHON/{sessionId}/context", conversationId)
+                    .header("X-Axiom-User-Id", "system")
+                    .header("X-Axiom-Internal-Secret", internalSecret)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block(timeout);
+            return Optional.ofNullable(context);
+        } catch (RuntimeException ex) {
+            log.warn("Memoria context fetch failed for Archon conversation {}", conversationId, ex);
+            return Optional.empty();
         }
     }
 }
