@@ -1,5 +1,6 @@
-from pydantic import BaseModel
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class DistillRequest(BaseModel):
@@ -7,7 +8,7 @@ class DistillRequest(BaseModel):
     project_id: str
     pillar: str  # ARCHON | SPECWEAVER | LENS
     session_summary: Optional[str] = None
-    existing_entries: list[dict] = []
+    existing_entries: list[dict] = Field(default_factory=list)
 
 
 class MemoryCandidate(BaseModel):
@@ -16,8 +17,7 @@ class MemoryCandidate(BaseModel):
     rationale: str
     confidence: str
     source_excerpt: Optional[str] = None
-    tags: list[str] = []
-
+    tags: list[str] = Field(default_factory=list)
 
 class ConflictFlag(BaseModel):
     existing_entry_id: str
