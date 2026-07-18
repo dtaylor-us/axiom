@@ -47,6 +47,8 @@ public class DistillationService {
         List<MemoryEntry> existing = memoryEntryRepository.findByProjectIdAndStatusOrderByCreatedAtDesc(
                 projectId,
                 MemoryStatus.ACTIVE);
+        // distill() converts agent transport/timeout failures into null, so this transaction keeps prior state and
+        // returns an empty distillation result instead of propagating an exception that would trigger rollback.
         AgentDistillResponse agentResponse = memoriaAgentClient.distill(AgentDistillRequest.from(
                 request.sessionId(),
                 projectId,
