@@ -6,8 +6,11 @@ import {
   createMemoryEntry,
   createProject,
   createSessionLink,
+  distillAllSessions,
+  distillSingleSession,
   getProjectSummary,
   listAdrs,
+  listDistillationJobs,
   listMemoryEntries,
   listProjects,
   listSessionLinks,
@@ -18,6 +21,7 @@ import {
   transitionMemoryEntry,
   type AdrStatus,
   type ArchitectureDecision,
+  type DistillationJob,
   type MemoryConfidence,
   type MemoryEntry,
   type MemoryStatus,
@@ -344,6 +348,9 @@ export function MemoriaWorkspacePage() {
   const [recentLinkSessions, setRecentLinkSessions] = useState<LinkableSession[]>([]);
   const [linkSessionsAvailable, setLinkSessionsAvailable] = useState(true);
   const [linkingSession, setLinkingSession] = useState(false);
+  const [isDistillingAll, setIsDistillingAll] = useState(false);
+  const [distillingSessionId, setDistillingSessionId] = useState<string | null>(null);
+  const [lastJob, setLastJob] = useState<DistillationJob | null>(null);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -425,7 +432,7 @@ export function MemoriaWorkspacePage() {
     const load = async () => {
       setLoading(true);
       try {
-        const [nextSummary, nextEntries, nextAdrs, nextLinks] = await Promise.allSettled([
+        const [nextSummary, nextEntries, nextAdrs, nextLinks, nextJobs] = await Promise.allSettled([
           getProjectSummary(token, selectedProjectId),
           listMemoryEntries(token, selectedProjectId, {
             status: memoryStatus || undefined,
@@ -437,12 +444,17 @@ export function MemoriaWorkspacePage() {
             q: adrSearch || undefined,
           }),
           listSessionLinks(token, selectedProjectId),
+          listDistillationJobs(token, selectedProjectId),
         ]);
         if (cancelled) return;
         if (nextSummary.status === 'fulfilled') setSummary(nextSummary.value);
         if (nextEntries.status === 'fulfilled') setEntries(nextEntries.value);
         if (nextAdrs.status === 'fulfilled') setAdrs(nextAdrs.value);
         if (nextLinks.status === 'fulfilled') setLinks(nextLinks.value);
+        if (nextJobs.status === 'fulfilled') {
+          const jobs = nextJobs.value;
+          setLastJob(jobs[0] ?? null);
+        }
 
         const failure = [nextSummary, nextEntries, nextAdrs, nextLinks]
           .find((result): result is PromiseRejectedResult => result.status === 'rejected');
@@ -572,6 +584,41 @@ export function MemoriaWorkspacePage() {
     reload();
   }
 
+  async function handleDistillAll() {
+    if (!token || !selectedProjectId || isDistillingAll) return;
+    setIsDistillingAll(true);
+    try {
+      const job = await distillAllSessions(token, selectedProjectId);
+      setLastJob(job);
+      emitToast(
+        `Distillation complete: ${job.totalPersisted} entries added, ${job.totalSuperseded} superseded`,
+        job.status === 'COMPLETE' ? 'success' : 'warning',
+      );
+      reload();
+    } catch (error) {
+      emitToast((error as Error).message, 'error');
+    } finally {
+      setIsDistillingAll(false);
+    }
+  }
+
+  async function handleDistillSession(pillar: Pillar, sessionId: string) {
+    if (!token || !selectedProjectId || distillingSessionId) return;
+    setDistillingSessionId(sessionId);
+    try {
+      const result = await distillSingleSession(token, selectedProjectId, pillar, sessionId);
+      emitToast(
+        `Distilled: ${result.entriesCreated} entries added, ${result.entriesSuperseded} superseded`,
+        'success',
+      );
+      reload();
+    } catch (error) {
+      emitToast((error as Error).message, 'error');
+    } finally {
+      setDistillingSessionId(null);
+    }
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-slate-50" data-testid="memoria-home-page">
       <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 lg:px-6">
@@ -643,18 +690,104 @@ export function MemoriaWorkspacePage() {
                 {linkingSession ? 'Linking...' : 'Link session'}
               </button>
               <div className="mt-3 space-y-2">
-                {links.length === 0 ? <p className="text-xs text-slate-500">No linked sessions.</p> : links.map((link) => (
-                  <div key={link.id} className="rounded-md border border-slate-200 p-2 text-xs">
-                    <div className="font-semibold text-slate-700">{label(link.pillar)}</div>
-                    <div className="mt-1 flex items-center gap-1 text-slate-500">
-                      <Link to={sourceHref(link.pillar, link.sessionId)} className="min-w-0 truncate hover:underline">{link.sessionId}</Link>
-                      <CopyButton text={link.sessionId} title={`Copy ${label(link.pillar)} session ID`} />
+                {links.length === 0 ? <p className="text-xs text-slate-500">No linked sessions.</p> : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-semibold text-slate-700">
+                        Sessions ({links.length})
+                      </h3>
+                      <button
+                        type="button"
+                        className="rounded-md bg-[var(--color-pillar-memoria-text)] px-2 py-1 text-xs font-semibold text-white hover:bg-rose-800 disabled:opacity-40"
+                        onClick={() => void handleDistillAll()}
+                        disabled={isDistillingAll || !selectedProjectId}
+                      >
+                        {isDistillingAll ? 'Distilling...' : 'Distill all'}
+                      </button>
                     </div>
-                    <button type="button" className="mt-2 text-rose-700 hover:underline" onClick={() => void handleRemoveLink(link.id)}>Remove</button>
-                  </div>
-                ))}
+                    {links.map((link) => (
+                      <div key={link.id} className="rounded-md border border-slate-200 p-2 text-xs">
+                        <div className="font-semibold text-slate-700">{label(link.pillar)}</div>
+                        <div className="mt-1 flex items-center gap-1 text-slate-500">
+                          <Link to={sourceHref(link.pillar, link.sessionId)} className="min-w-0 truncate hover:underline">{link.sessionId}</Link>
+                          <CopyButton text={link.sessionId} title={`Copy ${label(link.pillar)} session ID`} />
+                        </div>
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            className="rounded-md border border-[var(--color-pillar-memoria-text)] px-2 py-1 text-xs font-semibold text-[var(--color-pillar-memoria-text)] hover:bg-[var(--color-pillar-memoria-bg)] disabled:opacity-40"
+                            onClick={() => void handleDistillSession(link.pillar, link.sessionId)}
+                            disabled={distillingSessionId === link.sessionId || !selectedProjectId}
+                          >
+                            {distillingSessionId === link.sessionId ? 'Distilling...' : 'Distill'}
+                          </button>
+                          <button type="button" className="text-rose-700 hover:underline text-xs" onClick={() => void handleRemoveLink(link.id)}>Remove</button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             </section>
+
+            {lastJob && (
+              <section className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-slate-900">Last distillation</h2>
+                  <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ring-1 ring-inset ${
+                    lastJob.status === 'COMPLETE' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' :
+                    lastJob.status === 'PARTIAL' ? 'bg-amber-50 text-amber-700 ring-amber-200' :
+                    'bg-rose-50 text-rose-700 ring-rose-200'
+                  }`}>
+                    {label(lastJob.status)}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-md bg-slate-50 px-2 py-1.5">
+                    <div className="text-slate-500">Extracted</div>
+                    <div className="text-base font-semibold text-slate-900">{lastJob.totalCandidates}</div>
+                  </div>
+                  <div className="rounded-md bg-slate-50 px-2 py-1.5">
+                    <div className="text-slate-500">Added</div>
+                    <div className="text-base font-semibold text-emerald-700">{lastJob.totalPersisted}</div>
+                  </div>
+                  <div className="rounded-md bg-slate-50 px-2 py-1.5">
+                    <div className="text-slate-500">Superseded</div>
+                    <div className="text-base font-semibold text-amber-700">{lastJob.totalSuperseded}</div>
+                  </div>
+                  <div className="rounded-md bg-slate-50 px-2 py-1.5">
+                    <div className="text-slate-500">Conflicts</div>
+                    <div className="text-base font-semibold text-slate-700">{lastJob.totalConflicts}</div>
+                  </div>
+                </div>
+                {lastJob.sessionResults.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    {lastJob.sessionResults.map((result) => (
+                      <div
+                        key={result.sessionId}
+                        className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5 text-xs"
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                            result.status === 'SUCCESS' ? 'bg-emerald-500' :
+                            result.status === 'FAILED' ? 'bg-rose-500' :
+                            'bg-slate-400'
+                          }`} />
+                          <span className="text-slate-600 truncate">{label(result.pillar)}</span>
+                        </div>
+                        <div className="text-slate-500 shrink-0">
+                          {result.persisted} added
+                          {result.superseded > 0 && `, ${result.superseded} superseded`}
+                          {result.error && (
+                            <span className="text-rose-600 ml-1" title={result.error}>⚠</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
           </aside>
 
           <main className="space-y-5">

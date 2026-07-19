@@ -281,3 +281,59 @@ export function createSessionLink(token: string, projectId: string, pillar: Pill
 export async function removeSessionLink(token: string, projectId: string, linkId: string): Promise<void> {
   await requestJson<void>(`${PROJECTS_BASE}/${projectId}/sessions/${linkId}`, token, 'DELETE');
 }
+
+export interface DistillSessionResponse {
+  projectId: string;
+  sessionId: string;
+  candidatesReceived: number;
+  entriesCreated: number;
+  entriesSuperseded: number;
+  message: string;
+}
+
+export interface SessionDistillResult {
+  sessionId: string;
+  pillar: string;
+  status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
+  candidates: number;
+  persisted: number;
+  superseded: number;
+  conflicts: number;
+  error: string | null;
+}
+
+export interface DistillationJob {
+  id: string;
+  projectId: string;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETE' | 'FAILED' | 'PARTIAL';
+  sessionCount: number;
+  totalCandidates: number;
+  totalPersisted: number;
+  totalSuperseded: number;
+  totalConflicts: number;
+  sessionResults: SessionDistillResult[];
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export function distillAllSessions(token: string, projectId: string): Promise<DistillationJob> {
+  return requestJson<DistillationJob>(`${PROJECTS_BASE}/${projectId}/distill-all`, token, 'POST');
+}
+
+export function distillSingleSession(
+  token: string,
+  projectId: string,
+  pillar: Pillar,
+  sessionId: string,
+): Promise<DistillSessionResponse> {
+  return requestJson<DistillSessionResponse>(
+    `${MEMORIA_API_BASE}/sessions/${pillar}/${sessionId}/distill`,
+    token,
+    'POST',
+    { projectId },
+  );
+}
+
+export function listDistillationJobs(token: string, projectId: string): Promise<DistillationJob[]> {
+  return fetchJson<DistillationJob[]>(`${PROJECTS_BASE}/${projectId}/distillation-jobs`, token);
+}

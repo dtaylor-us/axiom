@@ -1,15 +1,25 @@
 package com.memoria.api.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.memoria.api.domain.model.ArchitectureDecision;
+import com.memoria.api.domain.model.DistillationJob;
 import com.memoria.api.domain.model.MemoryEntry;
 import com.memoria.api.domain.model.Project;
 import com.memoria.api.domain.model.ProjectSessionLink;
 import com.memoria.api.dto.ArchitectureDecisionResponse;
+import com.memoria.api.dto.DistillationJobResponse;
 import com.memoria.api.dto.MemoryEntryResponse;
 import com.memoria.api.dto.ProjectResponse;
+import com.memoria.api.dto.SessionDistillResult;
 import com.memoria.api.dto.SessionLinkResponse;
 
+import java.util.List;
+
 public final class ResponseMapper {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .findAndRegisterModules();
 
     private ResponseMapper() {
     }
@@ -71,5 +81,32 @@ public final class ResponseMapper {
                 adr.getSourceMemoryEntryId(),
                 adr.getSupersededByAdrNumber(),
                 adr.getCreatedAt());
+    }
+
+    public static DistillationJobResponse toDistillationJobResponse(DistillationJob job) {
+        List<SessionDistillResult> sessionResults = deserializeSessionResults(job.getSessionResults());
+        return new DistillationJobResponse(
+                job.getId(),
+                job.getProject().getId(),
+                job.getStatus().name(),
+                job.getSessionCount(),
+                job.getTotalCandidates(),
+                job.getTotalPersisted(),
+                job.getTotalSuperseded(),
+                job.getTotalConflicts(),
+                sessionResults,
+                job.getCreatedAt(),
+                job.getCompletedAt());
+    }
+
+    private static List<SessionDistillResult> deserializeSessionResults(String json) {
+        if (json == null || json.isBlank() || "[]".equals(json.trim())) {
+            return List.of();
+        }
+        try {
+            return OBJECT_MAPPER.readValue(json, new TypeReference<List<SessionDistillResult>>() {});
+        } catch (Exception ex) {
+            return List.of();
+        }
     }
 }
