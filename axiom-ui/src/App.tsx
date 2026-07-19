@@ -19,7 +19,7 @@ import { AxiomHomePage } from './views/AxiomHomePage';
 import { ResetPasswordView } from './views/ResetPasswordView';
 import { LensHomePage } from './views/lens/LensHomePage';
 import { LensReviewPage } from './views/lens/LensReviewPage';
-import { MemoriaHomePage } from './views/memoria/MemoriaHomePage';
+import { MemoriaHomePage, MemoriaNewProjectPage, MemoriaWorkspacePage } from './views/memoria/MemoriaHomePage';
 import { WorkshopView } from './views/workshop/WorkshopView';
 import { ArchonHomePage } from './views/archon/ArchonHomePage';
 import { PackageDetailView } from './views/specweaver/PackageDetailView';
@@ -30,6 +30,7 @@ import { StageProgress } from './components/StageProgress';
 import { PillarNav } from './components/PillarNav';
 import { PillarIcon } from './components/PillarIcon';
 import { ToastProvider, emitToast } from './components/Toast';
+import { ThemeToggle } from './components/ThemeToggle';
 import { getToken } from './api/auth';
 import { getPipelineStatus, getRunStatus, reattachStream } from './api/chat';
 import { listReviewSessions, type ReviewSession as LensReviewSession } from './api/lens';
@@ -1813,6 +1814,8 @@ function AppContent() {
           ) : isMemoriaRoute ? (
             <Routes>
               <Route path="/memoria" element={<MemoriaHomePage />} />
+              <Route path="/memoria/new" element={<MemoriaNewProjectPage />} />
+              <Route path="/memoria/projects/:projectId" element={<MemoriaWorkspacePage />} />
             </Routes>
           ) : isArchonHomeRoute ? (
             <ArchonHomePage />
@@ -1894,6 +1897,7 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ThemeToggle />
       <AppContent />
     </BrowserRouter>
   );

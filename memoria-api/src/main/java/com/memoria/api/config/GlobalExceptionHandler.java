@@ -30,6 +30,8 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Conflict");
         problem.setType(URI.create("urn:memoria:duplicate-session-link"));
+        problem.setProperty("projectId", ex.getProjectId());
+        problem.setProperty("projectName", ex.getProjectName());
         return problem;
     }
 

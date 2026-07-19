@@ -13,6 +13,7 @@ import { getArchitecture } from '../api/architecture';
 describe('useArchitecture', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.clearAllMocks();
     useStore.setState({ token: null, conversationId: null });
   });
 
@@ -79,5 +80,17 @@ describe('useArchitecture', () => {
 
     // At least one additional call should have been made by refresh().
     expect(vi.mocked(getArchitecture).mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it('refetchesAfterPipelineCompletion', async () => {
+    vi.mocked(getArchitecture).mockResolvedValue({ style: 'Service-based', components: [] } as never);
+    useStore.setState({ token: 'jwt', conversationId: 'conv-1', pipelineVersion: 0 });
+
+    renderHook(() => useArchitecture());
+    await waitFor(() => expect(getArchitecture).toHaveBeenCalledTimes(1));
+
+    act(() => useStore.setState({ pipelineVersion: 1 }));
+
+    await waitFor(() => expect(getArchitecture).toHaveBeenCalledTimes(2));
   });
 });

@@ -42,16 +42,16 @@ public class ProjectController {
             @Valid @RequestBody CreateProjectRequest request,
             @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
             Authentication authentication) {
-        resolveUser(userIdHeader, authentication);
-        return ResponseMapper.toProjectResponse(projectService.createProject(request.name(), request.description()));
+        UUID userId = resolveUser(userIdHeader, authentication);
+        return ResponseMapper.toProjectResponse(projectService.createProject(userId, request.name(), request.description()));
     }
 
     @GetMapping
     public List<ProjectResponse> listProjects(
             @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
             Authentication authentication) {
-        resolveUser(userIdHeader, authentication);
-        return projectService.listProjects().stream()
+        UUID userId = resolveUser(userIdHeader, authentication);
+        return projectService.listProjects(userId).stream()
                 .map(ResponseMapper::toProjectResponse)
                 .toList();
     }
@@ -61,8 +61,8 @@ public class ProjectController {
             @PathVariable UUID id,
             @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
             Authentication authentication) {
-        resolveUser(userIdHeader, authentication);
-        return ResponseMapper.toProjectResponse(projectService.getProject(id));
+        UUID userId = resolveUser(userIdHeader, authentication);
+        return ResponseMapper.toProjectResponse(projectService.getProject(id, userId));
     }
 
     @GetMapping("/{id}/summary")
@@ -70,7 +70,8 @@ public class ProjectController {
             @PathVariable UUID id,
             @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
             Authentication authentication) {
-        resolveUser(userIdHeader, authentication);
+        UUID userId = resolveUser(userIdHeader, authentication);
+        projectService.getProject(id, userId);
         return memoryEntryService.summarizeProject(id);
     }
 
@@ -80,8 +81,8 @@ public class ProjectController {
             @Valid @RequestBody UpdateProjectRequest request,
             @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
             Authentication authentication) {
-        resolveUser(userIdHeader, authentication);
-        return ResponseMapper.toProjectResponse(projectService.updateProject(id, request.name(), request.description()));
+        UUID userId = resolveUser(userIdHeader, authentication);
+        return ResponseMapper.toProjectResponse(projectService.updateProject(id, userId, request.name(), request.description()));
     }
 
     @DeleteMapping("/{id}")
@@ -89,8 +90,8 @@ public class ProjectController {
             @PathVariable UUID id,
             @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
             Authentication authentication) {
-        resolveUser(userIdHeader, authentication);
-        return ResponseMapper.toProjectResponse(projectService.archiveProject(id));
+        UUID userId = resolveUser(userIdHeader, authentication);
+        return ResponseMapper.toProjectResponse(projectService.archiveProject(id, userId));
     }
 
     private UUID resolveUser(String userIdHeader, Authentication authentication) {

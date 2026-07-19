@@ -16,6 +16,7 @@ from app.models import ArchitectureContext
 from app.models.context import AdlBlock, AdlMetadata
 from app.tools.adl_generator import (
     ADLGeneratorV2Tool,
+    MIN_ADL_BLOCKS,
     MIN_ADL_SOURCE_LENGTH,
 )
 from app.tools.base import ToolExecutionException
@@ -414,7 +415,7 @@ class TestADLGeneratorV2Tool:
         with pytest.raises(ToolExecutionException, match="JSON array"):
             await tool.run(rich_context)
 
-    async def test_logs_warning_when_fewer_than_three_blocks_returned(
+    async def test_logs_warning_when_fewer_than_minimum_blocks_returned(
         self, tool, rich_context, mock_llm, caplog,
     ):
         """run() warns when generated ADL block count is below quality floor."""
@@ -424,6 +425,7 @@ class TestADLGeneratorV2Tool:
             await tool.run(rich_context)
 
         assert "ADL_GENERATION: only 2 blocks generated" in caplog.text
+        assert f"Minimum is {MIN_ADL_BLOCKS}" in caplog.text
 
     async def test_passes_canonical_decisions_to_prompt(
         self, tool, rich_context, mock_llm,
@@ -465,17 +467,17 @@ class TestADLGeneratorV2Tool:
         assert "Auth0" not in internal_section
         assert "Auth0" in external_section
 
-    async def test_prompt_receives_minimum_five_block_instruction(
+    async def test_prompt_receives_minimum_fifteen_block_instruction(
         self, tool, rich_context, mock_llm,
     ):
-        """run() sends explicit minimum five ADL block instruction."""
-        mock_llm.complete.return_value = _valid_llm_response(count=5)
+        """run() sends explicit minimum fifteen ADL block instruction."""
+        mock_llm.complete.return_value = _valid_llm_response(count=MIN_ADL_BLOCKS)
 
         await tool.run(rich_context)
 
         prompt_arg = mock_llm.complete.call_args.args[0]
-        assert "minimum of 5 ADL blocks" in prompt_arg
-        assert "Do not return fewer than 5" in prompt_arg
+        assert f"minimum of {MIN_ADL_BLOCKS} ADL blocks" in prompt_arg
+        assert f"Do not return fewer than {MIN_ADL_BLOCKS}" in prompt_arg
 
 
 # ── _render_adl_document() tests ─────────────────────────────

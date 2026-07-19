@@ -267,3 +267,21 @@ Phase 4 adds curated project context assembly and best-effort context injection 
 - Risk filtering currently includes all active unexpired risks; severity-aware filtering can be added when severity metadata is modeled on memory entries.
 - Context assembly is deterministic list-based filtering. Semantic retrieval/vector ranking remains out of scope for Phase 4.
 - Superseded/deprecated ADR lineage is excluded by default. A future explicit lineage flag can expose those entries when a caller needs historical traceability.
+
+# Archon ADL Generation Development Log
+
+## Architecture Output Consistency
+
+- 2026-07-19: Made the completed Archon pipeline result the canonical source for chat, persistence, and Architecture View:
+  - Architecture generation now normalizes the legacy top-level `style` to `style_selection.selected_style`, and normalizes domain/system type from parsed requirements before report formatting and persistence.
+  - Architecture persistence independently prefers `style_selection.selected_style` and logs conflicting legacy values as a guardrail for older or malformed agent payloads.
+  - Chat completion now waits for architecture persistence before closing the SSE stream, preventing an immediate Architecture View load from returning the previous run's package and technologies.
+  - Architecture UI data re-fetches whenever a pipeline completes, covering views that remain mounted during a new run.
+  - Added regression tests for conflicting style fields and completion-triggered refresh behavior.
+
+## Work Notes
+
+- 2026-07-19: Raised Archon's architecture-pipeline ADL generation floor to 15 blocks:
+  - Added a shared `MIN_ADL_BLOCKS` constant in the ADL generator and used it for runtime low-output warnings.
+  - Updated the ADL prompt from a 5-12 block range to a 15-20 block range.
+  - Added focused test coverage that verifies the prompt carries the 15-block instruction and that below-floor model output logs the 15-block minimum.

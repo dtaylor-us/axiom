@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,16 +52,69 @@ class SessionLinkServiceTest {
     }
 
     @Test
-    void linkSession_throwsDuplicate_whenAlreadyLinked() {
+    void linkSession_returnsExistingLink_whenAlreadyLinkedToRequestedProject() {
         UUID projectId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(Project.builder().id(projectId).build()));
+        Project project = Project.builder().id(projectId).name("Current project").build();
+        ProjectSessionLink existingLink = ProjectSessionLink.builder()
+                .id(UUID.randomUUID())
+                .project(project)
+                .pillar(Pillar.LENS)
+                .sessionId(sessionId)
+                .build();
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
         when(linkRepository.findByPillarAndSessionId(Pillar.LENS, sessionId))
-                .thenReturn(Optional.of(ProjectSessionLink.builder().build()));
+                .thenReturn(Optional.of(existingLink));
+
+        assertThat(sessionLinkService.linkSession(projectId, Pillar.LENS, sessionId)).isSameAs(existingLink);
+        verify(linkRepository, never()).save(any(ProjectSessionLink.class));
+    }
+
+    @Test
+    void linkSession_identifiesProject_whenAlreadyLinkedElsewhere() {
+        UUID projectId = UUID.randomUUID();
+        UUID otherProjectId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        when(projectRepository.findById(projectId))
+                .thenReturn(Optional.of(Project.builder().id(projectId).name("Current project").userId(UUID.randomUUID()).build()));
+        when(linkRepository.findByPillarAndSessionId(Pillar.LENS, sessionId))
+                .thenReturn(Optional.of(ProjectSessionLink.builder()
+                        .project(Project.builder().id(otherProjectId).name("Other project").userId(UUID.randomUUID()).build())
+                        .build()));
 
         assertThatThrownBy(() -> sessionLinkService.linkSession(projectId, Pillar.LENS, sessionId))
-                .isInstanceOf(DuplicateSessionLinkException.class);
+                .isInstanceOf(DuplicateSessionLinkException.class)
+                .hasMessage("Session is already linked to project 'Other project' (" + otherProjectId + ")")
+                .satisfies(error -> {
+                    DuplicateSessionLinkException duplicate = (DuplicateSessionLinkException) error;
+                    assertThat(duplicate.getProjectId()).isEqualTo(otherProjectId);
+                    assertThat(duplicate.getProjectName()).isEqualTo("Other project");
+                });
         verify(linkRepository, never()).save(any(ProjectSessionLink.class));
+    }
+
+    @Test
+    void linkSession_claimsLinkFromLegacyLocalDevProject() {
+        UUID projectId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        Project project = Project.builder().id(projectId).name("Neteru Path").userId(UUID.randomUUID()).build();
+        ProjectSessionLink legacyLink = ProjectSessionLink.builder()
+                .id(UUID.randomUUID())
+                .project(Project.builder()
+                        .id(UUID.randomUUID())
+                        .name("Neteru Path")
+                        .userId(UUID.nameUUIDFromBytes("local-dev".getBytes(StandardCharsets.UTF_8)))
+                        .build())
+                .pillar(Pillar.ARCHON)
+                .sessionId(sessionId)
+                .build();
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
+        when(linkRepository.findByPillarAndSessionId(Pillar.ARCHON, sessionId)).thenReturn(Optional.of(legacyLink));
+        when(linkRepository.save(legacyLink)).thenReturn(legacyLink);
+
+        assertThat(sessionLinkService.linkSession(projectId, Pillar.ARCHON, sessionId)).isSameAs(legacyLink);
+        assertThat(legacyLink.getProject()).isSameAs(project);
+        verify(linkRepository).save(legacyLink);
     }
 
     @Test

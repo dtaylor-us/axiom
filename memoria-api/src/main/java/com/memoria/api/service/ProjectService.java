@@ -21,9 +21,10 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
 
     @Transactional
-    public Project createProject(String name, String description) {
+    public Project createProject(UUID userId, String name, String description) {
         LocalDateTime now = LocalDateTime.now();
         Project project = Project.builder()
+                .userId(userId)
                 .name(name)
                 .description(description)
                 .status(ProjectStatus.ACTIVE)
@@ -34,19 +35,20 @@ public class ProjectService {
     }
 
     @Transactional(readOnly = true)
-    public Project getProject(UUID id) {
+    public Project getProject(UUID id, UUID userId) {
         return projectRepository.findById(id)
+                .filter(project -> project.getUserId().equals(userId))
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
     }
 
     @Transactional(readOnly = true)
-    public List<Project> listProjects() {
-        return projectRepository.findByStatusOrderByCreatedAtDesc(ProjectStatus.ACTIVE);
+    public List<Project> listProjects(UUID userId) {
+        return projectRepository.findByUserIdAndStatusOrderByUpdatedAtDesc(userId, ProjectStatus.ACTIVE);
     }
 
     @Transactional
-    public Project updateProject(UUID id, String name, String description) {
-        Project project = getProject(id);
+    public Project updateProject(UUID id, UUID userId, String name, String description) {
+        Project project = getProject(id, userId);
         if (name != null) {
             project.setName(name);
         }
@@ -58,8 +60,8 @@ public class ProjectService {
     }
 
     @Transactional
-    public Project archiveProject(UUID id) {
-        Project project = getProject(id);
+    public Project archiveProject(UUID id, UUID userId) {
+        Project project = getProject(id, userId);
         project.setStatus(ProjectStatus.ARCHIVED);
         project.setUpdatedAt(LocalDateTime.now());
         return projectRepository.save(project);

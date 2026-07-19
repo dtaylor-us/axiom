@@ -34,6 +34,9 @@ public class Project {
     @Column(name = "name", nullable = false, length = 500)
     private String name;
 
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 

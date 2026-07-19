@@ -6,6 +6,7 @@ import { useStore } from '../../store/useStore';
 import { useSpecWeaverStore } from '../../store/useSpecWeaverStore';
 import type { DocumentType, SessionDocument } from '../../api/specweaver';
 import { downloadPackageExport } from './packageExport';
+import { CopyButton } from '../../components/CopyButton';
 import { PillarBadge } from '../../components/PillarBadge';
 
 const TEXT_DOCUMENT_TYPES: DocumentType[] = ['PLAIN_TEXT', 'MARKDOWN', 'EMAIL'];
@@ -240,6 +241,17 @@ export function SessionView() {
             <p className="px-2 text-[11px] text-gray-400">
               {isSavingTitle ? 'Saving title…' : 'Title saves automatically when you leave the field.'}
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] text-gray-600">
+              <span className="min-w-0 truncate font-mono">Session {sessionId}</span>
+              <CopyButton text={sessionId} label="Copy session ID" title="Copy SpecWeaver session ID" />
+              <button
+                type="button"
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 font-semibold text-[var(--color-pillar-memoria-text)] hover:bg-gray-50"
+                onClick={() => navigate(`/memoria?linkPillar=SPECWEAVER&linkSessionId=${encodeURIComponent(sessionId)}`)}
+              >
+                Link to Memoria
+              </button>
+            </div>
           </div>
 
           {error && (

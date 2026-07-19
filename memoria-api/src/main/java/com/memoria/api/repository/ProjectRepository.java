@@ -9,4 +9,6 @@ import java.util.UUID;
 
 public interface ProjectRepository extends JpaRepository<Project, UUID> {
     List<Project> findByStatusOrderByCreatedAtDesc(ProjectStatus status);
+
+    List<Project> findByUserIdAndStatusOrderByUpdatedAtDesc(UUID userId, ProjectStatus status);
 }

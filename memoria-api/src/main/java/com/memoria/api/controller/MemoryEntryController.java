@@ -12,10 +12,13 @@ import com.memoria.api.dto.PromoteMemoryEntryRequest;
 import com.memoria.api.dto.SupersedeMemoryEntryRequest;
 import com.memoria.api.dto.UpdateMemoryEntryRequest;
 import com.memoria.api.service.MemoryEntryService;
+import com.memoria.api.service.AuthenticationUserResolver;
+import com.memoria.api.service.ProjectService;
 import com.memoria.api.service.ResponseMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,9 +26,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -36,12 +41,17 @@ import java.util.UUID;
 public class MemoryEntryController {
 
     private final MemoryEntryService memoryEntryService;
+    private final ProjectService projectService;
+    private final AuthenticationUserResolver userResolver;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public MemoryEntryResponse createEntry(
             @PathVariable UUID projectId,
-            @Valid @RequestBody CreateMemoryEntryRequest request) {
+            @Valid @RequestBody CreateMemoryEntryRequest request,
+            @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
+            Authentication authentication) {
+        validateProjectAccess(projectId, userIdHeader, authentication);
         return ResponseMapper.toMemoryEntryResponse(memoryEntryService.createEntry(projectId, request));
     }
 
@@ -56,7 +66,10 @@ public class MemoryEntryController {
             @RequestParam(required = false) LocalDateTime createdAfter,
             @RequestParam(required = false) LocalDateTime createdBefore,
             @RequestParam(required = false) LocalDateTime expiresBefore,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
+            Authentication authentication) {
+        validateProjectAccess(projectId, userIdHeader, authentication);
         MemoryEntryQuery query = new MemoryEntryQuery(
                 status,
                 memoryType,
@@ -76,7 +89,10 @@ public class MemoryEntryController {
     public MemoryEntryResponse updateEntry(
             @PathVariable UUID projectId,
             @PathVariable UUID entryId,
-            @RequestBody UpdateMemoryEntryRequest request) {
+            @RequestBody UpdateMemoryEntryRequest request,
+            @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
+            Authentication authentication) {
+        validateProjectAccess(projectId, userIdHeader, authentication);
         return ResponseMapper.toMemoryEntryResponse(memoryEntryService.updateEntry(projectId, entryId, request));
     }
 
@@ -84,7 +100,10 @@ public class MemoryEntryController {
     public MemoryEntryResponse supersede(
             @PathVariable UUID projectId,
             @PathVariable UUID entryId,
-            @Valid @RequestBody SupersedeMemoryEntryRequest request) {
+            @Valid @RequestBody SupersedeMemoryEntryRequest request,
+            @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
+            Authentication authentication) {
+        validateProjectAccess(projectId, userIdHeader, authentication);
         return ResponseMapper.toMemoryEntryResponse(
                 memoryEntryService.supersede(projectId, entryId, request.newEntryId()));
     }
@@ -92,21 +111,30 @@ public class MemoryEntryController {
     @PostMapping("/{entryId}/mark-stale")
     public MemoryEntryResponse markStale(
             @PathVariable UUID projectId,
-            @PathVariable UUID entryId) {
+            @PathVariable UUID entryId,
+            @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
+            Authentication authentication) {
+        validateProjectAccess(projectId, userIdHeader, authentication);
         return ResponseMapper.toMemoryEntryResponse(memoryEntryService.markStale(projectId, entryId));
     }
 
     @PostMapping("/{entryId}/archive")
     public MemoryEntryResponse archive(
             @PathVariable UUID projectId,
-            @PathVariable UUID entryId) {
+            @PathVariable UUID entryId,
+            @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
+            Authentication authentication) {
+        validateProjectAccess(projectId, userIdHeader, authentication);
         return ResponseMapper.toMemoryEntryResponse(memoryEntryService.archive(projectId, entryId));
     }
 
     @PostMapping("/{entryId}/restore")
     public MemoryEntryResponse restore(
             @PathVariable UUID projectId,
-            @PathVariable UUID entryId) {
+            @PathVariable UUID entryId,
+            @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
+            Authentication authentication) {
+        validateProjectAccess(projectId, userIdHeader, authentication);
         return ResponseMapper.toMemoryEntryResponse(memoryEntryService.restore(projectId, entryId));
     }
 
@@ -115,8 +143,26 @@ public class MemoryEntryController {
     public ArchitectureDecisionResponse promoteToAdr(
             @PathVariable UUID projectId,
             @PathVariable UUID entryId,
-            @Valid @RequestBody PromoteMemoryEntryRequest request) {
+            @Valid @RequestBody PromoteMemoryEntryRequest request,
+            @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
+            Authentication authentication) {
+        validateProjectAccess(projectId, userIdHeader, authentication);
         return ResponseMapper.toArchitectureDecisionResponse(
                 memoryEntryService.promoteToAdr(projectId, entryId, request));
+    }
+
+    private void validateProjectAccess(UUID projectId, String userIdHeader, Authentication authentication) {
+        projectService.getProject(projectId, resolveUser(userIdHeader, authentication));
+    }
+
+    private UUID resolveUser(String userIdHeader, Authentication authentication) {
+        if (userIdHeader != null && !userIdHeader.isBlank()) {
+            try {
+                return UUID.fromString(userIdHeader);
+            } catch (IllegalArgumentException e) {
+                return UUID.nameUUIDFromBytes(userIdHeader.getBytes(StandardCharsets.UTF_8));
+            }
+        }
+        return userResolver.resolveUserId(authentication);
     }
 }

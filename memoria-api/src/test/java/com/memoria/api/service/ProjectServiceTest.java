@@ -20,6 +20,8 @@ import static org.mockito.Mockito.when;
 
 class ProjectServiceTest {
 
+    private static final UUID USER_ID = UUID.randomUUID();
+
     private ProjectRepository projectRepository;
     private ProjectService projectService;
 
@@ -33,16 +35,17 @@ class ProjectServiceTest {
     void createProject_setsStatusToActive() {
         when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Project project = projectService.createProject("Axiom", "Memory");
+        Project project = projectService.createProject(USER_ID, "Axiom", "Memory");
 
         assertThat(project.getStatus()).isEqualTo(ProjectStatus.ACTIVE);
+        assertThat(project.getUserId()).isEqualTo(USER_ID);
     }
 
     @Test
     void createProject_setsTimestamps() {
         when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Project project = projectService.createProject("Axiom", null);
+        Project project = projectService.createProject(USER_ID, "Axiom", null);
 
         assertThat(project.getCreatedAt()).isNotNull();
         assertThat(project.getUpdatedAt()).isNotNull();
@@ -53,17 +56,28 @@ class ProjectServiceTest {
         UUID projectId = UUID.randomUUID();
         when(projectRepository.findById(projectId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> projectService.getProject(projectId))
+        assertThatThrownBy(() -> projectService.getProject(projectId, USER_ID))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Project not found");
     }
 
     @Test
-    void listProjects_returnsOnlyActive() {
-        Project project = Project.builder().status(ProjectStatus.ACTIVE).createdAt(LocalDateTime.now()).build();
-        when(projectRepository.findByStatusOrderByCreatedAtDesc(ProjectStatus.ACTIVE)).thenReturn(List.of(project));
+    void getProject_throwsNotFound_whenOwnedByAnotherUser() {
+        UUID projectId = UUID.randomUUID();
+        Project project = Project.builder().id(projectId).userId(UUID.randomUUID()).status(ProjectStatus.ACTIVE).build();
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
 
-        List<Project> projects = projectService.listProjects();
+        assertThatThrownBy(() -> projectService.getProject(projectId, USER_ID))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Project not found");
+    }
+
+    @Test
+    void listProjects_returnsOnlyActiveProjectsForUser() {
+        Project project = Project.builder().userId(USER_ID).status(ProjectStatus.ACTIVE).createdAt(LocalDateTime.now()).build();
+        when(projectRepository.findByUserIdAndStatusOrderByUpdatedAtDesc(USER_ID, ProjectStatus.ACTIVE)).thenReturn(List.of(project));
+
+        List<Project> projects = projectService.listProjects(USER_ID);
 
         assertThat(projects).containsExactly(project);
     }
@@ -71,11 +85,11 @@ class ProjectServiceTest {
     @Test
     void archiveProject_setsStatusArchived() {
         UUID projectId = UUID.randomUUID();
-        Project project = Project.builder().id(projectId).status(ProjectStatus.ACTIVE).build();
+        Project project = Project.builder().id(projectId).userId(USER_ID).status(ProjectStatus.ACTIVE).build();
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
         when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Project archived = projectService.archiveProject(projectId);
+        Project archived = projectService.archiveProject(projectId, USER_ID);
 
         assertThat(archived.getStatus()).isEqualTo(ProjectStatus.ARCHIVED);
     }

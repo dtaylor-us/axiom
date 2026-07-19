@@ -1,0 +1,118 @@
+- generic [ref=e2]:
+  - button "Switch to dark mode" [ref=e3]
+  - generic [ref=e34]:
+    - complementary [ref=e35]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: Axiom
+        - generic [ref=e44]: Architecture Intelligence
+      - generic [ref=e45]:
+        - navigation "Platform pillars" [ref=e46]:
+          - paragraph [ref=e48]: Platform pillars
+          - generic [ref=e49]:
+            - link "SpecWeaver Requirements Intelligence" [ref=e50] [cursor=pointer]:
+              - /url: /specweaver
+              - generic [ref=e57]:
+                - generic [ref=e58]: SpecWeaver
+                - generic [ref=e59]: Requirements Intelligence
+            - link "Archon Architecture Reasoning" [ref=e60] [cursor=pointer]:
+              - /url: /archon
+              - generic [ref=e68]:
+                - generic [ref=e69]: Archon
+                - generic [ref=e70]: Architecture Reasoning
+            - link "Lens Architecture Review Intelligence" [ref=e71] [cursor=pointer]:
+              - /url: /lens
+              - generic [ref=e77]:
+                - generic [ref=e78]: Lens
+                - generic [ref=e79]: Architecture Review Intelligence
+            - link "Memoria Project Memory" [ref=e80] [cursor=pointer]:
+              - /url: /memoria
+              - generic [ref=e86]:
+                - generic [ref=e87]: Memoria
+                - generic [ref=e88]: Project Memory
+        - button "New architecture review" [ref=e116]
+        - navigation [ref=e93]:
+          - button "Reviews" [ref=e117]
+        - generic [ref=e103]:
+          - heading "Reviews" [level=3] [ref=e120]
+          - generic [ref=e105]:
+            - button "Untitled review EVIDENCE COLLECTION" [ref=e274]:
+              - generic [ref=e275]: Untitled review
+              - generic [ref=e277]: EVIDENCE COLLECTION
+            - button "Untitled review COMPLETE" [ref=e278]:
+              - generic [ref=e279]: Untitled review
+              - generic [ref=e281]: COMPLETE
+            - button "Untitled review COMPLETE" [ref=e282]:
+              - generic [ref=e283]: Untitled review
+              - generic [ref=e285]: COMPLETE
+            - button "Untitled review GAP ELICITATION" [ref=e286]:
+              - generic [ref=e287]: Untitled review
+              - generic [ref=e290]: GAP ELICITATION
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - generic [ref=e108]: G
+          - generic [ref=e110]: Guest
+        - button "Sign out" [ref=e111]
+    - main [ref=e114]:
+      - generic [ref=e191]:
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - generic [ref=e194]: Lens
+            - heading "Untitled review" [level=1] [ref=e199]
+            - paragraph [ref=e200]: Lens gap elicitation never blocks progress. Unresolved gaps become findings.
+            - generic [ref=e201]:
+              - generic [ref=e202]: Session 518ee822-1c71-4b9c-a072-4eb1a4e63142
+              - button "Copy Lens session ID" [ref=e203]:
+                - generic [ref=e207]: Copy session ID
+              - button "Link to Memoria" [ref=e208]
+          - generic [ref=e209]: READY_FOR_REVIEW
+        - generic [ref=e249]: Gap answers saved.
+        - generic [ref=e210]:
+          - generic [ref=e211]:
+            - generic [ref=e212]:
+              - text: Session title
+              - textbox [ref=e213]: Untitled review
+            - generic [ref=e214]:
+              - text: System description
+              - textbox [ref=e215]
+            - button "Save details" [disabled] [ref=e217]
+            - generic [ref=e291]:
+              - generic [ref=e292]:
+                - generic [ref=e293]:
+                  - generic [ref=e294]: TEXT_DESCRIPTION
+                  - generic [ref=e295]: manual test
+                - button "Delete" [ref=e296]
+              - paragraph [ref=e297]: Architecture uses API gateway, service boundaries, and observability. Reliability and security controls are partially implemented with known gaps in DR and threat detection.
+            - generic [ref=e221]:
+              - button "Add Evidence" [ref=e222]
+              - button "Generate gap questions" [disabled] [ref=e223]
+          - generic [ref=e266]:
+            - generic [ref=e267]:
+              - heading "Gap elicitation" [level=2] [ref=e268]
+              - generic [ref=e269]: Round 1 of 5
+            - generic [ref=e363]:
+              - paragraph [ref=e364]: The architecture review can proceed as all critical areas have at least partial coverage. System purpose and scope, primary components and responsibilities, deployment or infrastructure detail, security, and reliability considerations are sufficiently addressed through the provided evidence and Q&A answers.
+              - generic [ref=e365]:
+                - generic [ref=e366]:
+                  - term [ref=e367]: resolved
+                  - definition [ref=e368]: "true"
+                - generic [ref=e369]:
+                  - term [ref=e370]: canProceed
+                  - definition [ref=e371]: "true"
+                - generic [ref=e372]:
+                  - term [ref=e373]: remainingCount
+                  - definition [ref=e374]: "0"
+            - generic [ref=e270]:
+              - button "Submit answers" [ref=e271]
+              - button "Assess gaps" [ref=e272]
+              - button "Proceed anyway" [ref=e273]
+        - generic [ref=e224]:
+          - heading "Status and report" [level=2] [ref=e225]
+          - generic [ref=e375]:
+            - paragraph [ref=e376]:
+              - text: "Evidence items:"
+              - strong [ref=e377]: "1"
+            - paragraph [ref=e378]:
+              - text: "Unresolved gaps becoming findings:"
+              - strong [ref=e379]: "0"
+            - button "Start review" [ref=e380]
+          - generic [ref=e227]: The completed report appears here after review finalization.

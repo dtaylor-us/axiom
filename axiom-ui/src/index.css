@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-sidebar: #202123;
@@ -48,7 +49,94 @@ html, body, #root {
 body {
   font-family: 'Söhne', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  background: #ffffff;
+  color: #202123;
+  transition: background-color 150ms ease, color 150ms ease;
 }
+
+.theme-toggle {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d9d9e3;
+  border-radius: 9999px;
+  color: #40414f;
+  display: flex;
+  height: 36px;
+  justify-content: center;
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+  width: 36px;
+  z-index: 70;
+}
+
+.theme-toggle:hover { background: #f7f7f8; transform: translateY(-1px); }
+.theme-toggle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.theme-toggle svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
+
+@media (max-width: 767px) {
+  .theme-toggle { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
+
+.dark {
+  --color-text-secondary: #acacbe;
+  --color-background-secondary: #2f2f2f;
+  --color-sidebar: #171717;
+  --color-sidebar-hover: #2f2f2f;
+  --color-sidebar-border: #4d4d4f;
+  --color-pillar-axiom-text: #c084fc;
+}
+
+.dark body { background: #212121; color: #ececf1; }
+.dark .theme-toggle { background: rgba(47, 47, 47, 0.94); border-color: #565869; color: #ececf1; }
+.dark .theme-toggle:hover { background: #40414f; }
+
+/* ChatGPT-inspired neutral surfaces for existing utility-based views. */
+.dark .bg-white, .dark .bg-white\/95 { background-color: #212121 !important; }
+.dark .bg-gray-50, .dark .bg-slate-50 { background-color: #171717 !important; }
+.dark .bg-gray-100, .dark .bg-slate-100 { background-color: #2f2f2f !important; }
+.dark .bg-gray-200, .dark .bg-slate-200 { background-color: #40414f !important; }
+.dark .bg-gray-300 { background-color: #565869 !important; }
+.dark .bg-gray-700 { background-color: #565869 !important; }
+.dark .bg-gray-800, .dark .bg-gray-900 { background-color: #171717 !important; }
+.dark .text-gray-900, .dark .text-gray-800, .dark .text-slate-950, .dark .text-slate-900, .dark .text-slate-800 { color: #ececf1 !important; }
+.dark .text-gray-700, .dark .text-gray-600, .dark .text-slate-700, .dark .text-slate-600 { color: #c5c5d2 !important; }
+.dark .text-gray-500, .dark .text-slate-500 { color: #acacbe !important; }
+.dark .border-gray-100, .dark .border-gray-200, .dark .border-gray-300, .dark .border-slate-200, .dark .border-slate-300 { border-color: #4d4d4f !important; }
+.dark .divide-gray-100 > :not(:last-child), .dark .divide-gray-200 > :not(:last-child) { border-color: #4d4d4f !important; }
+.dark input, .dark textarea, .dark select { background-color: #2f2f2f; border-color: #565869; color: #ececf1; }
+.dark input::placeholder, .dark textarea::placeholder { color: #8e8ea0; }
+.dark .prose { --tw-prose-body: #d1d5db; --tw-prose-headings: #ececf1; --tw-prose-bold: #ececf1; --tw-prose-links: #6ee7c8; --tw-prose-code: #ececf1; --tw-prose-bullets: #8e8ea0; --tw-prose-hr: #4d4d4f; }
+
+/* Archon output uses Typography modifier utilities, so set its dark contrast
+   explicitly instead of relying only on the prose custom properties. */
+.dark .markdown-content,
+.dark .markdown-content p,
+.dark .markdown-content li,
+.dark .markdown-content td { color: #d1d5db !important; }
+.dark .markdown-content h1,
+.dark .markdown-content h2,
+.dark .markdown-content h3,
+.dark .markdown-content h4,
+.dark .markdown-content strong,
+.dark .markdown-content th { color: #f7f7f8 !important; }
+.dark .markdown-content ul > li::marker,
+.dark .markdown-content ol > li::marker { color: #acacbe !important; }
+.dark .markdown-content a { color: #6ee7c8 !important; }
+.dark .markdown-content > div:has(> table) { border-color: #565869 !important; }
+.dark .markdown-content table { background: #212121; }
+.dark .markdown-content thead { background: #171717 !important; }
+.dark .markdown-content tr { background: #212121 !important; border-color: #4d4d4f !important; }
+.dark .markdown-content tr:nth-child(even) { background: #2f2f2f !important; }
+.dark .markdown-content blockquote {
+  background: #2f2f2f !important;
+  border-color: #60a5fa !important;
+  color: #d1d5db !important;
+}
+.dark .markdown-content blockquote p { color: #d1d5db !important; }
+.dark .markdown-content pre { background: #171717 !important; border-color: #4d4d4f !important; }
+.dark .markdown-content code { background: #2f2f2f !important; color: #6ee7c8 !important; }
 
 @keyframes archon-reveal {
   from {

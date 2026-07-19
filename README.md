@@ -258,6 +258,7 @@ axiom/
     ├── AGENTS.md               # Multi-agent development workflow guide
     ├── DEPLOYMENT.md           # Production deployment guide
     ├── RUNNING.md              # Local development guide
+    ├── SPECWEAVER_NETERU_SCENARIO.md # SpecWeaver E2E test scenario
     └── SUPPORT.md              # Troubleshooting guide
 ```
 

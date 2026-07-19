@@ -115,7 +115,10 @@ public class AdrService {
 
     private String normalizeQuery(String query) {
         if (query == null || query.isBlank()) {
-            return null;
+            // PostgreSQL cannot infer the type of a null parameter used by LIKE
+            // through Hibernate and binds it as bytea. An empty search string is
+            // equivalent to no text filter and keeps the parameter typed as text.
+            return "";
         }
         return query.trim().toLowerCase();
     }

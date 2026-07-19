@@ -171,6 +171,25 @@ class ArchitectureGeneratorTool(BaseTool):
                 sort_keys=True,
             ),
         )
+        if context.iterative_mode and context.previous_architecture:
+            previous = context.previous_architecture
+            previous_adl = previous.get("adl_document", "")
+            prompt = f"""
+## ITERATIVE UPDATE — PRESERVE AND EXTEND
+
+This is a delta update to an existing architecture.
+Previous architecture style: {previous.get("style", "")}
+
+Previous components (preserve unless explicitly changed):
+{_format_component_list(previous.get("components", []))}
+
+Previous ADL governance rules (preserve unless superseded):
+{previous_adl[:1500] if previous_adl else "(none)"}
+
+Apply the delta from requirement parsing. Preserve every previous decision not
+explicitly changed. Do not regenerate from scratch.
+
+{prompt}"""
 
         raw = await self.llm_client.complete(
             prompt,
@@ -206,6 +225,19 @@ class ArchitectureGeneratorTool(BaseTool):
 
         # --- Validate style selection ---
         self._validate_style_selection(result, context)
+
+        # Keep one canonical architecture identity.  The model historically
+        # returned both style_selection.selected_style and a top-level style,
+        # which allowed the chat report and persisted Architecture View to
+        # disagree.  Downstream consumers may still read the legacy top-level
+        # fields, so overwrite them from the authoritative selection and parsed
+        # requirements before the context is formatted or persisted.
+        selected_style = result["style_selection"]["selected_style"].strip()
+        result["style"] = selected_style
+        for field in ("domain", "system_type"):
+            parsed_value = context.parsed_entities.get(field)
+            if parsed_value:
+                result[field] = parsed_value
 
         # --- Validate components ---
         components = self._apply_canonical_component_constraints(
@@ -522,3 +554,20 @@ def _budget_parsed_entities(
             item_label=f"parsed_entities.{key}",
         )
     return budgeted
+
+
+def _format_component_list(components: list) -> str:
+    """Format up to twenty previous components for the update prompt."""
+    if not components:
+        return "(none)"
+    lines = []
+    for component in components[:20]:
+        if isinstance(component, dict):
+            lines.append(
+                f"  - {component.get('name', '')} "
+                f"({component.get('type', 'internal')}): "
+                f"{component.get('responsibility', '')}"
+            )
+        else:
+            lines.append(f"  - {component}")
+    return "\n".join(lines)

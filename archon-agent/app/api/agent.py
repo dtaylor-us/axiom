@@ -19,6 +19,8 @@ class AgentStreamRequest(BaseModel):
     mode: str = "AUTO"
     history: list[dict] = []
     context: dict | None = None
+    previousArchitecture: dict | None = None
+    iterativeMode: bool = False
 
 
 class AgentResponseChunk(BaseModel):
@@ -39,6 +41,21 @@ def chunk(event_type: str, **kwargs) -> str:
 def _stage_payload(stage: str, **extra: object) -> dict:
     """Build a standardised payload dict for STAGE_COMPLETE events."""
     return {"status": "complete", "stage": stage, **extra}
+
+
+def _seed_context_from_previous(ctx: ArchitectureContext) -> None:
+    """Seed supporting-stage artifacts without seeding regenerated design fields."""
+    if not (ctx.previous_architecture and ctx.iterative_mode):
+        return
+    previous = ctx.previous_architecture
+    for source, target in (
+        ("characteristics", "characteristics"),
+        ("trade_offs", "trade_offs"),
+        ("fmea_risks", "fmea_risks"),
+        ("weaknesses", "weaknesses"),
+    ):
+        if previous.get(source):
+            setattr(ctx, target, previous[source])
 
 
 @router.post("/agent/stream")
@@ -71,7 +88,11 @@ async def agent_stream(
             )
             for i, h in enumerate(request.history)
         ],
+        previous_architecture=request.previousArchitecture,
+        iterative_mode=request.iterativeMode,
     )
+
+    _seed_context_from_previous(ctx)
 
     memory_store = getattr(raw_request.app.state, "memory_store", None)
 

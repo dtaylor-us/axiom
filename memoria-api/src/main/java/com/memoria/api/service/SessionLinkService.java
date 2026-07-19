@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,16 +22,33 @@ import java.util.UUID;
 @Slf4j
 public class SessionLinkService {
 
+    private static final UUID LEGACY_LOCAL_DEV_USER_ID =
+            UUID.nameUUIDFromBytes("local-dev".getBytes(StandardCharsets.UTF_8));
+
     private final ProjectRepository projectRepository;
     private final ProjectSessionLinkRepository linkRepository;
 
     @Transactional
     public ProjectSessionLink linkSession(UUID projectId, Pillar pillar, UUID sessionId) {
         Project project = requireProject(projectId);
-        linkRepository.findByPillarAndSessionId(pillar, sessionId)
-                .ifPresent(link -> {
-                    throw new DuplicateSessionLinkException("Session is already linked to a project");
-                });
+        ProjectSessionLink existingLink = linkRepository.findByPillarAndSessionId(pillar, sessionId)
+                .orElse(null);
+        if (existingLink != null) {
+            if (existingLink.getProject().getId().equals(projectId)) {
+                return existingLink;
+            }
+            if (existingLink.getProject().getUserId().equals(LEGACY_LOCAL_DEV_USER_ID)
+                    && !project.getUserId().equals(LEGACY_LOCAL_DEV_USER_ID)) {
+                log.info("Claiming legacy session link {} for project {}", existingLink.getId(), projectId);
+                existingLink.setProject(project);
+                return linkRepository.save(existingLink);
+            }
+            String projectName = existingLink.getProject().getName();
+            throw new DuplicateSessionLinkException(
+                    "Session is already linked to project '" + projectName + "' (" + existingLink.getProject().getId() + ")",
+                    existingLink.getProject().getId(),
+                    projectName);
+        }
         ProjectSessionLink link = ProjectSessionLink.builder()
                 .project(project)
                 .pillar(pillar)

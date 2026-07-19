@@ -38,6 +38,9 @@ FORBIDDEN_KEYWORDS = {"REQUIRE"}
 # Minimum meaningful ADL source length in characters
 MIN_ADL_SOURCE_LENGTH = 40
 
+# Minimum ADL block count required from the architecture pipeline.
+MIN_ADL_BLOCKS = 15
+
 
 class ADLGeneratorV2Tool(BaseTool):
     """
@@ -96,6 +99,7 @@ class ADLGeneratorV2Tool(BaseTool):
                 component for component in context.architecture_design.get("components", [])
                 if component.get("type") == "external"
             ],
+            min_adl_blocks=MIN_ADL_BLOCKS,
         )
 
         raw = await self.llm_client.complete(
@@ -164,7 +168,7 @@ class ADLGeneratorV2Tool(BaseTool):
             len(parsed), context.conversation_id,
         )
 
-        minimum_blocks = len(canonical_decisions) + 3
+        minimum_blocks = max(MIN_ADL_BLOCKS, len(canonical_decisions) + 3)
         if len(parsed) < minimum_blocks:
             logger.warning(
                 "ADL_GENERATION: only %d blocks generated. Minimum is %d. "

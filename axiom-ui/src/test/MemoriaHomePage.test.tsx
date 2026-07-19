@@ -1,16 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
-import { MemoriaHomePage } from '../views/memoria/MemoriaHomePage';
+import { MemoriaWorkspacePage } from '../views/memoria/MemoriaHomePage';
 import {
+  createSessionLink,
   getProjectSummary,
   listAdrs,
   listMemoryEntries,
   listProjects,
   listSessionLinks,
 } from '../api/memoria';
+import { emitToast } from '../components/Toast';
+import { ApiError } from '../api/http';
+import { listSessions as listArchonSessions } from '../api/sessions';
+import { getSessions as listSpecWeaverSessions } from '../api/specweaver';
+import { listReviewSessions } from '../api/lens';
 
 vi.mock('../store/useStore', () => ({
   useStore: (selector: (state: { token: string }) => unknown) => selector({ token: 'jwt' }),
@@ -35,6 +41,18 @@ vi.mock('../api/memoria', () => ({
   supersedeAdr: vi.fn(),
   supersedeMemoryEntry: vi.fn(),
   transitionMemoryEntry: vi.fn(),
+}));
+
+vi.mock('../api/sessions', () => ({
+  listSessions: vi.fn(),
+}));
+
+vi.mock('../api/specweaver', () => ({
+  getSessions: vi.fn(),
+}));
+
+vi.mock('../api/lens', () => ({
+  listReviewSessions: vi.fn(),
 }));
 
 describe('MemoriaHomePage', () => {
@@ -140,14 +158,19 @@ describe('MemoriaHomePage', () => {
       },
     ]);
     (listSessionLinks as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (listArchonSessions as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (listSpecWeaverSessions as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (listReviewSessions as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   });
 
   it('keeps supersede selections independent per row', async () => {
     const user = userEvent.setup();
 
     render(
-      <MemoryRouter>
-        <MemoriaHomePage />
+      <MemoryRouter initialEntries={['/memoria/projects/project-1']}>
+        <Routes>
+          <Route path="/memoria/projects/:projectId" element={<MemoriaWorkspacePage />} />
+        </Routes>
       </MemoryRouter>,
     );
 
@@ -166,8 +189,8 @@ describe('MemoriaHomePage', () => {
 
     const firstMemoryRow = screen.getByText('First memory', { selector: 'p' }).closest('article');
     const secondMemoryRow = screen.getByText('Second memory', { selector: 'p' }).closest('article');
-    const firstAdrRow = screen.getByText('ADR 1: ADR One').closest('article');
-    const secondAdrRow = screen.getByText('ADR 2: ADR Two').closest('article');
+    const firstAdrRow = screen.getByText('ADR 1: ADR One', { selector: 'span' }).closest('article');
+    const secondAdrRow = screen.getByText('ADR 2: ADR Two', { selector: 'span' }).closest('article');
 
     expect(firstMemoryRow).not.toBeNull();
     expect(secondMemoryRow).not.toBeNull();
@@ -186,5 +209,118 @@ describe('MemoriaHomePage', () => {
     expect(secondMemorySelect).toHaveValue('');
     expect(firstAdrSelect).toHaveValue('adr-2');
     expect(secondAdrSelect).toHaveValue('');
+  });
+
+  it('displays session links when another workspace request fails', async () => {
+    (listAdrs as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('ADR query failed'));
+    (listSessionLinks as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 'link-1', projectId: 'project-1', pillar: 'ARCHON', sessionId: '4a214a1c-c9e7-4b64-90a9-622aa75083c8', linkedAt: '2026-07-03T00:00:00Z' },
+    ]);
+
+    render(
+      <MemoryRouter initialEntries={['/memoria/projects/project-1']}>
+        <Routes>
+          <Route path="/memoria/projects/:projectId" element={<MemoriaWorkspacePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('4a214a1c-c9e7-4b64-90a9-622aa75083c8')).toBeInTheDocument();
+    expect(emitToast).toHaveBeenCalledWith('ADR query failed', 'error');
+  });
+
+  it('links a selected recent session and refreshes the linked-session list', async () => {
+    const user = userEvent.setup();
+    (listArchonSessions as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: '4a214a1c-c9e7-4b64-90a9-622aa75083c8',
+        title: 'Architecture analysis',
+        createdAt: '2026-07-01T00:00:00Z',
+        updatedAt: '2026-07-02T00:00:00Z',
+      },
+    ]);
+    (createSessionLink as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'link-1',
+      projectId: 'project-1',
+      pillar: 'ARCHON',
+      sessionId: '4a214a1c-c9e7-4b64-90a9-622aa75083c8',
+      linkedAt: '2026-07-03T00:00:00Z',
+    });
+    (listSessionLinks as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'link-1', projectId: 'project-1', pillar: 'ARCHON', sessionId: '4a214a1c-c9e7-4b64-90a9-622aa75083c8', linkedAt: '2026-07-03T00:00:00Z' }]);
+
+    render(
+      <MemoryRouter initialEntries={['/memoria/projects/project-1']}>
+        <Routes>
+          <Route path="/memoria/projects/:projectId" element={<MemoriaWorkspacePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const sessionSelect = (await screen.findAllByRole('combobox')).find((element) =>
+      within(element).queryByText(/Architecture analysis/),
+    );
+    expect(sessionSelect).toBeDefined();
+    await user.selectOptions(sessionSelect as HTMLElement, '4a214a1c-c9e7-4b64-90a9-622aa75083c8');
+    await user.click(screen.getByRole('button', { name: 'Link session' }));
+
+    await waitFor(() => expect(createSessionLink).toHaveBeenCalledWith(
+      'jwt',
+      'project-1',
+      'ARCHON',
+      '4a214a1c-c9e7-4b64-90a9-622aa75083c8',
+    ));
+    expect(await screen.findByText('4a214a1c-c9e7-4b64-90a9-622aa75083c8')).toBeInTheDocument();
+    expect(emitToast).toHaveBeenCalledWith('Session linked to project.', 'info');
+  });
+
+  it('reports a link failure and keeps the selected session for retry', async () => {
+    const user = userEvent.setup();
+    (createSessionLink as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Session is already linked to a project'));
+
+    render(
+      <MemoryRouter initialEntries={['/memoria/projects/project-1']}>
+        <Routes>
+          <Route path="/memoria/projects/:projectId" element={<MemoriaWorkspacePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const sessionInput = await screen.findByPlaceholderText('Session UUID');
+    await user.type(sessionInput, '4a214a1c-c9e7-4b64-90a9-622aa75083c8');
+    await user.click(screen.getByRole('button', { name: 'Link session' }));
+
+    await waitFor(() => expect(emitToast).toHaveBeenCalledWith('Session is already linked to a project', 'error'));
+    expect(sessionInput).toHaveValue('4a214a1c-c9e7-4b64-90a9-622aa75083c8');
+    expect(screen.getByRole('button', { name: 'Link session' })).toBeEnabled();
+  });
+
+  it('opens the owning project when the session is linked elsewhere', async () => {
+    const user = userEvent.setup();
+    (listProjects as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 'project-1', name: 'Current project', description: '', status: 'ACTIVE', createdAt: '2026-07-01T00:00:00Z', updatedAt: '2026-07-01T00:00:00Z' },
+      { id: 'project-2', name: 'Neteru Path', description: '', status: 'ACTIVE', createdAt: '2026-07-01T00:00:00Z', updatedAt: '2026-07-01T00:00:00Z' },
+    ]);
+    (createSessionLink as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(
+      409,
+      "Session is already linked to project 'Neteru Path' (project-2)",
+      { type: 'urn:memoria:duplicate-session-link', projectId: 'project-2', projectName: 'Neteru Path' } as never,
+    ));
+
+    render(
+      <MemoryRouter initialEntries={['/memoria/projects/project-1']}>
+        <Routes>
+          <Route path="/memoria/projects/:projectId" element={<MemoriaWorkspacePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const sessionInput = await screen.findByPlaceholderText('Session UUID');
+    await user.type(sessionInput, '4a214a1c-c9e7-4b64-90a9-622aa75083c8');
+    await user.click(screen.getByRole('button', { name: 'Link session' }));
+
+    await waitFor(() => expect(listSessionLinks).toHaveBeenCalledWith('jwt', 'project-2'));
+    expect(emitToast).toHaveBeenCalledWith('Opening Neteru Path, where this session is already linked.', 'info');
   });
 });

@@ -78,7 +78,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 
   return (
     <div
-      className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-p:text-gray-700 prose-p:leading-relaxed prose-code:text-emerald-700 prose-code:bg-emerald-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none prose-strong:text-gray-800 prose-li:text-gray-700 prose-li:my-0.5"
+      className="markdown-content prose prose-sm max-w-none prose-headings:text-gray-800 prose-p:text-gray-700 prose-p:leading-relaxed prose-code:text-emerald-700 prose-code:bg-emerald-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none prose-strong:text-gray-800 prose-li:text-gray-700 prose-li:my-0.5"
       data-testid="markdown-content"
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>

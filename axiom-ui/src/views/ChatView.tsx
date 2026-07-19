@@ -46,11 +46,13 @@ export function ChatView() {
     resetConversation,
   } = useConversation();
   const canReattach = useStore((s) => s.canReattach);
+  const conversationId = useStore((s) => s.conversationId);
   const lastStageCompleted = useStore((s) => s.lastStageCompleted);
   const pipelineHasGaps = useStore((s) => s.pipelineHasGaps);
   const pipelineGaps = useStore((s) => s.pipelineGaps);
   const workshopSeed = useStore((s) => s.workshopSeed);
   const setWorkshopSeed = useStore((s) => s.setWorkshopSeed);
+  const hasExistingArchitecture = messages.length > 0;
 
   /* Auto-submit workshop seed — kicks off the pipeline after Send to Pipeline. */
   useEffect(() => {
@@ -136,6 +138,23 @@ export function ChatView() {
     <div className="flex flex-col h-full" data-testid="chat-view">
       {/* ── Messages area ── */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {conversationId && (
+          <div className="max-w-3xl mx-auto w-full px-4 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs text-gray-600">
+              <span className="min-w-0 truncate font-mono">Session {conversationId}</span>
+              <span className="flex items-center gap-2">
+                <CopyButton text={conversationId} label="Copy session ID" title="Copy Archon session ID" />
+                <button
+                  type="button"
+                  className="rounded-lg border border-gray-200 px-2 py-1 font-semibold text-[var(--color-pillar-memoria-text)] hover:bg-gray-50"
+                  onClick={() => navigate(`/memoria?linkPillar=ARCHON&linkSessionId=${encodeURIComponent(conversationId)}`)}
+                >
+                  Link to Memoria
+                </button>
+              </span>
+            </div>
+          </div>
+        )}
         {infoBanner && (
           <div className="max-w-3xl mx-auto w-full px-4 pt-4" data-testid="specweaver-prefill-banner">
             <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-900">
@@ -424,12 +443,20 @@ export function ChatView() {
       {/* ── Input area ── */}
       <div className="border-t border-gray-100 bg-white px-4 pb-4 pt-3">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+          {hasExistingArchitecture && (
+            <div className="mb-2 flex items-center gap-1.5 text-xs text-slate-500">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-pillar-archon)]" />
+              Iterative mode — your message will refine the existing architecture
+            </div>
+          )}
           <div className="flex items-end border border-gray-200 rounded-2xl shadow-sm focus-within:border-gray-300 focus-within:shadow-md transition-all bg-white">
             <textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Describe your system requirements…"
+              placeholder={hasExistingArchitecture
+                ? 'Describe changes or additions to the current architecture...'
+                : 'Describe your system requirements...'}
               rows={1}
               className="flex-1 resize-none border-0 bg-transparent px-4 py-3.5 text-[15px] text-gray-800 placeholder:text-gray-400 focus:outline-none max-h-[200px]"
               data-testid="chat-input"

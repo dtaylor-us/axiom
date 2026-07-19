@@ -180,6 +180,10 @@ class ArchitectureContext(BaseModel):
 
     raw_requirements: str = ""
     history: list[HistoryMessage] = Field(default_factory=list)
+    # Previous completed output, populated by the API for follow-up messages.
+    previous_architecture: dict[str, Any] | None = None
+    # Activates delta interpretation in requirement and architecture generation.
+    iterative_mode: bool = False
     project_memory_context: dict[str, Any] | None = None
 
     # Stage outputs — populated phase by phase

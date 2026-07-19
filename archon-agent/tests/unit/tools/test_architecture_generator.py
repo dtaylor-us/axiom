@@ -409,6 +409,19 @@ class TestArchitectureGeneratorTool:
 
         assert len(result.architecture_style_scores) == EXPECTED_STYLE_COUNT
 
+    async def test_selected_style_overwrites_conflicting_legacy_style(
+        self, tool, rich_context, mock_llm,
+    ):
+        """Chat formatting and persistence receive one canonical style."""
+        response = json.loads(VALID_RESPONSE)
+        response["style"] = "Modular Monolith"
+        mock_llm.complete.return_value = json.dumps(response)
+
+        result = await tool.run(rich_context)
+
+        assert result.selected_architecture_style == "Event-driven"
+        assert result.architecture_design["style"] == "Event-driven"
+
     async def test_does_not_raise_when_all_eight_scored(
         self, tool, rich_context, mock_llm, caplog,
     ):

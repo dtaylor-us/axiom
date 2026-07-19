@@ -34,6 +34,28 @@ class RequirementParserTool(BaseTool):
                 sort_keys=True,
             ),
         )
+        if context.iterative_mode and context.previous_architecture:
+            prompt = f"""
+## ITERATIVE MODE — DELTA UPDATE
+
+The user is refining an existing architecture. The current architecture is:
+
+{_summarise_previous_architecture(context.previous_architecture)}
+
+The user's update request is:
+{context.raw_requirements}
+
+INSTRUCTIONS:
+- Parse the update request as a DELTA against the current architecture above.
+- Preserve all existing components, characteristics, constraints, and decisions
+  that the user has NOT asked to change.
+- Apply only the changes explicitly requested.
+- ADD requests merge with existing components; CHANGE replaces only that element;
+  REMOVE excludes only that element.
+- NEVER discard existing decisions without an explicit instruction to do so.
+- The parsed output must represent the FULL updated system, not just the delta.
+
+{prompt}"""
 
         raw = await self.llm_client.complete(
             prompt,
@@ -76,3 +98,30 @@ class RequirementParserTool(BaseTool):
             repair_attempted,
         )
         return context
+
+
+def _summarise_previous_architecture(prev: dict) -> str:
+    """Return a compact requirement-parsing view of a previous design."""
+    components = prev.get("components", [])
+    characteristics = prev.get("characteristics", [])
+    component_lines = []
+    for component in components[:20]:
+        name = component.get("name", "") if isinstance(component, dict) else str(component)
+        responsibility = component.get("responsibility", "") if isinstance(component, dict) else ""
+        component_lines.append(
+            f"  - {name}: {responsibility}" if responsibility else f"  - {name}"
+        )
+    characteristic_lines = []
+    for characteristic in characteristics[:10]:
+        name = characteristic.get("name", "") if isinstance(characteristic, dict) else str(characteristic)
+        characteristic_lines.append(f"  - {name}")
+    formatted_components = "\n".join(component_lines) or "  (none)"
+    formatted_characteristics = "\n".join(characteristic_lines) or "  (none)"
+    return (
+        f"Architecture style: {prev.get('style', 'Unknown')}\n"
+        f"Domain: {prev.get('domain', '')}\n\n"
+        f"Components ({len(components)} total):\n"
+        f"{formatted_components}\n\n"
+        f"Quality attributes:\n"
+        f"{formatted_characteristics}"
+    )
