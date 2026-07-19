@@ -254,8 +254,8 @@ function buildQaScenarios(
 }
 
 /**
- * Determine build sequence by sorting components with "build" recommendation first,
- * then "adopt", then "buy". Within each tier, sort by how many others depend on them.
+ * Determine build sequence using three phases:
+ * phase 1 = external/buy/adopt items first, phase 2 = core dependencies, phase 3 = feature components.
  */
 function buildConstructionSequence(
   components: Component[],
