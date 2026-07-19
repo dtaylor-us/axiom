@@ -14,6 +14,7 @@ import { ForgotPasswordView } from './views/ForgotPasswordView';
 import { LoginView } from './views/LoginView';
 import { ArchitectureView } from './views/ArchitectureView';
 import { GovernanceView } from './views/GovernanceView';
+import { ArchDocView } from './views/ArchDocView';
 import { AxiomHomePage } from './views/AxiomHomePage';
 import { ResetPasswordView } from './views/ResetPasswordView';
 import { LensHomePage } from './views/lens/LensHomePage';
@@ -39,7 +40,7 @@ import type { AgentEvent, ChatMessage, PipelineStatusEventDto, SessionSummary } 
 import type { WorkshopSessionSummary } from './types/workshop';
 import { useSpecWeaverStore } from './store/useSpecWeaverStore';
 
-type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop' | 'specweaver';
+type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop' | 'specweaver' | 'archdoc';
 type Pillar = 'axiom' | 'archon' | 'specweaver' | 'lens' | 'memoria';
 
 interface MobileBottomNavItem {
@@ -202,7 +203,7 @@ function safeRemoveItem(key: string) {
 
 function readLastView(): View | null {
   const raw = safeGetItem(STORAGE_KEYS.lastView);
-  if (raw === 'home' || raw === 'chat' || raw === 'architecture' || raw === 'governance' || raw === 'workshop' || raw === 'specweaver') return raw;
+  if (raw === 'home' || raw === 'chat' || raw === 'architecture' || raw === 'governance' || raw === 'workshop' || raw === 'specweaver' || raw === 'archdoc') return raw;
   return null;
 }
 
@@ -226,6 +227,11 @@ const NAV_ITEMS: { key: View; label: string; icon: string }[] = [
     key: 'governance',
     label: 'Governance',
     icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
+  },
+  {
+    key: 'archdoc' as View,
+    label: 'Arch Docs',
+    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
   },
   {
     key: 'workshop' as View,
@@ -704,7 +710,7 @@ function AppContent() {
   // Without an active conversation, don't allow "empty" architecture/governance views
   useEffect(() => {
     if (!token) return;
-    if (!hasConversation && (activeView === 'architecture' || activeView === 'governance')) {
+    if (!hasConversation && (activeView === 'architecture' || activeView === 'governance' || activeView === 'archdoc')) {
       setActiveView('chat');
     }
     // workshop is always accessible — no conversation required
@@ -918,7 +924,7 @@ function AppContent() {
         label,
         icon,
         active: activeView === key,
-        disabled: (key === 'architecture' || key === 'governance') && !hasConversation,
+        disabled: (key === 'architecture' || key === 'governance' || key === 'archdoc') && !hasConversation,
         onClick: () => handleNavigatePrimaryView(key),
       }));
   const mobileBottomGridClass = mobileBottomNavItems.length >= 5
@@ -1821,6 +1827,13 @@ function AppContent() {
               {activeView === 'governance' && (
                 <div className="h-full overflow-y-auto">
                   <div className="max-w-5xl mx-auto"><GovernanceView /></div>
+                </div>
+              )}
+              {activeView === 'archdoc' && (
+                <div className="h-full overflow-y-auto">
+                  <div className="max-w-5xl mx-auto">
+                    <ArchDocView />
+                  </div>
                 </div>
               )}
               {activeView === 'workshop' && (
