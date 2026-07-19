@@ -11,7 +11,6 @@ import type {
   AdlRule,
   Weakness,
   BuyVsBuildDecision,
-  TacticRecommendation,
   TradeOffDecision,
   AdlDocument,
   ImprovementRecommendation,
@@ -77,7 +76,6 @@ function buildOverviewMarkdown(
   characteristics: { characteristic: string; concern: string }[],
   glossary: { term: string; definition: string }[],
   architectureStyle: string,
-  conversationTitle: string,
 ): string {
   const lines: string[] = [
     '# Architecture Documentation Package',
@@ -227,9 +225,7 @@ function buildCCViewMarkdown(
   interactions: Interaction[],
   scenarios: { stimulus: string; response: string; measures: string }[],
   connectorAdlRules: AdlRule[],
-  tradeOffs: TradeOffDecision[],
   fmeaAll: FmeaEntry[],
-  weaknesses: Weakness[],
 ): string {
   const lines: string[] = [
     '# Component & Connector View',
@@ -450,12 +446,11 @@ function buildRiskMarkdown(
 }
 
 export function useArchDoc(): ArchDocData {
-  const conversationTitle = useStore((s) => s.conversationTitle);
   const { architecture, loading: archLoading, error: archError } = useArchitecture();
   const {
-    tradeOffs,
+    tradeOffs: allTradeOffs,
     adl,
-    weaknesses,
+    weaknesses: allWeaknesses,
     fmea,
     governanceReport,
     loading: govLoading,
@@ -463,16 +458,17 @@ export function useArchDoc(): ArchDocData {
   } = useGovernance();
   const { tactics, loading: tacticsLoading, error: tacticsError } = useTactics();
   const { summary: buyVsBuildSummary, loading: bbLoading, error: bbError } = useBuyVsBuild();
+  const conversationId = useStore((s) => s.conversationId);
 
   const archDocData = useMemo(() => {
     const loading = archLoading || govLoading || tacticsLoading || bbLoading;
     const error = archError || govError || tacticsError || bbError;
 
-    if (!architecture || !adl || !weaknesses || !buyVsBuildSummary) {
+    if (!architecture || !adl || !allWeaknesses || !buyVsBuildSummary) {
       return {
         systemTitle: 'Architecture',
         systemDescription: 'Architecture documentation generated from analysis.',
-        conversationTitle: conversationTitle || 'Architecture',
+        conversationTitle: conversationId || 'Architecture',
         stakeholderConcerns: [],
         glossaryTerms: [],
         componentDiagram: null,
@@ -499,7 +495,7 @@ export function useArchDoc(): ArchDocData {
         ccViewMarkdown: '',
         allocationViewMarkdown: '',
         riskMarkdown: '',
-        exportFilename: `architecture-docs-${slugifyTitle(conversationTitle || 'architecture')}-${getCurrentDate()}.md`,
+        exportFilename: `architecture-docs-${slugifyTitle(conversationId || 'architecture')}-${getCurrentDate()}.md`,
         loading,
         error: error || null,
         hasData: false,
@@ -560,17 +556,16 @@ export function useArchDoc(): ArchDocData {
       'System architecture as defined through design conversation.',
       stakeholderConcerns,
       glossaryTerms,
-      architecture?.style || 'Unknown',
-      conversationTitle || 'Architecture'
+      architecture?.style || 'Unknown'
     );
 
     const moduleViewMarkdown = buildModuleViewMarkdown(
       architecture?.componentDiagram || null,
       architecture?.components || [],
       fmeaByComponent,
-      tradeOffs,
+      allTradeOffs,
       moduleAdlRules,
-      weaknesses?.weaknesses || []
+      allWeaknesses?.weaknesses || []
     );
 
     const ccViewMarkdown = buildCCViewMarkdown(
@@ -578,9 +573,7 @@ export function useArchDoc(): ArchDocData {
       architecture?.interactions || [],
       scenarios,
       connectorAdlRules,
-      tradeOffs,
-      fmea,
-      weaknesses?.weaknesses || []
+      fmea
     );
 
     const allocationViewMarkdown = buildAllocationViewMarkdown(
@@ -588,12 +581,12 @@ export function useArchDoc(): ArchDocData {
       buyVsBuildSummary?.decisions || [],
       architecture?.components || [],
       allocationAdlRules,
-      weaknesses?.weaknesses || []
+      allWeaknesses?.weaknesses || []
     );
 
     const riskMarkdown = buildRiskMarkdown(
       allAdlRules,
-      weaknesses?.weaknesses || [],
+      allWeaknesses?.weaknesses || [],
       fmea,
       governanceReport?.improvementRecommendations || []
     );
@@ -613,7 +606,7 @@ export function useArchDoc(): ArchDocData {
     return {
       systemTitle: architecture?.style || 'Architecture',
       systemDescription: 'System architecture as defined through design conversation.',
-      conversationTitle: conversationTitle || 'Architecture',
+      conversationTitle: conversationId || 'Architecture',
       stakeholderConcerns,
       glossaryTerms,
       componentDiagram: architecture?.componentDiagram || null,
@@ -630,17 +623,17 @@ export function useArchDoc(): ArchDocData {
       allocationAdlRules,
       adlDocument: adl,
       allAdlRules,
-      weaknesses: weaknesses?.weaknesses || [],
+      weaknesses: allWeaknesses?.weaknesses || [],
       fmeaAll: fmea,
       improvementRecommendations: governanceReport?.improvementRecommendations || [],
-      tradeOffs,
+      tradeOffs: allTradeOffs,
       fullPackageMarkdown,
       overviewMarkdown,
       moduleViewMarkdown,
       ccViewMarkdown,
       allocationViewMarkdown,
       riskMarkdown,
-      exportFilename: `architecture-docs-${slugifyTitle(conversationTitle || 'architecture')}-${getCurrentDate()}.md`,
+      exportFilename: `architecture-docs-${slugifyTitle(conversationId || 'architecture')}-${getCurrentDate()}.md`,
       loading,
       error: error || null,
       hasData: (architecture?.components?.length || 0) > 0,
@@ -648,12 +641,12 @@ export function useArchDoc(): ArchDocData {
   }, [
     architecture,
     adl,
-    weaknesses,
+    allWeaknesses,
     fmea,
-    tradeOffs,
+    allTradeOffs,
     governanceReport,
     buyVsBuildSummary,
-    conversationTitle,
+    conversationId,
     archLoading,
     govLoading,
     tacticsLoading,

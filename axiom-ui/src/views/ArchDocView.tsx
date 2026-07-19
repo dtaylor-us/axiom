@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useArchDoc } from '../hooks/useArchDoc';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
-import { StructuredExportBar, MarkdownExportActions, downloadMarkdown } from '../components/StructuredData';
+import { MarkdownExportActions, downloadMarkdown } from '../components/StructuredData';
 
 type Tab = 'overview' | 'module' | 'cc' | 'allocation' | 'risk';
 

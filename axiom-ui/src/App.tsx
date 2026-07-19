@@ -1545,7 +1545,7 @@ function AppContent() {
                     </span>
                   </div>
                   <nav className="flex flex-col gap-1 px-1 pb-1">
-                    {NAV_ITEMS.filter(({ key }) => key === 'architecture' || key === 'governance').map(({ key, label, icon }) => (
+                    {NAV_ITEMS.filter(({ key }) => key === 'architecture' || key === 'governance' || key === 'archdoc').map(({ key, label, icon }) => (
                       <button
                         key={key}
                         onClick={() => {
