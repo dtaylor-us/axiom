@@ -29,6 +29,18 @@ memoria:
     internal-secret: ${MEMORIA_AGENT_INTERNAL_SECRET:${AXIOM_INTERNAL_SECRET:}}
     timeout-seconds: ${AGENT_TIMEOUT_SECONDS:120}
 
+archon:
+  api:
+    base-url: ${ARCHON_API_BASE_URL:http://archon-api:8081}
+
+specweaver:
+  api:
+    base-url: ${SPECWEAVER_API_BASE_URL:http://specweaver-api:8082}
+
+lens:
+  api:
+    base-url: ${LENS_API_BASE_URL:http://lens-api:8083}
+
 axiom:
   gateway:
     bypass: ${AXIOM_GATEWAY_BYPASS:false}
