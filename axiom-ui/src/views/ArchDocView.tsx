@@ -172,7 +172,7 @@ export function ArchDocView() {
         <div className="mx-6 mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <p className="text-xs font-semibold text-amber-800 mb-1">Top failure modes by RPN</p>
           <div className="flex flex-wrap gap-2">
-            {fmeaAll
+            {[...fmeaAll]
               .sort((a, b) => b.rpn - a.rpn)
               .slice(0, 4)
               .map((e) => (
