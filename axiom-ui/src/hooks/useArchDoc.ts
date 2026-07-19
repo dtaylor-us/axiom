@@ -620,7 +620,7 @@ function buildCCViewMarkdown(
     lines.push('');
     lines.push('| ID | Failure Mode | Component | Severity | Occurrence | Detection | RPN | Recommended Action |');
     lines.push('|---|---|---|---|---|---|---|---|');
-    fmeaAll
+    [...fmeaAll]
       .sort((a, b) => b.rpn - a.rpn)
       .slice(0, 10)
       .forEach((e) => {
