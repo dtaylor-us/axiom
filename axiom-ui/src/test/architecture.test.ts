@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getArchitecture, getDiagramCollection } from '../api/architecture';
+import { getArchitecture, getDiagramByType, getDiagramCollection } from '../api/architecture';
 
 describe('architecture API', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    window.localStorage.removeItem('archon.auth');
   });
 
   it('getArchitecture_fetchesWithAuthHeader', async () => {
@@ -76,5 +77,30 @@ describe('architecture API', () => {
         },
       },
     );
+  });
+
+  it('getDiagramByType_returnsMermaidSource_andEncodesTheType', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ mermaidSource: 'graph TD; A-->B' }),
+    } as unknown as Response);
+
+    await expect(getDiagramByType('s1', 'deployment view', 'jwt')).resolves.toBe('graph TD; A-->B');
+    expect(fetch).toHaveBeenCalledWith('/api/v1/sessions/s1/diagram/deployment%20view', expect.any(Object));
+  });
+
+  it('getDiagramByType_returnsNullForMissingOrEmptyDiagrams', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({ ok: true, headers: { get: () => 'application/json' }, json: async () => ({ mermaidSource: '' }) } as unknown as Response)
+      .mockResolvedValueOnce({ ok: false, status: 404, headers: { get: () => null } } as unknown as Response);
+
+    await expect(getDiagramByType('s1', 'deployment', 'jwt')).resolves.toBeNull();
+    await expect(getDiagramByType('s1', 'missing', 'jwt')).resolves.toBeNull();
+  });
+
+  it('getDiagramByType_rethrowsNon404Errors', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500, headers: { get: () => null } } as unknown as Response);
+    await expect(getDiagramByType('s1', 'deployment', 'jwt')).rejects.toThrow('Something went wrong on the server. Please try again.');
   });
 });
