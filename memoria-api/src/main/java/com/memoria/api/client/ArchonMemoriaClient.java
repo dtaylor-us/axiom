@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,11 +17,20 @@ import java.util.UUID;
 /**
  * Fetches Archon conversation output for Memoria distillation.
  *
- * <p>Uses the X-Internal-Secret header for service-to-service auth.
- * Does NOT attempt to forward the user JWT via RequestContextHolder —
- * that approach fails in batch distillation threads where no HTTP
- * request context is present. Instead, this client is called from
- * an internal endpoint that bypasses user-scoped security.</p>
+ * <p>Uses X-Internal-Secret for service-to-service auth.
+ * Does NOT use RequestContextHolder — that fails in batch threads.</p>
+ *
+ * <p>The Archon /architecture endpoint returns an ArchitectureOutputDto
+ * serialised with Jackson default camelCase naming. The Memoria
+ * fact_extractor.py expects snake_case field names under an
+ * "architecture_design" wrapper (components, style) and top-level
+ * snake_case fields (adl_rules, fmea_risks, trade_offs, characteristics,
+ * weaknesses, governance_score).
+ *
+ * This client normalises the camelCase DTO response to the snake_case
+ * shape before returning it so the agent extractor always receives a
+ * consistent payload regardless of how archon-api serialises its DTO.
+ * </p>
  */
 @Component
 @Slf4j
@@ -40,14 +51,10 @@ public class ArchonMemoriaClient {
     }
 
     /**
-     * Fetches the structured architecture output for an Archon conversation.
-     *
-     * <p>Calls the internal endpoint that does not require a user JWT.
-     * Falls back to the public endpoint if the internal one returns 404
-     * (conversation exists but has no architecture output yet).</p>
+     * Fetches and normalises the structured architecture output for an Archon conversation.
      *
      * @param sessionId the Archon conversation UUID
-     * @return the architecture output map, or empty if unavailable
+     * @return normalised snake_case payload map, or empty if unavailable
      */
     public Optional<Map<String, Object>> getConversationOutput(UUID sessionId) {
         try {
@@ -61,9 +68,10 @@ public class ArchonMemoriaClient {
                 log.debug("ArchonMemoriaClient: empty response for sessionId={}", sessionId);
                 return Optional.empty();
             }
-            log.debug("ArchonMemoriaClient: fetched output sessionId={} keys={}",
-                    sessionId, response.keySet());
-            return Optional.of(response);
+            Map<String, Object> normalised = normaliseArchonPayload(response);
+            log.debug("ArchonMemoriaClient: normalised payload sessionId={} keys={}",
+                    sessionId, normalised.keySet());
+            return Optional.of(normalised);
         } catch (Exception ex) {
             log.warn("ArchonMemoriaClient.getConversationOutput failed sessionId={} error={}",
                     sessionId, ex.getMessage());
@@ -71,11 +79,96 @@ public class ArchonMemoriaClient {
         }
     }
 
+    /**
+     * Normalises an Archon ArchitectureOutputDto (camelCase Jackson serialisation)
+     * into the snake_case shape expected by memoria-agent fact_extractor.py.
+     *
+     * <p>Mapping:
+     * <pre>
+     *   components + style + domain → architecture_design: { components, style, domain }
+     *   adlRules                   → adl_rules
+     *   adlDocument                → adl_document
+     *   fmeaRisks                  → fmea_risks
+     *   tradeOffs                  → trade_offs
+     *   characteristics            → characteristics  (already matches)
+     *   weaknesses                 → weaknesses        (already matches)
+     * </pre>
+     * All other fields are passed through as-is for LLM extraction.
+     * </p>
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> normaliseArchonPayload(Map<String, Object> raw) {
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        // Build architecture_design wrapper from flat DTO fields
+        Map<String, Object> archDesign = new HashMap<>();
+        putIfPresent(archDesign, raw, "style", "style");
+        putIfPresent(archDesign, raw, "domain", "domain");
+        putIfPresent(archDesign, raw, "systemType", "system_type");
+        putIfPresent(archDesign, raw, "components", "components");
+        putIfPresent(archDesign, raw, "interactions", "interactions");
+        if (!archDesign.isEmpty()) {
+            result.put("architecture_design", archDesign);
+        }
+
+        // Rename camelCase DTO fields to snake_case
+        putIfPresent(result, raw, "adlRules", "adl_rules");
+        putIfPresent(result, raw, "adlDocument", "adl_document");
+        putIfPresent(result, raw, "fmeaRisks", "fmea_risks");
+        putIfPresent(result, raw, "tradeOffs", "trade_offs");
+        putIfPresent(result, raw, "characteristics", "characteristics");
+        putIfPresent(result, raw, "weaknesses", "weaknesses");
+
+        // Governance score — may be nested under structured_output or flat
+        Object govScore = raw.get("governanceScore");
+        if (govScore == null) {
+            // Try nested structured_output if present
+            Object structured = raw.get("structuredOutput");
+            if (structured instanceof Map<?, ?> structuredMap) {
+                govScore = structuredMap.get("governanceScore");
+            }
+        }
+        if (govScore != null) {
+            result.put("governance_score", govScore);
+        }
+
+        // Buy vs build analysis
+        putIfPresent(result, raw, "buyVsBuildAnalysis", "buy_vs_build_analysis");
+
+        // Pass remaining non-mapped fields through so LLM extraction can use them
+        for (Map.Entry<String, Object> entry : raw.entrySet()) {
+            String key = entry.getKey();
+            if (!result.containsKey(key) && !isMappedCamelKey(key)) {
+                result.put(key, entry.getValue());
+            }
+        }
+
+        return result;
+    }
+
+    private void putIfPresent(
+            Map<String, Object> target,
+            Map<String, Object> source,
+            String sourceKey,
+            String targetKey) {
+        Object value = source.get(sourceKey);
+        if (value != null) {
+            target.put(targetKey, value);
+        }
+    }
+
+    private boolean isMappedCamelKey(String key) {
+        return switch (key) {
+            case "adlRules", "adlDocument", "fmeaRisks", "tradeOffs",
+                 "components", "interactions", "style", "domain", "systemType",
+                 "characteristics", "weaknesses", "governanceScore",
+                 "buyVsBuildAnalysis", "structuredOutput" -> true;
+            default -> false;
+        };
+    }
+
     private void applyInternalHeaders(HttpHeaders headers) {
         if (!internalSecret.isBlank()) {
-            // Use X-Internal-Secret for service-to-service auth.
-            // archon-api SecurityConfig must permit /api/v1/sessions/*/architecture
-            // when this header is present, or expose a dedicated internal endpoint.
             headers.set(INTERNAL_SECRET_HEADER, internalSecret);
         }
     }
