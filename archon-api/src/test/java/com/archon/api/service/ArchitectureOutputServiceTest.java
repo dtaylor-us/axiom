@@ -78,6 +78,25 @@ class ArchitectureOutputServiceTest {
     }
 
     @Test
+    void saveFromStructuredOutput_prefersSelectedStyleOverConflictingLegacyStyle() {
+        UUID conversationId = UUID.randomUUID();
+        Map<String, Object> design = new HashMap<>();
+        design.put("style", "Modular Monolith");
+        design.put("style_selection", Map.of("selected_style", "Service-based"));
+        design.put("components", List.of());
+        design.put("interactions", List.of());
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.saveFromStructuredOutput(
+                conversationId, Map.of("architecture_design", design));
+
+        ArgumentCaptor<ArchitectureOutput> captor =
+                ArgumentCaptor.forClass(ArchitectureOutput.class);
+        verify(repository).save(captor.capture());
+        assertEquals("Service-based", captor.getValue().getStyle());
+    }
+
+    @Test
     void saveFromStructuredOutput_handlesEmptyDesign() {
         UUID conversationId = UUID.randomUUID();
         Map<String, Object> structuredOutput = new HashMap<>();

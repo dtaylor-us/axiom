@@ -44,6 +44,15 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
 
+        // In local bypass mode JwtAuthFilter runs first. Do not reject a JWT-
+        // authenticated browser request merely because the UI also forwards its
+        // identity header without the gateway-only internal secret.
+        var existingAuthentication = SecurityContextHolder.getContext().getAuthentication();
+        if (existingAuthentication != null && existingAuthentication.isAuthenticated()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String userId = request.getHeader(AXIOM_USER_ID_HEADER);
         if (userId == null || userId.isBlank()) {
             filterChain.doFilter(request, response);

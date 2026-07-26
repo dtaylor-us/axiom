@@ -40,6 +40,8 @@ public class ArchitectureOutputService {
         Map<String, Object> design = (Map<String, Object>)
                 structuredOutput.getOrDefault("architecture_design", Map.of());
 
+        String style = canonicalStyle(design);
+
         @SuppressWarnings("unchecked")
         List<Object> components = (List<Object>)
                 design.getOrDefault("components", List.of());
@@ -113,7 +115,7 @@ public class ArchitectureOutputService {
 
         ArchitectureOutput output = ArchitectureOutput.builder()
                 .conversationId(conversationId)
-                .style((String) design.getOrDefault("style", ""))
+                .style(style)
                 .domain((String) design.getOrDefault("domain", ""))
                 .systemType((String) design.getOrDefault("system_type", ""))
                 .componentCount(components.size())
@@ -140,6 +142,30 @@ public class ArchitectureOutputService {
         repository.save(output);
         log.info("Saved architecture output for conversation={}, components={}",
                  conversationId, components.size());
+    }
+
+    /**
+     * Resolve the architecture style from the same authoritative field used by
+     * the generated chat report.  The top-level field remains a compatibility
+     * fallback for older stored agent payloads.
+     */
+    private String canonicalStyle(Map<String, Object> design) {
+        Object selection = design.get("style_selection");
+        if (selection instanceof Map<?, ?> selectionMap) {
+            Object selected = selectionMap.get("selected_style");
+            if (selected != null && !selected.toString().isBlank()) {
+                String canonical = selected.toString().trim();
+                Object legacy = design.get("style");
+                if (legacy != null && !legacy.toString().isBlank()
+                        && !canonical.equalsIgnoreCase(legacy.toString().trim())) {
+                    log.warn("Architecture style mismatch in agent payload; using selected_style={} over style={}",
+                            canonical, legacy);
+                }
+                return canonical;
+            }
+        }
+        Object legacy = design.get("style");
+        return legacy != null ? legacy.toString().trim() : "";
     }
 
     /**

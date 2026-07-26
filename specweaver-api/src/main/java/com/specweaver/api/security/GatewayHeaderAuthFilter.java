@@ -34,6 +34,15 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
+        // Direct local UI requests are JWT-authenticated by the preceding filter.
+        // Their identity header is informational and must not be treated as an
+        // unsigned gateway assertion requiring the internal service secret.
+        var existingAuthentication = SecurityContextHolder.getContext().getAuthentication();
+        if (existingAuthentication != null && existingAuthentication.isAuthenticated()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String userId = request.getHeader(AXIOM_USER_ID_HEADER);
         if (userId == null || userId.isBlank()) {
             filterChain.doFilter(request, response);

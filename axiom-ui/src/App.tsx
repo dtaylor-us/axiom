@@ -19,6 +19,7 @@ import { AxiomHomePage } from './views/AxiomHomePage';
 import { ResetPasswordView } from './views/ResetPasswordView';
 import { LensHomePage } from './views/lens/LensHomePage';
 import { LensReviewPage } from './views/lens/LensReviewPage';
+import { MemoriaHomePage, MemoriaNewProjectPage, MemoriaWorkspacePage } from './views/memoria/MemoriaHomePage';
 import { WorkshopView } from './views/workshop/WorkshopView';
 import { ArchonHomePage } from './views/archon/ArchonHomePage';
 import { PackageDetailView } from './views/specweaver/PackageDetailView';
@@ -29,6 +30,7 @@ import { StageProgress } from './components/StageProgress';
 import { PillarNav } from './components/PillarNav';
 import { PillarIcon } from './components/PillarIcon';
 import { ToastProvider, emitToast } from './components/Toast';
+import { ThemeToggle } from './components/ThemeToggle';
 import { getToken } from './api/auth';
 import { getPipelineStatus, getRunStatus, reattachStream } from './api/chat';
 import { listReviewSessions, type ReviewSession as LensReviewSession } from './api/lens';
@@ -39,8 +41,8 @@ import type { AgentEvent, ChatMessage, PipelineStatusEventDto, SessionSummary } 
 import type { WorkshopSessionSummary } from './types/workshop';
 import { useSpecWeaverStore } from './store/useSpecWeaverStore';
 
-type View = 'home' | 'chat' | 'architecture' | 'governance' | 'arch-doc' | 'workshop' | 'specweaver';
-type Pillar = 'axiom' | 'archon' | 'specweaver' | 'lens';
+type View = 'home' | 'chat' | 'architecture' | 'governance' | 'workshop' | 'specweaver' | 'archdoc';
+type Pillar = 'axiom' | 'archon' | 'specweaver' | 'lens' | 'memoria';
 
 interface MobileBottomNavItem {
   id: string;
@@ -62,6 +64,7 @@ const CONVERSATION_HYDRATION_RETRY_DELAY_MS = 400;
 function getCurrentPillar(pathname: string): Pillar {
   if (pathname.startsWith('/specweaver')) return 'specweaver';
   if (pathname.startsWith('/lens')) return 'lens';
+  if (pathname.startsWith('/memoria')) return 'memoria';
   if (pathname === '/') return 'axiom';
   return 'archon';
 }
@@ -71,6 +74,7 @@ function getPillarTitle(pathname: string): string {
   if (pillar === 'specweaver') return 'SpecWeaver — Requirements Intelligence | Axiom';
   if (pillar === 'archon') return 'Archon — Architecture Reasoning | Axiom';
   if (pillar === 'lens') return 'Lens — Architecture Review Intelligence | Axiom';
+  if (pillar === 'memoria') return 'Memoria — Project Memory | Axiom';
   return 'Axiom — Architecture Intelligence Platform';
 }
 
@@ -91,6 +95,10 @@ function getPillarFavicon(pillar: Pillar): string {
     lens: {
       stroke: '%23F77F00',
       path: 'M10.5 5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11m4.3 9.3L20 20M9 10.5h3m-1.5-1.5v3',
+    },
+    memoria: {
+      stroke: '%23DF5E8D',
+      path: 'M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z M5 5.5v15M9 7h6M9 11h6M9 15h4',
     },
   };
 
@@ -196,7 +204,7 @@ function safeRemoveItem(key: string) {
 
 function readLastView(): View | null {
   const raw = safeGetItem(STORAGE_KEYS.lastView);
-  if (raw === 'home' || raw === 'chat' || raw === 'architecture' || raw === 'governance' || raw === 'arch-doc' || raw === 'workshop' || raw === 'specweaver') return raw;
+  if (raw === 'home' || raw === 'chat' || raw === 'architecture' || raw === 'governance' || raw === 'workshop' || raw === 'specweaver' || raw === 'archdoc') return raw;
   return null;
 }
 
@@ -222,7 +230,7 @@ const NAV_ITEMS: { key: View; label: string; icon: string }[] = [
     icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
   },
   {
-    key: 'arch-doc' as View,
+    key: 'archdoc' as View,
     label: 'Arch Docs',
     icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
   },
@@ -329,10 +337,11 @@ function AppContent() {
   const isPlatformHomeRoute = location.pathname === '/';
   const isSpecWeaverRoute = location.pathname.startsWith('/specweaver');
   const isLensRoute = location.pathname.startsWith('/lens');
+  const isMemoriaRoute = location.pathname.startsWith('/memoria');
   const isArchonHomeRoute = location.pathname === '/archon';
   const isArchonChatRoute = location.pathname === '/archon/chat';
   const isConversationRoute = !!getConversationIdFromPath(location.pathname);
-  const activeSidebarPillar: Pillar = isSpecWeaverRoute ? 'specweaver' : isLensRoute ? 'lens' : 'archon';
+  const activeSidebarPillar: Pillar = isSpecWeaverRoute ? 'specweaver' : isLensRoute ? 'lens' : isMemoriaRoute ? 'memoria' : 'archon';
   const activeSidebarItemClass = getActiveSidebarItemClass(activeSidebarPillar);
   const activeSidebarNavClass = getActiveSidebarNavClass(activeSidebarPillar);
   const activeSidebarDotClass = getActiveSidebarDotClass(activeSidebarPillar);
@@ -702,7 +711,7 @@ function AppContent() {
   // Without an active conversation, don't allow "empty" architecture/governance views
   useEffect(() => {
     if (!token) return;
-    if (!hasConversation && (activeView === 'architecture' || activeView === 'governance' || activeView === 'arch-doc')) {
+    if (!hasConversation && (activeView === 'architecture' || activeView === 'governance' || activeView === 'archdoc')) {
       setActiveView('chat');
     }
     // workshop is always accessible — no conversation required
@@ -812,6 +821,8 @@ function AppContent() {
       ? 'SpecWeaver'
       : isLensRoute
       ? 'Lens'
+      : isMemoriaRoute
+      ? 'Memoria'
       : isArchonHomeRoute
       ? 'Archon'
       : activeView === 'home'
@@ -899,12 +910,22 @@ function AppContent() {
           ]
           : []),
       ]
-      : NAV_ITEMS.map(({ key, label, icon }) => ({
+      : isMemoriaRoute
+        ? [
+          {
+            id: 'memoria-home',
+            label: 'Memory',
+            icon: MOBILE_ICON_PATHS.package,
+            active: location.pathname === '/memoria',
+            onClick: () => navigate('/memoria'),
+          },
+        ]
+        : NAV_ITEMS.map(({ key, label, icon }) => ({
         id: key,
         label,
         icon,
         active: activeView === key,
-        disabled: (key === 'architecture' || key === 'governance' || key === 'arch-doc') && !hasConversation,
+        disabled: (key === 'architecture' || key === 'governance' || key === 'archdoc') && !hasConversation,
         onClick: () => handleNavigatePrimaryView(key),
       }));
   const mobileBottomGridClass = mobileBottomNavItems.length >= 5
@@ -936,7 +957,7 @@ function AppContent() {
         <div className="flex-1 min-h-0 overflow-y-auto sidebar-scroll">
           <PillarNav />
           <div className="p-2 flex flex-col gap-1.5">
-            {isSpecWeaverRoute ? (
+            {isMemoriaRoute ? null : isSpecWeaverRoute ? (
               <button
                 onClick={() => {
                   void handleCreateSpecWeaverSession();
@@ -991,7 +1012,21 @@ function AppContent() {
           </div>
 
           <nav className="flex flex-col gap-0.5 px-2 mt-1">
-            {isSpecWeaverRoute ? (
+            {isMemoriaRoute ? (
+              <button
+                onClick={() => {
+                  navigate('/memoria');
+                  setMobileDrawerOpen(false);
+                }}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${activeSidebarNavClass}`}
+                data-testid="nav-memoria-memory"
+              >
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z M5 5.5v15M9 7h6M9 11h6M9 15h4" />
+                </svg>
+                Memory workspace
+              </button>
+            ) : isSpecWeaverRoute ? (
               <button
                 onClick={() => {
                   navigate('/specweaver/sessions');
@@ -1087,7 +1122,7 @@ function AppContent() {
             </div>
           )}
 
-          {!isSpecWeaverRoute && !isLensRoute && hasConversation && (
+          {!isSpecWeaverRoute && !isLensRoute && !isMemoriaRoute && hasConversation && (
             <div className="mx-2 mt-2 rounded-lg border border-sidebar-border bg-sidebar-hover/30">
               <div className="px-3 pt-2 pb-1 flex items-center gap-1.5">
                 <span className={`inline-block w-1.5 h-1.5 rounded-full ${activeSidebarDotClass} shrink-0`} />
@@ -1119,9 +1154,11 @@ function AppContent() {
 
           <div className="mt-3 px-2">
             <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-1.5">
-              {isSpecWeaverRoute ? 'Sessions' : isLensRoute ? 'Reviews' : activeView === 'workshop' ? 'Workshops' : 'History'}
+              {isMemoriaRoute ? 'Memory' : isSpecWeaverRoute ? 'Sessions' : isLensRoute ? 'Reviews' : activeView === 'workshop' ? 'Workshops' : 'History'}
             </h3>
-            {isSpecWeaverRoute ? (
+            {isMemoriaRoute ? (
+              <div className="px-3 py-2 text-[12px] text-gray-500">Project memory, ADRs, and session links</div>
+            ) : isSpecWeaverRoute ? (
               specWeaverSessionsLoading ? (
                 <div className="px-3 py-2 text-[12px] text-gray-500">Loading…</div>
               ) : specWeaverSessionsError ? (
@@ -1509,7 +1546,7 @@ function AppContent() {
                     </span>
                   </div>
                   <nav className="flex flex-col gap-1 px-1 pb-1">
-                    {NAV_ITEMS.filter(({ key }) => key === 'architecture' || key === 'governance' || key === 'arch-doc').map(({ key, label, icon }) => (
+                    {NAV_ITEMS.filter(({ key }) => key === 'architecture' || key === 'governance' || key === 'archdoc').map(({ key, label, icon }) => (
                       <button
                         key={key}
                         onClick={() => {
@@ -1774,6 +1811,12 @@ function AppContent() {
               <Route path="/lens/new" element={<LensReviewPage />} />
               <Route path="/lens/sessions/:sessionId" element={<LensReviewPage />} />
             </Routes>
+          ) : isMemoriaRoute ? (
+            <Routes>
+              <Route path="/memoria" element={<MemoriaHomePage />} />
+              <Route path="/memoria/new" element={<MemoriaNewProjectPage />} />
+              <Route path="/memoria/projects/:projectId" element={<MemoriaWorkspacePage />} />
+            </Routes>
           ) : isArchonHomeRoute ? (
             <ArchonHomePage />
           ) : (
@@ -1789,9 +1832,11 @@ function AppContent() {
                   <div className="max-w-5xl mx-auto"><GovernanceView /></div>
                 </div>
               )}
-              {activeView === 'arch-doc' && (
+              {activeView === 'archdoc' && (
                 <div className="h-full overflow-y-auto">
-                  <ArchDocView />
+                  <div className="max-w-5xl mx-auto">
+                    <ArchDocView />
+                  </div>
                 </div>
               )}
               {activeView === 'workshop' && (
@@ -1852,6 +1897,7 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ThemeToggle />
       <AppContent />
     </BrowserRouter>
   );

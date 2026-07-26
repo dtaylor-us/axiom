@@ -59,7 +59,7 @@ ARCHITECTURE CHARACTERISTICS TO ENFORCE:
 {{ characteristics | tojson(indent=2) }}
 
 MINIMUM ADL BLOCK REQUIREMENT:
-You MUST generate a minimum of 5 ADL blocks and a maximum of 12.
+You MUST generate a minimum of {{ min_adl_blocks }} ADL blocks and a maximum of 20.
 
 A system with multiple services, external integrations, and quality
 characteristics has multiple architectural constraints worth enforcing.
@@ -129,8 +129,8 @@ Service boundary isolation between internal services
 Data ownership enforcement
 Security boundary enforcement
 Any high-severity FMEA risks that can be structurally enforced
-TOTAL BLOCKS REQUIRED: At minimum {{ (canonical_decisions | length) + 3 }}
-Maximum: 12
+TOTAL BLOCKS REQUIRED: At minimum {{ [min_adl_blocks, (canonical_decisions | length) + 3] | max }}
+Maximum: 20
 
 ARCHITECTURE CHARACTERISTICS TO ENFORCE:
 {% for char in characteristics[:5] %}
@@ -139,7 +139,7 @@ Consider whether {{ char.name }} requires an ADL enforcement rule.
 
 ━━━ WHAT TO GENERATE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Generate between 5 and 12 ADL blocks. Each block must:
+Generate between {{ min_adl_blocks }} and 20 ADL blocks. Each block must:
   1. Target one specific architectural concern
   2. Use DEFINE SYSTEM at the top to establish namespace context
   3. Contain at least one ASSERT or FOREACH statement
@@ -167,7 +167,8 @@ Cover these concern categories across the full set of blocks:
 
 ━━━ RETURN FORMAT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Return between 5 and 12 ADL blocks. Do not return fewer than 5.
+Return between {{ min_adl_blocks }} and 20 ADL blocks.
+Do not return fewer than {{ min_adl_blocks }}.
 
 Return a JSON object with a single key "adl_blocks" whose value is
 an array of block objects. No markdown fences, no preamble.

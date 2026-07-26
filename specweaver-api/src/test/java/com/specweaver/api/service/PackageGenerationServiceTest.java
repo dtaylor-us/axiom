@@ -18,8 +18,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronizationUtils;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.ArrayList;
@@ -27,6 +30,8 @@ import java.util.ArrayList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +44,7 @@ class PackageGenerationServiceTest {
     @Mock private GeneratedPackageRepository packageRepository;
     @Mock private SpecWeaverAgentClient agentClient;
     @Mock private BriefFormatter briefFormatter;
+    @Mock private MemoriaNotificationClient memoriaNotificationClient;
     private PackageGenerationService packageGenerationService;
 
     @BeforeEach
@@ -51,7 +57,8 @@ class PackageGenerationServiceTest {
                 agentClient,
                 new ObjectMapper(),
                 new ReadinessScoreService(),
-                briefFormatter);
+                briefFormatter,
+                memoriaNotificationClient);
     }
 
     @Test
@@ -78,6 +85,20 @@ class PackageGenerationServiceTest {
         packageGenerationService.generatePackage(session.getId(), session.getUserId());
 
         verify(agentClient).extract(any());
+    }
+
+    @Test
+    void generatePackage_includesMemoriaContextWhenFetchSucceeds() {
+        Session session = session();
+        stubSuccessfulGeneration(session);
+        when(memoriaNotificationClient.fetchSessionContext(session.getId()))
+                .thenReturn(Optional.of(Map.of("projectId", "p1")));
+
+        packageGenerationService.generatePackage(session.getId(), session.getUserId());
+
+        var captor = forClass(com.specweaver.api.agent.AgentExtractionRequest.class);
+        verify(agentClient).extract(captor.capture());
+        assertEquals("p1", captor.getValue().projectMemoryContext().get("projectId"));
     }
 
     @Test
@@ -176,6 +197,26 @@ class PackageGenerationServiceTest {
                 () -> packageGenerationService.generatePackage(session.getId(), session.getUserId()));
 
         assertEquals(SessionStatus.ACTIVE, session.getStatus());
+    }
+
+    @Test
+    void generatePackage_notifiesMemoriaAfterCommitWhenTransactionIsActive() {
+        Session session = session();
+        stubSuccessfulGeneration(session);
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            packageGenerationService.generatePackage(session.getId(), session.getUserId());
+
+            verify(memoriaNotificationClient, never()).notifySessionReady(any(), any(), any());
+
+            TransactionSynchronizationUtils.triggerAfterCommit();
+
+            verify(memoriaNotificationClient).notifySessionReady(any(), any(), any());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test

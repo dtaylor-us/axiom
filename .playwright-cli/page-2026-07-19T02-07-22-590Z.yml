@@ -1,0 +1,71 @@
+- generic [ref=e2]:
+  - button "Switch to dark mode" [ref=e3]
+  - generic [ref=e34]:
+    - complementary [ref=e35]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: Axiom
+        - generic [ref=e44]: Architecture Intelligence
+      - generic [ref=e45]:
+        - navigation "Platform pillars" [ref=e46]:
+          - paragraph [ref=e48]: Platform pillars
+          - generic [ref=e49]:
+            - link "SpecWeaver Requirements Intelligence" [ref=e50] [cursor=pointer]:
+              - /url: /specweaver
+              - generic [ref=e57]:
+                - generic [ref=e58]: SpecWeaver
+                - generic [ref=e59]: Requirements Intelligence
+            - link "Archon Architecture Reasoning" [ref=e60] [cursor=pointer]:
+              - /url: /archon
+              - generic [ref=e68]:
+                - generic [ref=e69]: Archon
+                - generic [ref=e70]: Architecture Reasoning
+            - link "Lens Architecture Review Intelligence" [ref=e71] [cursor=pointer]:
+              - /url: /lens
+              - generic [ref=e77]:
+                - generic [ref=e78]: Lens
+                - generic [ref=e79]: Architecture Review Intelligence
+            - link "Memoria Project Memory" [ref=e80] [cursor=pointer]:
+              - /url: /memoria
+              - generic [ref=e86]:
+                - generic [ref=e87]: Memoria
+                - generic [ref=e88]: Project Memory
+        - button "New architecture review" [ref=e116]
+        - navigation [ref=e93]:
+          - button "Reviews" [ref=e117]
+        - generic [ref=e103]:
+          - heading "Reviews" [level=3] [ref=e120]
+          - generic [ref=e105]: Loading...
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - generic [ref=e108]: G
+          - generic [ref=e110]: Guest
+        - button "Sign out" [ref=e111]
+    - main [ref=e114]:
+      - generic [ref=e191]:
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - generic [ref=e194]: Lens
+            - heading "Untitled review" [level=1] [ref=e199]
+            - paragraph [ref=e200]: Lens gap elicitation never blocks progress. Unresolved gaps become findings.
+            - generic [ref=e201]:
+              - generic [ref=e202]: Session 8de6b7e6-e0bf-4c90-87fc-dbf9c21579a8
+              - button "Copy Lens session ID" [ref=e203]:
+                - generic [ref=e207]: Copy session ID
+              - button "Link to Memoria" [ref=e208]
+          - generic [ref=e209]: EVIDENCE_COLLECTION
+        - generic [ref=e211]:
+          - generic [ref=e212]:
+            - text: Session title
+            - textbox [ref=e213]
+          - generic [ref=e214]:
+            - text: System description
+            - textbox [ref=e215]
+          - button "Save details" [ref=e217]
+          - paragraph [ref=e220]: No evidence submitted yet.
+          - generic [ref=e221]:
+            - button "Add Evidence" [ref=e222]
+            - button "Generate gap questions" [disabled] [ref=e223]
+        - generic [ref=e224]:
+          - heading "Status and report" [level=2] [ref=e225]
+          - paragraph [ref=e226]: Loading session…
+          - generic [ref=e227]: The completed report appears here after review finalization.

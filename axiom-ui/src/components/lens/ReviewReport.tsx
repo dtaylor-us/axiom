@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 
 import type { ReviewReport as LensReviewReport } from '../../api/lens';
 import type { ReviewRisk } from '../../api/lens';
+import { MarkdownExportActions } from '../StructuredData';
+import { buildLensReportMarkdown, lensReportMarkdownFilename } from '../../views/lens/lensMarkdown';
 
 type TabId = 'overview' | 'waf' | 'atam' | 'sei' | 'structural' | 'risks' | 'recommendations';
 
@@ -145,9 +147,18 @@ export function ReviewReport({ report }: { report: LensReviewReport }) {
   const atam = asRecord(report.atamAnalysis);
   const sei = pickRecord(asRecord(report.seiAnalysis), ['attributes']);
   const structural = asRecord(report.structuralAnalysis);
+  const reportMarkdown = useMemo(() => buildLensReportMarkdown(report), [report]);
 
   return (
     <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-3 sm:p-4" data-testid="lens-review-report">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+        <h3 className="text-sm font-semibold text-gray-900">Review report</h3>
+        <MarkdownExportActions
+          markdown={reportMarkdown}
+          markdownFilename={lensReportMarkdownFilename(report)}
+          copyButtonTitle="Copy Lens report as Markdown"
+        />
+      </div>
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {TABS.map((tab) => (
           <button

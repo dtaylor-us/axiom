@@ -22,11 +22,14 @@ import {
   type ReviewReport,
   type ReviewSession,
 } from '../../api/lens';
+import { CopyButton } from '../../components/CopyButton';
+import { MarkdownExportActions } from '../../components/StructuredData';
 import { PillarBadge } from '../../components/PillarBadge';
 import { ReviewReport as ReviewReportView } from '../../components/lens/ReviewReport';
 import { StageProgress } from '../../components/StageProgress';
 import { useStore } from '../../store/useStore';
 import type { StageState, StageStatus } from '../../types/api';
+import { buildLensStatusMarkdown, lensStatusMarkdownFilename } from './lensMarkdown';
 
 const LENS_STAGE_NAMES = [
   'evidence_parsing',
@@ -101,12 +104,15 @@ export function LensReviewPage() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [savingSession, setSavingSession] = useState(false);
   const [startingReview, setStartingReview] = useState(false);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
   const [inReviewStageIndex, setInReviewStageIndex] = useState(0);
+  const [createAttempt, setCreateAttempt] = useState(0);
 
   const [showEvidenceModal, setShowEvidenceModal] = useState(false);
   const [evidenceType, setEvidenceType] = useState<EvidenceType>('TEXT_DESCRIPTION');
   const [evidenceContent, setEvidenceContent] = useState('');
   const [sourceLabel, setSourceLabel] = useState('');
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftDescription, setDraftDescription] = useState('');
 
@@ -121,9 +127,17 @@ export function LensReviewPage() {
     if (!sessionId || location.pathname.endsWith('/new')) {
       if (creatingRef.current) return;
       creatingRef.current = true;
-      void createReviewSession(token, 'Untitled review', '').then((created) => {
-        navigate(`/lens/sessions/${created.id}`, { replace: true });
-      });
+      setLoading(true);
+      setErrorMessage(null);
+      void createReviewSession(token, 'Untitled review', '')
+        .then((created) => {
+          navigate(`/lens/sessions/${created.id}`, { replace: true });
+        })
+        .catch((error: unknown) => {
+          setErrorMessage(error instanceof Error ? error.message : 'Failed to create the Lens review.');
+          creatingRef.current = false;
+        })
+        .finally(() => setLoading(false));
       return;
     }
 
@@ -151,7 +165,7 @@ export function LensReviewPage() {
         setErrorMessage(error instanceof Error ? error.message : 'Failed to load Lens session.');
       })
       .finally(() => setLoading(false));
-  }, [location.pathname, navigate, sessionId, token]);
+  }, [createAttempt, location.pathname, navigate, sessionId, token]);
 
   const hasSessionEdits = useMemo(
     () => draftTitle.trim() !== session.title || draftDescription !== (session.systemDescription ?? ''),
@@ -191,17 +205,28 @@ export function LensReviewPage() {
     [inReviewStageIndex, session.status],
   );
 
+  const statusMarkdown = useMemo(() => buildLensStatusMarkdown({
+    session,
+    evidence,
+    questions,
+    assessment,
+  }), [assessment, evidence, questions, session]);
+
   const canGenerateQuestions = evidence.length > 0
     && (session.status === 'EVIDENCE_COLLECTION' || session.status === 'GAP_ELICITATION');
 
   const handleSaveSessionDetails = async () => {
     if (!token || !sessionId) return;
+    if (!draftTitle.trim()) {
+      setErrorMessage('Session title is required.');
+      return;
+    }
     setErrorMessage(null);
     setSaveMessage(null);
     setSavingSession(true);
     try {
       const updated = await updateReviewSession(token, sessionId, {
-        title: draftTitle,
+        title: draftTitle.trim(),
         systemDescription: draftDescription,
       });
       setSession(updated);
@@ -218,12 +243,14 @@ export function LensReviewPage() {
   const handleSubmitEvidence = async () => {
     if (!token || !sessionId) return;
     if (!evidenceContent.trim()) {
-      setErrorMessage('Evidence content is required.');
+      setEvidenceError('Evidence content is required.');
       return;
     }
 
     try {
       setErrorMessage(null);
+      setEvidenceError(null);
+      setActiveAction('submit-evidence');
       const created = await submitEvidence(token, sessionId, {
         evidenceType,
         content: evidenceContent,
@@ -236,13 +263,16 @@ export function LensReviewPage() {
       const latest = await getReviewSession(token, sessionId);
       setSession(latest);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to submit evidence.');
+      setEvidenceError(error instanceof Error ? error.message : 'Failed to submit evidence.');
+    } finally {
+      setActiveAction(null);
     }
   };
 
   const handleGenerateGaps = async () => {
     if (!token || !sessionId) return;
     setErrorMessage(null);
+    setActiveAction('generate-gaps');
     try {
       const generated = await generateGapQuestions(token, sessionId);
       setQuestions(generated);
@@ -252,26 +282,37 @@ export function LensReviewPage() {
       setAssessmentMessage(null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to generate gap questions.');
+    } finally {
+      setActiveAction(null);
     }
   };
 
   const handleSubmitAnswers = async () => {
     if (!token || !sessionId) return;
-    const updates = questions.map(async (question) => {
-      const answer = answersDraft[question.id] ?? question.answer ?? '';
-      const skip = skipped[question.id] === true;
-      if (!skip && answer.trim().length === 0) return null;
-      return answerGapQuestion(token, sessionId, question.id, skip ? '' : answer, skip);
-    });
+    setErrorMessage(null);
+    setActiveAction('submit-answers');
+    try {
+      const updates = questions.map(async (question) => {
+        const answer = answersDraft[question.id] ?? question.answer ?? '';
+        const skip = skipped[question.id] === true;
+        if (!skip && answer.trim().length === 0) return null;
+        return answerGapQuestion(token, sessionId, question.id, skip ? '' : answer.trim(), skip);
+      });
 
-    await Promise.all(updates.filter((update): update is Promise<GapQuestion> => update !== null));
-    const refreshed = await listGapQuestions(token, sessionId).catch(() => questions);
-    setQuestions(refreshed);
+      await Promise.all(updates.filter((update): update is Promise<GapQuestion> => update !== null));
+      setQuestions(await listGapQuestions(token, sessionId));
+      setSaveMessage('Gap answers saved.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to submit gap answers.');
+    } finally {
+      setActiveAction(null);
+    }
   };
 
   const handleAssess = async () => {
     if (!token || !sessionId) return;
     setErrorMessage(null);
+    setActiveAction('assess-gaps');
     try {
       const result = await assessGaps(token, sessionId);
       setAssessment(result);
@@ -280,25 +321,38 @@ export function LensReviewPage() {
       setSession(latest);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to assess gap resolution.');
+    } finally {
+      setActiveAction(null);
     }
   };
 
   const handleProceed = async () => {
     if (!token || !sessionId) return;
     setErrorMessage(null);
+    setActiveAction('proceed');
     try {
       await forceProceed(token, sessionId);
       const latest = await getReviewSession(token, sessionId);
       setSession(latest);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to proceed.');
+    } finally {
+      setActiveAction(null);
     }
   };
 
   const handleDeleteEvidence = async (evidenceId: string) => {
     if (!token || !sessionId) return;
-    await deleteEvidence(token, sessionId, evidenceId);
-    setEvidence((current) => current.filter((item) => item.id !== evidenceId));
+    setErrorMessage(null);
+    setActiveAction(`delete-${evidenceId}`);
+    try {
+      await deleteEvidence(token, sessionId, evidenceId);
+      setEvidence((current) => current.filter((item) => item.id !== evidenceId));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to delete evidence.');
+    } finally {
+      setActiveAction(null);
+    }
   };
 
   const handleStartReview = async () => {
@@ -330,6 +384,19 @@ export function LensReviewPage() {
           <PillarBadge pillar="lens" />
           <h1 className="mt-2 text-xl font-semibold text-gray-900">{session.title || 'Untitled review'}</h1>
           <p className="text-sm text-gray-600">Lens gap elicitation never blocks progress. Unresolved gaps become findings.</p>
+          {sessionId && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+              <span className="min-w-0 truncate font-mono">Session {sessionId}</span>
+              <CopyButton text={sessionId} label="Copy session ID" title="Copy Lens session ID" />
+              <button
+                type="button"
+                className="rounded-md border border-gray-200 px-2 py-1 font-semibold text-[var(--color-pillar-memoria-text)] hover:bg-gray-50"
+                onClick={() => navigate(`/memoria?linkPillar=LENS&linkSessionId=${encodeURIComponent(sessionId)}`)}
+              >
+                Link to Memoria
+              </button>
+            </div>
+          )}
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(session.status)}`}>
           {session.status}
@@ -339,6 +406,16 @@ export function LensReviewPage() {
       {errorMessage && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}
+          {!sessionId && location.pathname.endsWith('/new') && (
+            <button
+              type="button"
+              className="ml-3 rounded-md border border-red-300 px-2 py-1 font-semibold hover:bg-red-100"
+              onClick={() => setCreateAttempt((current) => current + 1)}
+              disabled={loading}
+            >
+              Retry creating review
+            </button>
+          )}
         </div>
       )}
 
@@ -356,6 +433,7 @@ export function LensReviewPage() {
               className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               value={draftTitle}
               onChange={(event) => setDraftTitle(event.target.value)}
+              disabled={!sessionId}
             />
           </div>
           <div>
@@ -364,6 +442,7 @@ export function LensReviewPage() {
               className="mt-2 min-h-32 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm sm:min-h-40"
               value={draftDescription}
               onChange={(event) => setDraftDescription(event.target.value)}
+              disabled={!sessionId}
             />
           </div>
           <div className="flex justify-end">
@@ -371,7 +450,7 @@ export function LensReviewPage() {
               type="button"
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
               onClick={() => void handleSaveSessionDetails()}
-              disabled={!hasSessionEdits || savingSession}
+              disabled={!sessionId || !hasSessionEdits || savingSession}
             >
               {savingSession ? 'Saving...' : 'Save details'}
             </button>
@@ -390,8 +469,9 @@ export function LensReviewPage() {
                       type="button"
                       className="self-start text-xs font-semibold text-red-600 sm:self-auto"
                       onClick={() => void handleDeleteEvidence(item.id)}
+                      disabled={activeAction === `delete-${item.id}`}
                     >
-                      Delete
+                      {activeAction === `delete-${item.id}` ? 'Deleting…' : 'Delete'}
                     </button>
                   </div>
                   <p className="mt-2 whitespace-pre-wrap break-words text-gray-700">{item.content}</p>
@@ -409,7 +489,11 @@ export function LensReviewPage() {
             <button
               type="button"
               className="rounded-lg bg-[var(--color-pillar-lens)] px-3 py-2 text-sm font-semibold text-white"
-              onClick={() => setShowEvidenceModal(true)}
+              onClick={() => {
+                setEvidenceError(null);
+                setShowEvidenceModal(true);
+              }}
+              disabled={!sessionId}
             >
               Add Evidence
             </button>
@@ -417,9 +501,9 @@ export function LensReviewPage() {
               type="button"
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold"
               onClick={() => void handleGenerateGaps()}
-              disabled={!canGenerateQuestions}
+              disabled={!canGenerateQuestions || activeAction !== null}
             >
-              Generate gap questions
+              {activeAction === 'generate-gaps' ? 'Generating…' : 'Generate gap questions'}
             </button>
           </div>
         </section>
@@ -486,25 +570,25 @@ export function LensReviewPage() {
               type="button"
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold"
               onClick={() => void handleSubmitAnswers()}
-              disabled={questions.length === 0}
+              disabled={questions.length === 0 || activeAction !== null}
             >
-              Submit answers
+              {activeAction === 'submit-answers' ? 'Submitting…' : 'Submit answers'}
             </button>
             <button
               type="button"
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold"
               onClick={() => void handleAssess()}
-              disabled={questions.length === 0}
+              disabled={questions.length === 0 || activeAction !== null}
             >
-              Assess gaps
+              {activeAction === 'assess-gaps' ? 'Assessing…' : 'Assess gaps'}
             </button>
             <button
               type="button"
               className="text-sm font-semibold text-[var(--color-pillar-lens)]"
               onClick={() => void handleProceed()}
-              disabled={questions.length === 0}
+              disabled={questions.length === 0 || activeAction !== null}
             >
-              Proceed anyway
+              {activeAction === 'proceed' ? 'Proceeding…' : 'Proceed anyway'}
             </button>
           </div>
         </section>
@@ -513,7 +597,14 @@ export function LensReviewPage() {
       </div>
 
       <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-          <h2 className="text-sm font-semibold text-gray-900">Status and report</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-gray-900">Status and report</h2>
+            <MarkdownExportActions
+              markdown={statusMarkdown}
+              markdownFilename={lensStatusMarkdownFilename(session)}
+              copyButtonTitle="Copy Lens status as Markdown"
+            />
+          </div>
           {loading && <p className="text-sm text-gray-600">Loading session…</p>}
 
           {session.status === 'READY_FOR_REVIEW' && (
@@ -572,11 +663,17 @@ export function LensReviewPage() {
               onChange={(event) => setSourceLabel(event.target.value)}
               placeholder="Source label (optional)"
             />
+            {evidenceError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+                {evidenceError}
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold"
                 onClick={() => setShowEvidenceModal(false)}
+                disabled={activeAction === 'submit-evidence'}
               >
                 Cancel
               </button>
@@ -584,8 +681,9 @@ export function LensReviewPage() {
                 type="button"
                 className="rounded-lg bg-[var(--color-pillar-lens)] px-3 py-2 text-sm font-semibold text-white"
                 onClick={() => void handleSubmitEvidence()}
+                disabled={activeAction === 'submit-evidence'}
               >
-                Submit evidence
+                {activeAction === 'submit-evidence' ? 'Submitting…' : 'Submit evidence'}
               </button>
             </div>
           </div>

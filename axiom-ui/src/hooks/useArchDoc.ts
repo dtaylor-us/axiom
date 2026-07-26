@@ -1,99 +1,89 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { getDiagramByType } from '../api/architecture';
+import { listSessions } from '../api/sessions';
 import { useStore } from '../store/useStore';
 import { useArchitecture } from './useArchitecture';
 import { useGovernance } from './useGovernance';
 import { useTactics } from './useTactics';
 import { useBuyVsBuild } from './useBuyVsBuild';
 import type {
-  Component,
-  Interaction,
-  FmeaEntry,
-  AdlRule,
-  Weakness,
-  BuyVsBuildDecision,
-  TradeOffDecision,
   AdlDocument,
+  AdlRule,
+  BuyVsBuildDecision,
+  Component,
+  FmeaEntry,
   ImprovementRecommendation,
+  Interaction,
   TacticRecommendation,
+  TradeOffDecision,
+  Weakness,
 } from '../types/api';
 
-// ---------------------------------------------------------------------------
-// ADL field compatibility
-// ---------------------------------------------------------------------------
-// The Python archon-agent serialises AdlBlock with field "adl_id", but the
-// TypeScript AdlRule interface (and older pipeline versions) uses "rule_id".
-// This helper reads whichever key is present so the UI is resilient to both.
-type RawAdlRule = AdlRule & Record<string, unknown>;
+type SloTarget = { characteristic: string; target: string; tactic: string };
+type QaScenario = { stimulus: string; response: string; measures: string; characteristic: string };
 
-function resolveAdlId(r: RawAdlRule): string {
-  return (r.rule_id || (r['adl_id'] as string) || '').trim();
-}
+const STYLE_DEFAULTS: Record<string, string[]> = {
+  microservices: ['scalability', 'deployability', 'maintainability', 'reliability'],
+  eventdriven: ['scalability', 'availability', 'performance', 'reliability'],
+  layered: ['maintainability', 'testability', 'modularity'],
+  serviceoriented: ['interoperability', 'scalability', 'reusability'],
+  serverless: ['scalability', 'cost', 'availability'],
+  monolith: ['simplicity', 'maintainability', 'deployability'],
+};
 
-function resolveAdlSubject(r: RawAdlRule): string {
-  if (r.subject) return r.subject;
-  const meta = r['metadata'] as Record<string, unknown> | undefined;
-  return (meta?.['description'] as string) || '';
-}
+const STYLE_IMPLIED_SLOS: Record<string, SloTarget[]> = {
+  microservices: [
+    { characteristic: 'Availability', target: '>= 99.9% per service', tactic: 'Define per-service SLA' },
+    { characteristic: 'Latency', target: 'p99 < 500ms', tactic: 'Set gateway timeout policy' },
+  ],
+  eventdriven: [
+    { characteristic: 'Throughput', target: 'Define events/sec target', tactic: 'Capacity plan message broker' },
+    { characteristic: 'Availability', target: '>= 99.9% broker uptime', tactic: 'Message broker redundancy' },
+  ],
+};
 
-function resolveAdlStatement(r: RawAdlRule): string {
-  if (r.statement) return r.statement;
-  return (r['adl_source'] as string) || '';
-}
+const CORE_COMPONENT_KEYWORDS = [
+  'gateway',
+  'broker',
+  'database',
+  'cache',
+  'auth',
+  'identity',
+  'store',
+  'registry',
+];
 
-function resolveAdlCategory(r: RawAdlRule): string {
-  if (r.category) return r.category;
-  return (r['characteristic_enforced'] as string) || '';
-}
-
-function resolveAdlRationale(r: RawAdlRule): string {
-  if (r.rationale) return r.rationale;
-  const meta = r['metadata'] as Record<string, unknown> | undefined;
-  return (meta?.['prompt'] as string) || '';
-}
-
-function resolveAdlSource(r: RawAdlRule): string {
-  return (r['adl_source'] as string) || '';
-}
-
-function resolveAdlEnforcement(r: RawAdlRule): string {
-  return (r['enforcement_level'] as string) || r.validation_hint?.enforcement_level || 'soft';
-}
-
-// ---------------------------------------------------------------------------
-// Public interface
-// ---------------------------------------------------------------------------
+export type RawAdlRule = AdlRule & Record<string, unknown>;
 
 export interface ArchDocData {
   systemTitle: string;
   systemDescription: string;
   conversationTitle: string;
-  stakeholderConcerns: { role: string; concerns: string[] }[];
+  stakeholderConcerns: { characteristic: string; concern: string }[];
   glossaryTerms: { term: string; definition: string }[];
-  sloTargets: { characteristic: string; target: string; tactic: string }[];
 
   componentDiagram: string | null;
   deploymentDiagram: string | null;
   components: Component[];
   fmeaByComponent: Record<string, FmeaEntry[]>;
-  moduleAdlRules: AdlRule[];
+  moduleAdlRules: RawAdlRule[];
 
   sequencePrimaryDiagram: string | null;
   sequenceErrorDiagram: string | null;
   interactions: Interaction[];
-  scenarios: { stimulus: string; response: string; measures: string; characteristic: string }[];
-  connectorAdlRules: AdlRule[];
+  scenarios: QaScenario[];
+  connectorAdlRules: RawAdlRule[];
+  sloTargets: SloTarget[];
 
   buyVsBuildDecisions: BuyVsBuildDecision[];
-  buildSequence: { component: string; phase: number; reason: string; owner: string }[];
-  allocationAdlRules: AdlRule[];
+  allocationAdlRules: RawAdlRule[];
 
   adlDocument: AdlDocument | null;
-  allAdlRules: AdlRule[];
+  allAdlRules: RawAdlRule[];
   weaknesses: Weakness[];
   fmeaAll: FmeaEntry[];
   improvementRecommendations: ImprovementRecommendation[];
   tradeOffs: TradeOffDecision[];
-  tactics: TacticRecommendation[];
 
   fullPackageMarkdown: string;
   overviewMarkdown: string;
@@ -108,10 +98,6 @@ export interface ArchDocData {
   hasData: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function slugifyTitle(title: string): string {
   return title
     .toLowerCase()
@@ -120,132 +106,180 @@ function slugifyTitle(title: string): string {
 }
 
 function getCurrentDate(): string {
-  return new Date().toISOString().split('T')[0];
+  const now = new Date();
+  return now.toISOString().split('T')[0];
 }
 
-/** Derive meaningful system title from the architecture style and domain. */
-function resolveSystemTitle(style: string, domain: string, conversationId: string): string {
-  if (domain && domain.toLowerCase() !== 'unknown') return domain;
-  if (style && style.toLowerCase() !== 'unknown') return `${style} System`;
-  return conversationId ? `Architecture ${conversationId.slice(0, 8)}` : 'Architecture';
+function normaliseComponentName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s+(service|component|module|system|layer|api|gateway)$/, '')
+    .replace(/[^a-z0-9]/g, '');
 }
 
-/** Map stakeholder roles to characteristics they care about. */
-const ROLE_CHARACTERISTIC_PATTERNS: { role: string; patterns: string[] }[] = [
-  { role: 'Development team', patterns: ['maintainability', 'testability', 'deployability', 'modularity', 'simplicity', 'agility'] },
-  { role: 'Operations team', patterns: ['availability', 'recoverability', 'reliability', 'fault_tolerance', 'observability', 'operational'] },
-  { role: 'Security team', patterns: ['security', 'auth', 'compliance', 'audit', 'encryption', 'confidentiality'] },
-  { role: 'Product owners', patterns: ['scalability', 'performance', 'usability', 'functionality', 'business', 'cost', 'time_to_market'] },
-  { role: 'Architects', patterns: ['extensibility', 'evolvability', 'interoperability', 'portability', 'elasticity'] },
-];
-
-function buildStakeholderConcerns(
-  characteristics: string[],
-): { role: string; concerns: string[] }[] {
-  const roleMap = new Map<string, Set<string>>();
-  ROLE_CHARACTERISTIC_PATTERNS.forEach(({ role, patterns }) => {
-    characteristics.forEach((c) => {
-      const lower = c.toLowerCase();
-      if (patterns.some((p) => lower.includes(p))) {
-        if (!roleMap.has(role)) roleMap.set(role, new Set());
-        roleMap.get(role)!.add(c);
-      }
-    });
-  });
-  // Ensure every characteristic is assigned to at least Product owners
-  const assigned = new Set(Array.from(roleMap.values()).flatMap((s) => Array.from(s)));
-  characteristics.forEach((c) => {
-    if (!assigned.has(c)) {
-      if (!roleMap.has('Product owners')) roleMap.set('Product owners', new Set());
-      roleMap.get('Product owners')!.add(c);
-    }
-  });
-  return Array.from(roleMap.entries())
-    .map(([role, concerns]) => ({ role, concerns: Array.from(concerns) }))
-    .sort((a, b) => a.role.localeCompare(b.role));
+function getStyleKey(style: string): string {
+  return (style || '').toLowerCase().replace(/[^a-z]/g, '');
 }
 
-/**
- * Extract SLO targets from tactics and trade-offs.
- * Tactics with measurable concreteApplication descriptions provide the targets.
- */
+function findStyleDefaults(architectureStyle: string): string[] {
+  const styleKey = getStyleKey(architectureStyle);
+  return Object.entries(STYLE_DEFAULTS).find(([key]) => styleKey.includes(key))?.[1] ?? [];
+}
+
+function cleanString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+export function resolveAdlSubject(r: RawAdlRule): string {
+  const subject = cleanString(r.subject);
+  if (subject) return subject;
+  const title = cleanString(r.title);
+  if (title) return title;
+  const constraint = cleanString(r.constraint);
+  if (constraint) return constraint;
+  const statement = cleanString(r.statement);
+  if (statement) return statement.split('.').slice(0, 1).join('.');
+  return 'Architecture Constraint';
+}
+
+export function resolveAdlRationale(r: RawAdlRule): string {
+  return cleanString(r.rationale) || cleanString(r.justification);
+}
+
+export function resolveAdlCategory(r: RawAdlRule): string {
+  return cleanString(r.category) || cleanString(r.characteristic_enforced) || 'general';
+}
+
+export function resolveAdlEnforcement(r: RawAdlRule): string {
+  return cleanString(r.enforcement_level) || cleanString(r.validation_hint?.enforcement_level) || 'soft';
+}
+
+export function resolveAdlId(r: RawAdlRule, index?: number): string {
+  const id = cleanString(r.rule_id) || cleanString(r.adl_id);
+  if (id) return id;
+  const subject = resolveAdlSubject(r);
+  if (subject.length > 3) {
+    const stable = subject.slice(0, 6).toUpperCase().replace(/[^A-Z0-9]/g, '-');
+    return stable || (index !== undefined ? `ADL-${String(index + 1).padStart(3, '0')}` : 'ADL-???');
+  }
+  return index !== undefined ? `ADL-${String(index + 1).padStart(3, '0')}` : 'ADL-???';
+}
+
+function resolveSystemTitle(style: string, conversationTitle: string): string {
+  const title = cleanString(conversationTitle);
+  if (title && title.toLowerCase() !== 'new conversation') {
+    return title;
+  }
+  const trimmedStyle = cleanString(style);
+  if (trimmedStyle && trimmedStyle.toLowerCase() !== 'unknown') {
+    return `${trimmedStyle} System`;
+  }
+  return 'Architecture Analysis';
+}
+
+function extractAdlRules(adl: AdlDocument | null): RawAdlRule[] {
+  if (!adl) return [];
+  const adlWithBlocks = adl as AdlDocument & { adl_blocks?: RawAdlRule[]; rules?: RawAdlRule[] };
+  const rules = Array.isArray(adlWithBlocks.rules) ? adlWithBlocks.rules : [];
+  const blocks = Array.isArray(adlWithBlocks.adl_blocks) ? adlWithBlocks.adl_blocks : [];
+  if (rules.length > 0) return rules;
+  return blocks;
+}
+
+function buildStakeholderConcerns(characteristics: string[]): { characteristic: string; concern: string }[] {
+  const unique = Array.from(new Set(characteristics.map((c) => c.trim()).filter((c) => c.length > 2)));
+  return unique.map((characteristic) => ({
+    characteristic,
+    concern: `${characteristic} requirements are satisfied consistently.`,
+  }));
+}
+
+function extractMeasureFromText(text: string): string {
+  const match = text.match(/([<>]=?\s*\d+(?:\.\d+)?\s*(?:ms|s|sec|seconds?|minutes?|hours?|%|rps|rpm|qps))/i);
+  return match?.[1] ?? '';
+}
+
 function buildSloTargets(
   tactics: TacticRecommendation[],
   tradeOffs: TradeOffDecision[],
-): { characteristic: string; target: string; tactic: string }[] {
-  const seen = new Set<string>();
-  const targets: { characteristic: string; target: string; tactic: string }[] = [];
+  architectureStyle: string,
+): SloTarget[] {
+  const targets: SloTarget[] = [];
 
-  // Extract measurable targets from tactic concrete applications
   tactics
-    .filter((t) => t.priority === 'critical' && !t.alreadyAddressed)
+    .filter((t) => t.priority === 'critical')
     .forEach((t) => {
-      const app = t.concreteApplication || '';
-      // Look for patterns like "< 200ms", ">= 99.9%", "within 5 minutes"
-      const hasTarget = /[\d.]+\s*(ms|seconds?|minutes?|hours?|%|rpm|rps|tps)/i.test(app);
-      const key = `${t.characteristicName}:${t.tacticName}`;
-      if (!seen.has(key) && (hasTarget || app.length > 20)) {
-        seen.add(key);
-        targets.push({
-          characteristic: t.characteristicName,
-          target: hasTarget ? app.replace(/\n/g, ' ').slice(0, 120) : 'See tactic implementation',
-          tactic: t.tacticName,
-        });
-      }
+      const measure = extractMeasureFromText(t.concreteApplication || '');
+      if (!measure) return;
+      targets.push({
+        characteristic: t.characteristicName || 'Quality',
+        target: measure,
+        tactic: t.tacticName || 'Tactic',
+      });
     });
 
-  // Fill from trade-offs where measurable context exists
-  tradeOffs.forEach((to) => {
-    (to.optimises_characteristics ?? []).forEach((c) => {
-      const key = `tradeoff:${c}`;
-      if (!seen.has(key)) {
-        seen.add(key);
+  if (targets.length === 0 && tradeOffs.length > 0) {
+    tradeOffs.slice(0, 5).forEach((decision) => {
+      if (!decision.acceptable_because || decision.acceptable_because.length <= 10) return;
+      (decision.optimises_characteristics ?? []).slice(0, 1).forEach((characteristic) => {
         targets.push({
-          characteristic: c,
-          target: to.acceptable_because || to.recommendation,
-          tactic: `Trade-off: ${to.decision_id}`,
+          characteristic: characteristic || 'Quality',
+          target: decision.acceptable_because || '',
+          tactic: `Trade-off ${decision.decision_id}`,
         });
-      }
+      });
     });
-  });
+  }
 
-  return targets.slice(0, 15);
+  if (targets.length === 0) {
+    const styleKey = getStyleKey(architectureStyle);
+    const implied = Object.entries(STYLE_IMPLIED_SLOS).find(([key]) => styleKey.includes(key))?.[1] ?? [];
+    implied.forEach((item) => {
+      targets.push({
+        characteristic: item.characteristic,
+        tactic: item.tactic,
+        target: `[Placeholder - define actual target] ${item.target}`,
+      });
+    });
+  }
+
+  return targets.slice(0, 8);
 }
 
-/**
- * Build QA scenarios from tactics instead of using interaction proxies.
- * Each critical tactic defines a real quality scenario.
- */
 function buildQaScenarios(
   tactics: TacticRecommendation[],
   interactions: Interaction[],
-): { stimulus: string; response: string; measures: string; characteristic: string }[] {
-  const scenarios: { stimulus: string; response: string; measures: string; characteristic: string }[] = [];
-
-  // Prefer tactic-derived scenarios for critical tactics
+  components: Component[],
+): QaScenario[] {
+  const scenarios: QaScenario[] = [];
   const criticalTactics = tactics.filter((t) => t.priority === 'critical');
-  criticalTactics.slice(0, 8).forEach((t) => {
-    const app = t.concreteApplication || '';
-    const examples = t.implementationExamples || [];
-    // Extract a measurable target if present, otherwise use the application description
-    const measureMatch = app.match(/([\d.]+\s*(ms|seconds?|minutes?|hours?|%|rpm|rps|tps)[^.]*\.?)/i);
-    const measure = measureMatch?.[0] || (app.slice(0, 80) + (app.length > 80 ? '…' : ''));
+
+  criticalTactics.slice(0, 8).forEach((tactic) => {
+    const application = tactic.concreteApplication || '';
+    const targetComponent = components.find((component) =>
+      application.toLowerCase().includes(component.name.toLowerCase()) ||
+      component.responsibility.toLowerCase().includes((tactic.characteristicName || '').toLowerCase()),
+    );
+
+    const componentRef = targetComponent?.name || 'the system';
+    const measure = extractMeasureFromText(application);
+    const example = tactic.implementationExamples[0] || application.slice(0, 120);
+
     scenarios.push({
-      characteristic: t.characteristicName,
-      stimulus: `System receives load / event affecting **${t.characteristicName}**`,
-      response: `Apply ${t.tacticName}: ${examples[0] || app.slice(0, 60)}`,
-      measures: measure || 'Meets defined SLO threshold',
+      characteristic: tactic.characteristicName || 'Quality',
+      stimulus: `A user request or load event arrives at ${componentRef}.`,
+      response: `${componentRef} applies ${tactic.tacticName}: ${example}`,
+      measures: measure || `${tactic.characteristicName || 'Quality'} SLO is met`,
     });
   });
 
-  // Fall back to interaction-based scenarios if tactics are sparse
-  if (scenarios.length < 3) {
-    interactions.slice(0, 5).forEach((i) => {
+  if (scenarios.length === 0) {
+    interactions.slice(0, 5).forEach((interaction) => {
       scenarios.push({
-        characteristic: 'runtime quality',
-        stimulus: `${i.from} initiates ${i.protocol} call to ${i.to}`,
-        response: `${i.to} processes request: ${i.purpose}`,
-        measures: 'Completes within agreed SLA; circuit breaker engaged on failure',
+        characteristic: interaction.purpose || 'Runtime quality',
+        stimulus: `Traffic reaches ${interaction.from}.`,
+        response: `${interaction.from} calls ${interaction.to} over ${interaction.protocol || 'runtime protocol'}.`,
+        measures: 'Measurable target to be defined',
       });
     });
   }
@@ -253,67 +287,80 @@ function buildQaScenarios(
   return scenarios;
 }
 
-/**
- * Determine build sequence using three phases:
- * phase 1 = external/buy/adopt items first, phase 2 = core dependencies, phase 3 = feature components.
- */
 function buildConstructionSequence(
   components: Component[],
-  buyVsBuildDecisions: BuyVsBuildDecision[],
   interactions: Interaction[],
-): { component: string; phase: number; reason: string; owner: string }[] {
-  // Determine recommendation per component
+  buyVsBuildDecisions: BuyVsBuildDecision[],
+): { component: string; phase: number; owner: string; reason: string }[] {
+  const dependencyCountByNormalisedName = new Map<string, number>();
+  interactions.forEach((interaction) => {
+    const toKey = normaliseComponentName(interaction.to);
+    dependencyCountByNormalisedName.set(toKey, (dependencyCountByNormalisedName.get(toKey) ?? 0) + 1);
+  });
+
   const decisionMap = new Map<string, BuyVsBuildDecision>();
-  buyVsBuildDecisions.forEach((d) => {
-    decisionMap.set(d.componentName.toLowerCase(), d);
+  buyVsBuildDecisions.forEach((decision) => {
+    decisionMap.set(normaliseComponentName(decision.componentName), decision);
   });
 
-  // Count how many outbound dependencies each component has
-  const dependedOnCount = new Map<string, number>();
-  components.forEach((c) => dependedOnCount.set(c.name, 0));
-  interactions.forEach((i) => {
-    const count = dependedOnCount.get(i.to) ?? 0;
-    dependedOnCount.set(i.to, count + 1);
-  });
+  const getPhase = (component: Component): { phase: number; owner: string; reason: string } => {
+    const decision = decisionMap.get(normaliseComponentName(component.name));
+    const recommendation = decision?.recommendation;
+    const ownership = (component.ownership || '').toLowerCase();
+    const type = (component.type || '').toLowerCase();
+    const dependedOnCount = dependencyCountByNormalisedName.get(normaliseComponentName(component.name)) ?? 0;
 
-  const result: { component: string; phase: number; reason: string; owner: string }[] = [];
+    if (recommendation === 'buy' || ownership.includes('bought-saas')) {
+      return {
+        phase: 1,
+        reason: 'Purchased capability - configure and integrate first.',
+        owner: 'Vendor/Procurement',
+      };
+    }
+    if (recommendation === 'adopt' || ownership.includes('adopted-platform') || type.includes('infrastructure')) {
+      return {
+        phase: 1,
+        reason: 'Adopted platform - provision in foundation sprint.',
+        owner: 'Platform team',
+      };
+    }
+    if (dependedOnCount >= 2) {
+      return {
+        phase: 2,
+        reason: `Core dependency - ${dependedOnCount} components rely on this.`,
+        owner: 'Internal team',
+      };
+    }
 
-  const getPhase = (c: Component): { phase: number; reason: string; owner: string } => {
-    const rec = decisionMap.get(c.name.toLowerCase())?.recommendation;
-    const ownership = c.ownership || '';
-    if (ownership.includes('external') || rec === 'buy') {
-      return { phase: 1, reason: 'External/purchased — configure and integrate first', owner: 'Vendor/Procurement' };
+    const lowerName = component.name.toLowerCase();
+    const lowerResponsibility = component.responsibility.toLowerCase();
+    if (CORE_COMPONENT_KEYWORDS.some((keyword) => lowerName.includes(keyword) || lowerResponsibility.includes(keyword))) {
+      return {
+        phase: 2,
+        reason: 'Infrastructure component - typically a core dependency.',
+        owner: 'Internal team',
+      };
     }
-    if (rec === 'adopt' || ownership.includes('adopted')) {
-      return { phase: 1, reason: 'Adopted platform — provision and configure in foundation sprint', owner: 'Platform team' };
-    }
-    // High-dependency components (others depend on them) are phase 2
-    const depCount = dependedOnCount.get(c.name) ?? 0;
-    if (depCount >= 2) {
-      return { phase: 2, reason: `Core dependency — ${depCount} other components rely on this`, owner: 'Internal team' };
-    }
-    return { phase: 3, reason: 'Feature component — build after foundation is stable', owner: 'Internal team' };
+
+    return {
+      phase: 3,
+      reason: 'Feature component - build after foundation is stable.',
+      owner: 'Internal team',
+    };
   };
 
-  components.forEach((c) => {
-    const { phase, reason, owner } = getPhase(c);
-    result.push({ component: c.name, phase, reason, owner });
-  });
-
-  return result.sort((a, b) => a.phase - b.phase || a.component.localeCompare(b.component));
+  return components.map((component) => ({
+    component: component.name,
+    ...getPhase(component),
+  }));
 }
-
-// ---------------------------------------------------------------------------
-// Section builders
-// ---------------------------------------------------------------------------
 
 function buildOverviewMarkdown(
   systemTitle: string,
-  architectureStyle: string,
-  stakeholderConcerns: { role: string; concerns: string[] }[],
+  systemDescription: string,
+  characteristics: { characteristic: string; concern: string }[],
   glossary: { term: string; definition: string }[],
-  sloTargets: { characteristic: string; target: string; tactic: string }[],
-  governanceScore: number | null,
+  architectureStyle: string,
 ): string {
   const lines: string[] = [
     '# Architecture Documentation Package',
@@ -322,26 +369,34 @@ function buildOverviewMarkdown(
     `**Architecture style:** ${architectureStyle}`,
     '',
     '## Purpose and Scope',
-    `This document describes the architecture of **${systemTitle}** using the SEI Views-and-Beyond`,
-    `framework. It covers the Module View (structural decomposition), Component & Connector View`,
-    `(runtime behaviour), Allocation View (deployment and team assignments), and Risk & Decision Log.`,
-    `Use this document to understand the system structure, make implementation decisions, and plan team work.`,
+    systemDescription,
     '',
+    '## Stakeholders and Concerns',
+    '',
+    '| Stakeholder | Concerns |',
+    '|---|---|',
   ];
 
-  if (governanceScore !== null) {
-    lines.push(`> **Governance Score:** ${governanceScore}/100 — see Risk & Decisions for improvement recommendations.`, '');
-  }
+  const concernsByRole: Record<string, string[]> = {};
+  characteristics.forEach(({ characteristic, concern }) => {
+    const lowerConcern = concern.toLowerCase();
+    const role = lowerConcern.includes('recovery') || lowerConcern.includes('failover')
+      ? 'Operations team'
+      : lowerConcern.includes('security') || lowerConcern.includes('attack')
+        ? 'Security team'
+        : lowerConcern.includes('requirement') || lowerConcern.includes('specification')
+          ? 'Development team'
+          : 'Product owner';
+    if (!concernsByRole[role]) concernsByRole[role] = [];
+    concernsByRole[role].push(characteristic);
+  });
 
-  lines.push('## Stakeholders and Concerns', '');
-  lines.push('| Stakeholder | Concerns |');
-  lines.push('|---|---|');
-  if (stakeholderConcerns.length > 0) {
-    stakeholderConcerns.forEach(({ role, concerns }) => {
-      lines.push(`| ${role} | ${concerns.join(', ')} |`);
-    });
+  if (Object.keys(concernsByRole).length === 0) {
+    lines.push('| Product owner | Architecture characteristics require definition |');
   } else {
-    lines.push('| Product owner | Core Service |');
+    Object.entries(concernsByRole).forEach(([role, concerns]) => {
+      lines.push(`| ${role} | ${Array.from(new Set(concerns)).join(', ')} |`);
+    });
   }
 
   lines.push('', '## Reading Guide', '');
@@ -352,17 +407,6 @@ function buildOverviewMarkdown(
   lines.push('| Architects | Module View | C&C View, Variability |');
   lines.push('| Product owners | Overview | Rationale |');
   lines.push('| Security team | C&C View | Risk section |');
-
-  if (sloTargets.length > 0) {
-    lines.push('', '## Quality Objectives (SLO/SLA Targets)', '');
-    lines.push('These targets are derived from architecture characteristics and must be met by the implementation.');
-    lines.push('');
-    lines.push('| Characteristic | Target / Obligation | Architecture Tactic |');
-    lines.push('|---|---|---|');
-    sloTargets.forEach(({ characteristic, target, tactic }) => {
-      lines.push(`| ${characteristic} | ${target} | ${tactic} |`);
-    });
-  }
 
   if (glossary.length > 0) {
     lines.push('', '## Glossary', '');
@@ -381,9 +425,13 @@ function buildModuleViewMarkdown(
   tradeOffs: TradeOffDecision[],
   moduleAdlRules: RawAdlRule[],
   weaknesses: Weakness[],
-  tactics: TacticRecommendation[],
   buyVsBuildDecisions: BuyVsBuildDecision[],
 ): string {
+  const decisionMap = new Map<string, BuyVsBuildDecision>();
+  buyVsBuildDecisions.forEach((decision) => {
+    decisionMap.set(normaliseComponentName(decision.componentName), decision);
+  });
+
   const lines: string[] = [
     '# Module View',
     '',
@@ -394,8 +442,8 @@ function buildModuleViewMarkdown(
     lines.push('```mermaid');
     lines.push(componentDiagram);
     lines.push('```');
-  } else {
-    lines.push('> Diagram not available — re-run analysis to generate Mermaid component diagram.');
+  } else if (components.length === 0) {
+    lines.push('No component diagram available');
   }
 
   if (components.length > 0) {
@@ -404,113 +452,48 @@ function buildModuleViewMarkdown(
     lines.push('');
     lines.push('| Element | Type | Responsibility | Technology | Ownership | Risks |');
     lines.push('|---|---|---|---|---|---|');
-    components.forEach((c) => {
-      const risks = fmeaByComponent[c.name]
+
+    components.forEach((component) => {
+      const decision = decisionMap.get(normaliseComponentName(component.name));
+      const technology = component.technology &&
+        component.technology.toLowerCase() !== 'various' &&
+        component.technology.toLowerCase() !== 'tbd'
+        ? component.technology
+        : decision?.recommendedSolution || '—';
+      const risks = fmeaByComponent[component.name]
         ?.slice(0, 2)
-        .map((r) => r.failure_mode)
+        .map((risk) => risk.failure_mode)
         .join('; ') || '—';
-      const ownership = c.ownership || '—';
+      const ownership = component.ownership || '—';
       lines.push(
-        `| ${c.name} | ${c.type || '—'} | ${c.responsibility} | ${c.technology} | ${ownership} | ${risks} |`
+        `| ${component.name} | ${component.type || '—'} | ${component.responsibility} | ${technology} | ${ownership} | ${risks} |`,
       );
     });
   }
 
-  // Implementation guidance per component
-  const decisionMap = new Map<string, BuyVsBuildDecision>();
-  buyVsBuildDecisions.forEach((d) => decisionMap.set(d.componentName.toLowerCase(), d));
-
-  if (components.length > 0) {
-    lines.push('');
-    lines.push('## Component Implementation Guidance');
-    lines.push('');
-    lines.push('> Each entry describes how the component should be built, what patterns to apply, and acceptance criteria.');
-    lines.push('');
-
-    components.forEach((c) => {
-      lines.push(`### ${c.name}`);
-      lines.push('');
-      lines.push(`**Technology:** ${c.technology}`);
-
-      const decision = decisionMap.get(c.name.toLowerCase());
-      if (decision) {
-        const action = decision.recommendation === 'build'
-          ? `Build internally — this is a core differentiator`
-          : decision.recommendation === 'buy'
-            ? `Procure **${decision.recommendedSolution}** — avoid custom implementation`
-            : `Adopt **${decision.recommendedSolution}** — configure and integrate`;
-        lines.push(`**Sourcing decision:** ${action}`);
-        if (decision.rationale) lines.push(`**Why:** ${decision.rationale}`);
-        if (decision.integrationEffort && decision.recommendation !== 'build') {
-          lines.push(`**Integration effort:** ${decision.integrationEffort}`);
-        }
-        if (decision.vendorLockInRisk && decision.recommendation === 'buy') {
-          lines.push(`**Vendor lock-in risk:** ${decision.vendorLockInRisk} — ${
-            decision.vendorLockInRisk === 'high'
-              ? 'define an abstraction layer to reduce coupling'
-              : 'monitor for contractual risks'
-          }`);
-        }
-      }
-
-      // Find tactics relevant to this component
-      const relevantTactics = tactics.filter(
-        (t) => !t.alreadyAddressed && (
-          t.concreteApplication?.toLowerCase().includes(c.name.toLowerCase()) ||
-          (c.responsibility?.toLowerCase().includes(t.characteristicName?.toLowerCase() || ''))
-        )
-      ).slice(0, 3);
-
-      if (relevantTactics.length > 0) {
-        lines.push('');
-        lines.push('**Architecture tactics to apply:**');
-        relevantTactics.forEach((t) => {
-          lines.push(`- **${t.tacticName}** (${t.characteristicName}): ${t.concreteApplication?.slice(0, 100) || t.description}`);
-        });
-      }
-
-      lines.push('');
-    });
-  }
-
   if (tradeOffs.length > 0) {
+    lines.push('');
     lines.push('## Variability Guide');
     lines.push('');
-    lines.push('> This section documents key design decisions and when to reconsider them.');
-    lines.push('');
-    tradeOffs.forEach((t) => {
-      lines.push(`### ${t.decision_id}: ${t.decision}`);
-      lines.push('');
-      lines.push(`**Chosen approach:** ${t.recommendation}`);
-      if ((t.optimises_characteristics ?? []).length > 0) {
-        lines.push(`**Optimises:** ${(t.optimises_characteristics ?? []).join(', ')}`);
+    tradeOffs.forEach((tradeOff) => {
+      lines.push(`**Decision:** ${tradeOff.decision}`);
+      lines.push(`**Choice made:** ${tradeOff.recommendation}`);
+      if ((tradeOff.sacrifices_characteristics ?? []).length > 0) {
+        lines.push(`**Alternatives:** ${(tradeOff.sacrifices_characteristics ?? []).join(', ')}`);
       }
-      if ((t.sacrifices_characteristics ?? []).length > 0) {
-        lines.push(`**Trade-off (sacrifices):** ${(t.sacrifices_characteristics ?? []).join(', ')}`);
-      }
-      if (t.acceptable_because) lines.push(`**Why acceptable:** ${t.acceptable_because}`);
-      if (t.context_dependency) lines.push(`**When to reconsider:** ${t.context_dependency}`);
-      if ((t.options_considered ?? []).length > 0) {
-        lines.push('**Alternatives rejected:**');
-        (t.options_considered ?? []).forEach((o) => {
-          lines.push(`- ~~${o.option}~~ — ${o.rejected_because}`);
-        });
-      }
+      lines.push(`**Rationale:** ${tradeOff.context_dependency}`);
       lines.push('');
     });
   }
 
   if (moduleAdlRules.length > 0) {
-    lines.push('## Module ADL Constraints');
+    lines.push('## Rationale');
     lines.push('');
-    lines.push('> These rules govern structural decomposition and must be enforced by fitness functions.');
-    lines.push('');
-    moduleAdlRules.forEach((r) => {
-      const id = resolveAdlId(r);
-      const subject = resolveAdlSubject(r);
-      const enforcement = resolveAdlEnforcement(r);
-      lines.push(`### [${id}] ${subject}`);
-      lines.push(`**Enforcement:** ${enforcement === 'hard' ? '🔴 Hard (CI must fail on violation)' : '🟡 Soft (warning only)'}`);
+    moduleAdlRules.forEach((rule, index) => {
+      lines.push(`### [${resolveAdlId(rule, index)}] ${resolveAdlSubject(rule)}`);
+      lines.push(cleanString(rule.statement) || 'No statement available.');
+      const rationale = resolveAdlRationale(rule);
+      if (rationale) lines.push(`*${rationale}*`);
       lines.push('');
     });
   }
@@ -518,10 +501,9 @@ function buildModuleViewMarkdown(
   if (weaknesses.length > 0) {
     lines.push('## Risk Summary');
     lines.push('');
-    weaknesses.slice(0, 5).forEach((w) => {
-      lines.push(`- **${w.title}** (Severity ${w.severity}/10): ${w.description}`);
+    weaknesses.slice(0, 5).forEach((weakness) => {
+      lines.push(`- **${weakness.title}** (Severity ${weakness.severity}/10): ${weakness.description}`);
     });
-    lines.push('');
   }
 
   return lines.join('\n');
@@ -530,10 +512,10 @@ function buildModuleViewMarkdown(
 function buildCCViewMarkdown(
   sequenceDiagram: string | null,
   interactions: Interaction[],
-  scenarios: { stimulus: string; response: string; measures: string; characteristic: string }[],
+  scenarios: QaScenario[],
+  sloTargets: SloTarget[],
   connectorAdlRules: RawAdlRule[],
   fmeaAll: FmeaEntry[],
-  sloTargets: { characteristic: string; target: string; tactic: string }[],
 ): string {
   const lines: string[] = [
     '# Component & Connector View',
@@ -546,86 +528,84 @@ function buildCCViewMarkdown(
     lines.push(sequenceDiagram);
     lines.push('```');
   } else {
-    lines.push('> Sequence diagram not available — re-run analysis to generate.');
+    lines.push('No sequence diagram available');
   }
 
+  lines.push('');
+  lines.push('## Runtime Element Catalog');
+  lines.push('');
   if (interactions.length > 0) {
-    lines.push('');
-    lines.push('## Runtime Element Catalog');
-    lines.push('');
-    lines.push('| Connector | From | To | Protocol | Purpose | Failure Mode |');
-    lines.push('|---|---|---|---|---|---|');
-    interactions.forEach((i) => {
+    lines.push('| Connector | From | To | Protocol | Failure Mode |');
+    lines.push('|---|---|---|---|---|');
+    interactions.forEach((interaction) => {
       const failureMode = fmeaAll
-        .filter((f) => f.component === i.from || f.component === i.to)
-        .map((f) => f.failure_mode)
+        .filter((entry) => entry.component === interaction.from || entry.component === interaction.to)
+        .map((entry) => entry.failure_mode)
         .slice(0, 1)
         .join('; ') || '—';
-      lines.push(`| ${i.from}→${i.to} | ${i.from} | ${i.to} | \`${i.protocol}\` | ${i.purpose} | ${failureMode} |`);
+      lines.push(
+        `| ${interaction.from}->${interaction.to} | ${interaction.from} | ${interaction.to} | ${interaction.protocol || '—'} | ${failureMode} |`,
+      );
     });
+  } else {
+    lines.push(
+      '> Interaction data not available. Re-run the analysis to generate the component connector view. Check that the diagram_generation stage completed.',
+    );
   }
 
+  lines.push('');
+  lines.push('## Quality Objectives (SLO Targets)');
+  lines.push('');
   if (sloTargets.length > 0) {
-    lines.push('');
-    lines.push('## Service Level Objectives');
-    lines.push('');
-    lines.push('> These SLOs must be measured and monitored in production. Implement observability before go-live.');
-    lines.push('');
-    lines.push('| Characteristic | SLO Target | Architecture Tactic |');
+    lines.push('| Characteristic | Target | Source |');
     lines.push('|---|---|---|');
-    sloTargets.forEach(({ characteristic, target, tactic }) => {
-      lines.push(`| ${characteristic} | ${target} | ${tactic} |`);
+    sloTargets.forEach((target) => {
+      lines.push(`| ${target.characteristic} | ${target.target} | ${target.tactic} |`);
     });
+  } else {
+    lines.push('> SLO target data not available for this analysis run.');
   }
 
   if (scenarios.length > 0) {
     lines.push('');
-    lines.push('## Quality Attribute Scenarios');
+    lines.push('## Quality Attribute Utility Tree');
     lines.push('');
-    lines.push('> These scenarios define testable acceptance criteria. Each must be validated before production release.');
-    lines.push('');
-    scenarios.forEach((s, idx) => {
-      lines.push(`### Scenario ${idx + 1}: ${s.characteristic}`);
-      lines.push(`- **Stimulus:** ${s.stimulus}`);
-      lines.push(`- **Response:** ${s.response}`);
-      lines.push(`- **Measures:** ${s.measures}`);
+    scenarios.forEach((scenario, index) => {
+      lines.push(`### Scenario ${index + 1}`);
+      lines.push(`**Characteristic:** ${scenario.characteristic}`);
+      lines.push(`**Stimulus:** ${scenario.stimulus}`);
+      lines.push(`**Response:** ${scenario.response}`);
+      lines.push(`**Measures:** ${scenario.measures}`);
       lines.push('');
     });
   }
 
   if (connectorAdlRules.length > 0) {
-    lines.push('## Connector ADL Constraints');
+    lines.push('## Rationale');
     lines.push('');
-    lines.push('> These rules govern runtime communication protocols and must pass in CI.');
-    lines.push('');
-    connectorAdlRules.forEach((r) => {
-      const id = resolveAdlId(r);
-      const subject = resolveAdlSubject(r);
-      const statement = resolveAdlStatement(r);
-      const enforcement = resolveAdlEnforcement(r);
-      lines.push(`### [${id}] ${subject}`);
-      lines.push(`**Enforcement:** ${enforcement === 'hard' ? '🔴 Hard' : '🟡 Soft'}`);
-      if (statement) {
-        lines.push('');
-        lines.push('```adl');
-        lines.push(statement);
-        lines.push('```');
-      }
+    connectorAdlRules.forEach((rule, index) => {
+      lines.push(`### [${resolveAdlId(rule, index)}] ${resolveAdlSubject(rule)}`);
+      lines.push(cleanString(rule.statement) || 'No statement available.');
+      const rationale = resolveAdlRationale(rule);
+      if (rationale) lines.push(`*${rationale}*`);
       lines.push('');
     });
   }
 
+  lines.push('## Risk Analysis');
+  lines.push('');
   if (fmeaAll.length > 0) {
-    lines.push('## Risk Analysis (FMEA)');
-    lines.push('');
-    lines.push('| ID | Failure Mode | Component | Severity | Occurrence | Detection | RPN | Recommended Action |');
-    lines.push('|---|---|---|---|---|---|---|---|');
-    [...fmeaAll]
+    lines.push('| ID | Failure Mode | Component | RPN |');
+    lines.push('|---|---|---|---|');
+    fmeaAll
+      .slice()
       .sort((a, b) => b.rpn - a.rpn)
       .slice(0, 10)
-      .forEach((e) => {
-        lines.push(`| ${e.id} | ${e.failure_mode} | ${e.component} | ${e.severity} | ${e.occurrence} | ${e.detection} | **${e.rpn}** | ${e.recommended_action} |`);
+      .forEach((entry) => {
+        lines.push(`| ${entry.id} | ${entry.failure_mode} | ${entry.component} | ${entry.rpn} |`);
       });
+  } else {
+    lines.push('> FMEA data not available for this analysis run.');
   }
 
   return lines.join('\n');
@@ -635,10 +615,18 @@ function buildAllocationViewMarkdown(
   deploymentDiagram: string | null,
   buyVsBuildDecisions: BuyVsBuildDecision[],
   components: Component[],
+  interactions: Interaction[],
   allocationAdlRules: RawAdlRule[],
   weaknesses: Weakness[],
-  buildSequence: { component: string; phase: number; reason: string; owner: string }[],
 ): string {
+  const seenComponents = new Set<string>();
+  const uniqueDecisions = buyVsBuildDecisions.filter((decision) => {
+    const key = normaliseComponentName(decision.componentName);
+    if (seenComponents.has(key)) return false;
+    seenComponents.add(key);
+    return true;
+  });
+
   const lines: string[] = [
     '# Allocation View',
     '',
@@ -651,110 +639,68 @@ function buildAllocationViewMarkdown(
     lines.push('```');
   } else if (components.length > 0) {
     lines.push('');
-    lines.push('| Component | Type | Deployment Target | Ownership |');
-    lines.push('|---|---|---|---|');
-    components.forEach((c) => {
-      const ownership = c.ownership || '—';
-      const deployTarget = ownership === 'bought-saas' ? 'bought-saas'
-        : ownership === 'adopted-platform' ? 'adopted-platform'
-          : 'enterprise-built';
-      lines.push(`| ${c.name} | ${c.type || '—'} | ${deployTarget} | ${ownership} |`);
+    lines.push('| Component | Type | Deployment Target |');
+    lines.push('|---|---|---|');
+    components.forEach((component) => {
+      lines.push(`| ${component.name} | ${component.type || '—'} | ${component.ownership || '—'} |`);
     });
+  } else {
+    lines.push('No deployment diagram available');
   }
-
-  // Work assignment with deduplication
-  const seenComponents = new Set<string>();
-  const uniqueDecisions = buyVsBuildDecisions.filter((d) => {
-    const key = d.componentName.toLowerCase();
-    if (seenComponents.has(key)) return false;
-    seenComponents.add(key);
-    return true;
-  });
 
   if (uniqueDecisions.length > 0) {
     lines.push('');
     lines.push('## Work Assignment');
     lines.push('');
-    lines.push('| Component | Owner | Decision | Solution | Differentiator | Lock-in Risk |');
-    lines.push('|---|---|---|---|---|---|');
-    uniqueDecisions.forEach((d) => {
-      const owner = d.recommendation === 'build'
-        ? 'Internal team'
-        : d.recommendation === 'buy'
-          ? 'Vendor/Procurement'
-          : 'Platform team';
-      const differentiator = d.isCoreeDifferentiator ? '✅ Core' : '—';
+    lines.push('| Component | Owner | Type | Solution |');
+    lines.push('|---|---|---|---|');
+    uniqueDecisions.forEach((decision) => {
+      const owner =
+        decision.recommendation === 'build'
+          ? 'Internal team'
+          : decision.recommendation === 'buy'
+            ? 'Vendor/Procurement'
+            : 'Platform team';
       lines.push(
-        `| ${d.componentName} | ${owner} | ${d.recommendation} | ${d.recommendedSolution || '—'} | ${differentiator} | ${d.vendorLockInRisk || '—'} |`
+        `| ${decision.componentName} | ${owner} | ${decision.recommendation} | ${decision.recommendedSolution} |`,
       );
     });
   }
 
-  // Build sequence / sprint planning
-  if (buildSequence.length > 0) {
+  const constructionSequence = buildConstructionSequence(components, interactions, uniqueDecisions);
+  if (constructionSequence.length > 0) {
     lines.push('');
     lines.push('## Build Sequence');
     lines.push('');
-    lines.push('> Recommended construction order to minimise blocked work. Phase 1 enables Phase 2; Phase 2 enables Phase 3.');
-    lines.push('');
-
-    const phases = [1, 2, 3];
-    phases.forEach((phase) => {
-      const phaseItems = buildSequence.filter((s) => s.phase === phase);
-      if (phaseItems.length === 0) return;
-      const phaseName = phase === 1 ? 'Foundation (Configure & Integrate External Services)'
-        : phase === 2 ? 'Core Services (Build High-Dependency Components)'
-          : 'Feature Services (Build Remaining Components)';
-      lines.push(`### Phase ${phase}: ${phaseName}`);
-      lines.push('');
-      phaseItems.forEach((s) => {
-        lines.push(`- **${s.component}** — ${s.reason} *(${s.owner})*`);
+    lines.push('| Phase | Component | Owner | Rationale |');
+    lines.push('|---|---|---|---|');
+    constructionSequence
+      .slice()
+      .sort((a, b) => a.phase - b.phase || a.component.localeCompare(b.component))
+      .forEach((step) => {
+        lines.push(`| ${step.phase} | ${step.component} | ${step.owner} | ${step.reason} |`);
       });
-      lines.push('');
-    });
-  }
-
-  // Team formation guidance
-  if (uniqueDecisions.length > 0) {
-    const buildCount = uniqueDecisions.filter((d) => d.recommendation === 'build').length;
-    const buyCount = uniqueDecisions.filter((d) => d.recommendation === 'buy').length;
-    const adoptCount = uniqueDecisions.filter((d) => d.recommendation === 'adopt').length;
-
-    lines.push('## Team Formation Guidance');
-    lines.push('');
-    lines.push('Based on the sourcing decisions above:');
-    lines.push('');
-    if (buildCount > 0) {
-      lines.push(`- **${buildCount} component(s) to build**: Assign to internal engineering squads. Recommend cross-functional squads (frontend + backend + QA) owning each service end-to-end.`);
-    }
-    if (buyCount > 0) {
-      lines.push(`- **${buyCount} component(s) to buy**: Assign procurement/vendor selection to Technical Lead + Procurement. Plan integration tasks for internal team.`);
-    }
-    if (adoptCount > 0) {
-      lines.push(`- **${adoptCount} component(s) to adopt**: Assign to Platform/Infrastructure team for provisioning and configuration. Internal teams own the integration layer.`);
-    }
-    lines.push('');
   }
 
   if (allocationAdlRules.length > 0) {
-    lines.push('## Deployment ADL Constraints');
     lines.push('');
-    allocationAdlRules.forEach((r) => {
-      const id = resolveAdlId(r);
-      const subject = resolveAdlSubject(r);
-      const enforcement = resolveAdlEnforcement(r);
-      lines.push(`- **[${id}] ${subject}** (${enforcement === 'hard' ? '🔴 Hard' : '🟡 Soft'})`);
+    lines.push('## Rationale');
+    lines.push('');
+    allocationAdlRules.forEach((rule, index) => {
+      lines.push(`### [${resolveAdlId(rule, index)}] ${resolveAdlSubject(rule)}`);
+      lines.push(cleanString(rule.statement) || 'No statement available.');
+      const rationale = resolveAdlRationale(rule);
+      if (rationale) lines.push(`*${rationale}*`);
+      lines.push('');
     });
-    lines.push('');
   }
 
   if (weaknesses.length > 0) {
     lines.push('## Risk Summary');
     lines.push('');
-    weaknesses.slice(0, 5).forEach((w) => {
-      lines.push(`- **${w.title}** (Severity ${w.severity}/10): ${w.mitigation}`);
+    weaknesses.slice(0, 5).forEach((weakness) => {
+      lines.push(`- **${weakness.title}** (Severity ${weakness.severity}/10): ${weakness.mitigation}`);
     });
-    lines.push('');
   }
 
   return lines.join('\n');
@@ -765,137 +711,68 @@ function buildRiskMarkdown(
   weaknesses: Weakness[],
   fmeaAll: FmeaEntry[],
   improvementRecommendations: ImprovementRecommendation[],
-  tactics: TacticRecommendation[],
 ): string {
   const lines: string[] = ['# Risk and Decision Log', ''];
 
-  // Architecture Decision Records
   if (allAdlRules.length > 0) {
     lines.push('## Architecture Decision Records');
     lines.push('');
-    lines.push('> ADRs capture key architectural decisions, their context, and consequences. Each maps to a fitness function.');
-    lines.push('');
-    allAdlRules.forEach((r) => {
-      const id = resolveAdlId(r);
-      const subject = resolveAdlSubject(r);
-      const statement = resolveAdlStatement(r);
-      const category = resolveAdlCategory(r);
-      const rationale = resolveAdlRationale(r);
-      const enforcement = resolveAdlEnforcement(r);
-      const adlSource = resolveAdlSource(r);
-
-      lines.push(`### ADR-${id || 'unknown'}: ${subject || 'Architecture Constraint'}`);
+    allAdlRules.forEach((rule, index) => {
+      lines.push(`### ADR-${resolveAdlId(rule, index)}: ${resolveAdlSubject(rule)}`);
       lines.push('');
-      lines.push(`**Status:** Accepted`);
-      lines.push(`**Category:** ${category || 'General'}`);
-      lines.push(`**Enforcement:** ${enforcement === 'hard' ? '🔴 Hard (CI must fail)' : '🟡 Soft (warning)'}`);
+      lines.push('**Status:** Accepted');
+      lines.push(`**Category:** ${resolveAdlCategory(rule)}`);
+      lines.push(`**Enforcement:** ${resolveAdlEnforcement(rule)}`);
       lines.push('');
-
       lines.push('#### Context');
-      if (rationale) {
-        lines.push(rationale);
-      } else {
-        lines.push(`This constraint enforces the \`${category || 'architecture'}\` quality characteristic across the codebase.`);
-      }
+      lines.push(resolveAdlRationale(rule) || 'Context not provided.');
       lines.push('');
-
       lines.push('#### Decision');
-      if (statement) {
-        lines.push(statement);
-      } else {
-        lines.push(`Apply constraint as defined in ADL rule ${id}.`);
-      }
+      lines.push(cleanString(rule.statement) || 'No decision statement provided.');
       lines.push('');
-
-      if (adlSource) {
-        lines.push('#### Fitness Function');
-        lines.push('```adl');
-        lines.push(adlSource);
-        lines.push('```');
-        lines.push('');
-      }
-
-      const optimises = (r.optimises_characteristics ?? []) as string[];
-      if (optimises.length > 0) {
-        lines.push('#### Consequences');
-        lines.push(`Enforcing this rule protects: ${optimises.join(', ')}.`);
-        lines.push(`Violation risk: degraded ${optimises[0]} with potential for cascading failures.`);
-        lines.push('');
-      }
     });
   }
 
-  // Unified risk register
   const risksMap = new Map<string, { severity: number; entry: string }>();
-
-  weaknesses.forEach((w) => {
-    risksMap.set(w.id, {
-      severity: w.severity,
-      entry: `| ${w.id} | ${w.title} | ${w.component_affected} | ${w.severity}/10 | Weakness | ${w.mitigation} |`,
+  weaknesses.forEach((weakness) => {
+    risksMap.set(weakness.id, {
+      severity: weakness.severity,
+      entry: `| ${weakness.id} | ${weakness.title} | ${weakness.component_affected} | ${weakness.severity} | Weakness | ${weakness.mitigation} |`,
     });
   });
 
-  fmeaAll.forEach((f) => {
-    const severity = Math.min(10, Math.round(f.rpn / 10));
-    risksMap.set(f.id, {
+  fmeaAll.forEach((entry) => {
+    const severity = Math.min(10, Math.round(entry.rpn / 10));
+    risksMap.set(entry.id, {
       severity,
-      entry: `| ${f.id} | ${f.failure_mode} | ${f.component} | ${severity}/10 | FMEA (RPN ${f.rpn}) | ${f.recommended_action} |`,
+      entry: `| ${entry.id} | ${entry.failure_mode} | ${entry.component} | ${severity} | FMEA | ${entry.recommended_action} |`,
     });
   });
 
+  lines.push('## Risk Register');
+  lines.push('');
   if (risksMap.size > 0) {
-    lines.push('## Risk Register');
-    lines.push('');
     lines.push('| ID | Risk | Component | Severity | Type | Mitigation |');
     lines.push('|---|---|---|---|---|---|');
     Array.from(risksMap.values())
       .sort((a, b) => b.severity - a.severity)
       .forEach(({ entry }) => lines.push(entry));
+  } else {
+    lines.push(
+      '> Risk data not available. Ensure the weakness_analysis and fmea_analysis stages completed successfully. Re-run the analysis if stages show `completed_with_gaps`.',
+    );
     lines.push('');
   }
 
-  // Architecture fitness functions checklist
-  if (allAdlRules.length > 0) {
-    lines.push('## Architecture Fitness Functions Checklist');
-    lines.push('');
-    lines.push('> Use this checklist during sprint reviews and before release to validate architectural integrity.');
-    lines.push('');
-    allAdlRules.forEach((r) => {
-      const id = resolveAdlId(r);
-      const subject = resolveAdlSubject(r);
-      const enforcement = resolveAdlEnforcement(r);
-      const category = resolveAdlCategory(r);
-      const requires = (r['metadata'] as Record<string, unknown> | undefined)?.['requires'] as string || r.validation_hint?.type || '';
-      lines.push(`- [ ] **[${id}] ${subject}** — ${enforcement === 'hard' ? '🔴 Hard / CI' : '🟡 Soft'} · ${category}${requires ? ` · Tooling: \`${requires}\`` : ''}`);
-    });
-    lines.push('');
-  }
-
-  // Unaddressed critical tactics
-  const criticalUnaddressed = tactics.filter((t) => t.priority === 'critical' && !t.alreadyAddressed);
-  if (criticalUnaddressed.length > 0) {
-    lines.push('## Critical Tactics Not Yet Implemented');
-    lines.push('');
-    lines.push('> These tactics must be implemented before production readiness. Assign to sprint backlog immediately.');
-    lines.push('');
-    lines.push('| Tactic | Characteristic | Effort | Application |');
-    lines.push('|---|---|---|---|');
-    criticalUnaddressed.slice(0, 10).forEach((t) => {
-      lines.push(`| ${t.tacticName} | ${t.characteristicName} | ${t.effort} | ${(t.concreteApplication || t.description).slice(0, 80)} |`);
-    });
-    lines.push('');
-  }
-
-  // Improvement roadmap
   if (improvementRecommendations.length > 0) {
+    lines.push('');
     lines.push('## Improvement Roadmap');
     lines.push('');
-    improvementRecommendations.forEach((r) => {
-      lines.push(`### [${r.priority}] ${r.area}`);
-      lines.push(r.recommendation);
-      if (r.requires_reiteration) {
-        lines.push('');
-        lines.push('> ⚠️ *Requires architecture reiteration before this can be resolved.*');
+    improvementRecommendations.forEach((recommendation) => {
+      lines.push(`### [${recommendation.priority}] ${recommendation.area}`);
+      lines.push(recommendation.recommendation);
+      if (recommendation.requires_reiteration) {
+        lines.push('*Requires reiteration*');
       }
       lines.push('');
     });
@@ -904,50 +781,9 @@ function buildRiskMarkdown(
   return lines.join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
-
-const EMPTY_DOC: ArchDocData = {
-  systemTitle: 'Architecture',
-  systemDescription: '',
-  conversationTitle: '',
-  stakeholderConcerns: [],
-  glossaryTerms: [],
-  sloTargets: [],
-  componentDiagram: null,
-  deploymentDiagram: null,
-  components: [],
-  fmeaByComponent: {},
-  moduleAdlRules: [],
-  sequencePrimaryDiagram: null,
-  sequenceErrorDiagram: null,
-  interactions: [],
-  scenarios: [],
-  connectorAdlRules: [],
-  buyVsBuildDecisions: [],
-  buildSequence: [],
-  allocationAdlRules: [],
-  adlDocument: null,
-  allAdlRules: [],
-  weaknesses: [],
-  fmeaAll: [],
-  improvementRecommendations: [],
-  tradeOffs: [],
-  tactics: [],
-  fullPackageMarkdown: '',
-  overviewMarkdown: '',
-  moduleViewMarkdown: '',
-  ccViewMarkdown: '',
-  allocationViewMarkdown: '',
-  riskMarkdown: '',
-  exportFilename: `architecture-docs-${getCurrentDate()}.md`,
-  loading: false,
-  error: null,
-  hasData: false,
-};
-
 export function useArchDoc(): ArchDocData {
+  const token = useStore((s) => s.token);
+  const conversationId = useStore((s) => s.conversationId);
   const { architecture, loading: archLoading, error: archError } = useArchitecture();
   const {
     tradeOffs: allTradeOffs,
@@ -960,89 +796,180 @@ export function useArchDoc(): ArchDocData {
   } = useGovernance();
   const { tactics, loading: tacticsLoading, error: tacticsError } = useTactics();
   const { summary: buyVsBuildSummary, loading: bbLoading, error: bbError } = useBuyVsBuild();
-  const conversationId = useStore((s) => s.conversationId);
 
-  return useMemo(() => {
+  const [conversationTitle, setConversationTitle] = useState('');
+  const [deploymentDiagram, setDeploymentDiagram] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!token || !conversationId) {
+      setConversationTitle('');
+      return;
+    }
+    listSessions(token)
+      .then((sessions) => {
+        if (cancelled) return;
+        const current = sessions.find((session) => session.id === conversationId);
+        setConversationTitle(current?.title || '');
+      })
+      .catch(() => {
+        if (!cancelled) setConversationTitle('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, token]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!token || !conversationId) {
+      setDeploymentDiagram(null);
+      return;
+    }
+    getDiagramByType(conversationId, 'deployment', token)
+      .then((diagram) => {
+        if (!cancelled) {
+          setDeploymentDiagram(diagram);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDeploymentDiagram(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, token]);
+
+  const archDocData = useMemo<ArchDocData>(() => {
     const loading = archLoading || govLoading || tacticsLoading || bbLoading;
-    const error = archError || govError || tacticsError || bbError || null;
+    const error = archError || govError || tacticsError || bbError;
 
-    if (!architecture || !adl || !allWeaknesses || !buyVsBuildSummary) {
+    if (!architecture) {
       return {
-        ...EMPTY_DOC,
-        exportFilename: `architecture-docs-${slugifyTitle(conversationId || 'architecture')}-${getCurrentDate()}.md`,
+        systemTitle: 'Architecture Analysis',
+        systemDescription: 'Architecture documentation generated from analysis.',
+        conversationTitle: conversationTitle || 'Architecture Analysis',
+        stakeholderConcerns: [],
+        glossaryTerms: [],
+        componentDiagram: null,
+        deploymentDiagram: null,
+        components: [],
+        fmeaByComponent: {},
+        moduleAdlRules: [],
+        sequencePrimaryDiagram: null,
+        sequenceErrorDiagram: null,
+        interactions: [],
+        scenarios: [],
+        connectorAdlRules: [],
+        sloTargets: [],
+        buyVsBuildDecisions: [],
+        allocationAdlRules: [],
+        adlDocument: adl,
+        allAdlRules: [],
+        weaknesses: [],
+        fmeaAll: [],
+        improvementRecommendations: [],
+        tradeOffs: [],
+        fullPackageMarkdown: '',
+        overviewMarkdown: '',
+        moduleViewMarkdown: '',
+        ccViewMarkdown: '',
+        allocationViewMarkdown: '',
+        riskMarkdown: '',
+        exportFilename: `architecture-docs-${slugifyTitle('architecture-analysis')}-${getCurrentDate()}.md`,
         loading,
-        error,
+        error: error || null,
+        hasData: false,
       };
     }
 
-    // --- ADL rule categorisation ---
-    const allAdlRules = (adl.rules || []) as RawAdlRule[];
+    const allAdlRules = extractAdlRules(adl);
+    const moduleAdlRules = allAdlRules.filter((rule) =>
+      ['layer', 'module', 'package', 'decomposition', 'dependency'].some((cat) =>
+        resolveAdlCategory(rule).toLowerCase().includes(cat),
+      ),
+    );
+    const connectorAdlRules = allAdlRules.filter((rule) =>
+      ['connector', 'interface', 'protocol', 'communication', 'service', 'api'].some((cat) =>
+        resolveAdlCategory(rule).toLowerCase().includes(cat),
+      ),
+    );
+    const allocationAdlRules = allAdlRules.filter((rule) =>
+      ['deploy', 'environment', 'infrastructure', 'hosting', 'cloud'].some((cat) =>
+        resolveAdlCategory(rule).toLowerCase().includes(cat),
+      ),
+    );
 
-    const moduleAdlRules = allAdlRules.filter((r) => {
-      const cat = resolveAdlCategory(r).toLowerCase();
-      return ['layer', 'module', 'package', 'decomposition', 'dependency', 'maintainability', 'modularity'].some((k) => cat.includes(k));
-    });
-    const connectorAdlRules = allAdlRules.filter((r) => {
-      const cat = resolveAdlCategory(r).toLowerCase();
-      return ['connector', 'interface', 'protocol', 'communication', 'service', 'api', 'performance', 'security'].some((k) => cat.includes(k));
-    });
-    const allocationAdlRules = allAdlRules.filter((r) => {
-      const cat = resolveAdlCategory(r).toLowerCase();
-      return ['deploy', 'environment', 'infrastructure', 'hosting', 'cloud', 'reliability', 'availability'].some((k) => cat.includes(k));
-    });
-
-    // --- FMEA by component ---
     const fmeaByComponent: Record<string, FmeaEntry[]> = {};
     fmea.forEach((entry) => {
-      if (!fmeaByComponent[entry.component]) fmeaByComponent[entry.component] = [];
+      if (!fmeaByComponent[entry.component]) {
+        fmeaByComponent[entry.component] = [];
+      }
       fmeaByComponent[entry.component].push(entry);
     });
 
-    // --- Stakeholder concerns from tactic characteristic names ---
-    const characteristicNames = [
-      ...new Set([
-        ...tactics.map((t) => t.characteristicName).filter(Boolean),
-        ...allTradeOffs.flatMap((to) => [...(to.optimises_characteristics ?? []), ...(to.sacrifices_characteristics ?? [])]),
+    const characteristicsFromTactics = tactics.map((t) => t.characteristicName).filter(Boolean);
+    const characteristicsFromTradeOffs = allTradeOffs.flatMap((tradeOff) => [
+      ...(tradeOff.optimises_characteristics ?? []),
+      ...(tradeOff.sacrifices_characteristics ?? []),
+    ]);
+    const characteristicsFromAdl = allAdlRules.map((rule) => resolveAdlCategory(rule)).filter(Boolean);
+    const characteristicsFromFmea = fmea.length > 0 ? ['reliability', 'availability'] : [];
+
+    const characteristicNames = Array.from(
+      new Set([
+        ...characteristicsFromTactics,
+        ...characteristicsFromTradeOffs,
+        ...characteristicsFromAdl,
+        ...characteristicsFromFmea,
       ]),
-    ];
-    const stakeholderConcerns = buildStakeholderConcerns(characteristicNames);
+    ).filter((characteristic) => characteristic.length > 2);
 
-    // --- Glossary from components ---
-    const glossaryTerms = (architecture.components || []).map((c) => ({
-      term: c.name,
-      definition: c.responsibility,
-    }));
+    const fallbackCharacteristics = findStyleDefaults(architecture.style);
+    const stakeholderConcerns = buildStakeholderConcerns(
+      characteristicNames.length > 0 ? characteristicNames : fallbackCharacteristics,
+    );
 
-    // --- SLO targets ---
-    const sloTargets = buildSloTargets(tactics, allTradeOffs);
+    const componentGlossary = (architecture.components || [])
+      .filter((component) => component.responsibility.length > 40)
+      .map((component) => ({
+        term: component.name,
+        definition: component.responsibility.slice(0, 200),
+      }));
 
-    // --- QA scenarios from tactics ---
-    const scenarios = buildQaScenarios(tactics, architecture.interactions || []);
+    const adlGlossary = allAdlRules
+      .filter((rule) => {
+        const subject = resolveAdlSubject(rule);
+        return subject.length > 10 && subject.length < 100;
+      })
+      .slice(0, 6)
+      .map((rule) => ({
+        term: resolveAdlSubject(rule),
+        definition: resolveAdlRationale(rule) || resolveAdlCategory(rule),
+      }));
 
-    // --- Build sequence ---
-    const buyVsBuildDecisions = buyVsBuildSummary?.decisions || [];
-    const buildSequence = buildConstructionSequence(
-      architecture.components || [],
-      buyVsBuildDecisions,
+    const glossaryTerms = [...componentGlossary, ...adlGlossary].filter((entry, index, items) => {
+      const key = entry.term.toLowerCase().trim();
+      return key.length > 0 && items.findIndex((candidate) => candidate.term.toLowerCase().trim() === key) === index;
+    });
+
+    const scenarios = buildQaScenarios(
+      tactics,
       architecture.interactions || [],
+      architecture.components || [],
     );
 
-    // --- System title / description ---
-    const systemTitle = resolveSystemTitle(
-      architecture.style || 'Unknown',
-      (architecture as unknown as Record<string, string>).domain || '',
-      conversationId || '',
-    );
-    const systemDescription = 'System architecture as defined through design conversation.';
+    const sloTargets = buildSloTargets(tactics, allTradeOffs, architecture.style || '');
+    const systemTitle = resolveSystemTitle(architecture.style || 'Unknown', conversationTitle);
 
-    // --- Markdown sections ---
     const overviewMarkdown = buildOverviewMarkdown(
       systemTitle,
-      architecture.style || 'Unknown',
+      'System architecture as defined through design conversation.',
       stakeholderConcerns,
       glossaryTerms,
-      sloTargets,
-      governanceReport?.governanceScore ?? null,
+      architecture.style || 'Unknown',
     );
 
     const moduleViewMarkdown = buildModuleViewMarkdown(
@@ -1052,26 +979,25 @@ export function useArchDoc(): ArchDocData {
       allTradeOffs,
       moduleAdlRules,
       allWeaknesses?.weaknesses || [],
-      tactics,
-      buyVsBuildDecisions,
+      buyVsBuildSummary?.decisions || [],
     );
 
     const ccViewMarkdown = buildCCViewMarkdown(
       architecture.sequenceDiagram || null,
       architecture.interactions || [],
       scenarios,
+      sloTargets,
       connectorAdlRules,
       fmea,
-      sloTargets,
     );
 
     const allocationViewMarkdown = buildAllocationViewMarkdown(
-      null,
-      buyVsBuildDecisions,
+      deploymentDiagram,
+      buyVsBuildSummary?.decisions || [],
       architecture.components || [],
+      architecture.interactions || [],
       allocationAdlRules,
       allWeaknesses?.weaknesses || [],
-      buildSequence,
     );
 
     const riskMarkdown = buildRiskMarkdown(
@@ -1079,7 +1005,6 @@ export function useArchDoc(): ArchDocData {
       allWeaknesses?.weaknesses || [],
       fmea,
       governanceReport?.improvementRecommendations || [],
-      tactics,
     );
 
     const fullPackageMarkdown = [
@@ -1096,46 +1021,60 @@ export function useArchDoc(): ArchDocData {
 
     return {
       systemTitle,
-      systemDescription,
-      conversationTitle: conversationId || 'Architecture',
+      systemDescription: 'System architecture as defined through design conversation.',
+      conversationTitle: conversationTitle || systemTitle,
       stakeholderConcerns,
       glossaryTerms,
-      sloTargets,
       componentDiagram: architecture.componentDiagram || null,
-      deploymentDiagram: null,
+      deploymentDiagram,
       components: architecture.components || [],
       fmeaByComponent,
-      moduleAdlRules: moduleAdlRules as AdlRule[],
+      moduleAdlRules,
       sequencePrimaryDiagram: architecture.sequenceDiagram || null,
       sequenceErrorDiagram: null,
       interactions: architecture.interactions || [],
       scenarios,
-      connectorAdlRules: connectorAdlRules as AdlRule[],
-      buyVsBuildDecisions,
-      buildSequence,
-      allocationAdlRules: allocationAdlRules as AdlRule[],
+      connectorAdlRules,
+      sloTargets,
+      buyVsBuildDecisions: buyVsBuildSummary?.decisions || [],
+      allocationAdlRules,
       adlDocument: adl,
-      allAdlRules: allAdlRules as AdlRule[],
+      allAdlRules,
       weaknesses: allWeaknesses?.weaknesses || [],
       fmeaAll: fmea,
       improvementRecommendations: governanceReport?.improvementRecommendations || [],
       tradeOffs: allTradeOffs,
-      tactics,
       fullPackageMarkdown,
       overviewMarkdown,
       moduleViewMarkdown,
       ccViewMarkdown,
       allocationViewMarkdown,
       riskMarkdown,
-      exportFilename: `architecture-docs-${slugifyTitle(conversationId || 'architecture')}-${getCurrentDate()}.md`,
+      exportFilename: `architecture-docs-${slugifyTitle(systemTitle)}-${getCurrentDate()}.md`,
       loading,
-      error,
+      error: error || null,
       hasData: (architecture.components?.length || 0) > 0,
     };
   }, [
-    architecture, adl, allWeaknesses, fmea, allTradeOffs, governanceReport,
-    buyVsBuildSummary, conversationId, tactics,
-    archLoading, govLoading, tacticsLoading, bbLoading,
-    archError, govError, tacticsError, bbError,
+    adl,
+    allTradeOffs,
+    allWeaknesses,
+    archError,
+    archLoading,
+    architecture,
+    bbError,
+    bbLoading,
+    buyVsBuildSummary,
+    conversationTitle,
+    deploymentDiagram,
+    fmea,
+    govError,
+    govLoading,
+    governanceReport,
+    tactics,
+    tacticsError,
+    tacticsLoading,
   ]);
+
+  return archDocData;
 }

@@ -6,6 +6,7 @@ import { getArchitecture } from '../api/architecture';
 export function useArchitecture() {
   const token = useStore((s) => s.token);
   const conversationId = useStore((s) => s.conversationId);
+  const pipelineVersion = useStore((s) => s.pipelineVersion);
 
   const [architecture, setArchitecture] = useState<ArchitectureOutput | null>(
     null,
@@ -25,7 +26,7 @@ export function useArchitecture() {
     } finally {
       setLoading(false);
     }
-  }, [token, conversationId]);
+  }, [token, conversationId, pipelineVersion]);
 
   useEffect(() => {
     fetchArchitecture();

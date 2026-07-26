@@ -101,14 +101,19 @@ public class LensAgentClient {
         List<Map<String, Object>> evidence,
         List<Map<String, Object>> gapQuestions,
         List<Map<String, Object>> gapAnswers,
-        List<String> insufficientInfoGaps) {
-    Map<String, Object> request = Map.of(
+        List<String> insufficientInfoGaps,
+        Map<String, Object> projectMemoryContext) {
+    java.util.HashMap<String, Object> request = new java.util.HashMap<>();
+    request.putAll(Map.of(
         "session_id", sessionId.toString(),
         "system_description", systemDescription == null ? "" : systemDescription,
         "evidence", evidence,
         "gap_questions", gapQuestions,
         "gap_answers", gapAnswers,
-        "insufficient_info_gaps", insufficientInfoGaps);
+        "insufficient_info_gaps", insufficientInfoGaps));
+    if (projectMemoryContext != null && !projectMemoryContext.isEmpty()) {
+        request.put("project_memory_context", projectMemoryContext);
+    }
 
     log.info("lens-agent runReview request sessionId={} evidence={} gaps={} answers={} insufficientInfo={}",
         sessionId,

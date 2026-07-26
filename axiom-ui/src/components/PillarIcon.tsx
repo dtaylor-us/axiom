@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type PillarId = 'axiom' | 'archon' | 'specweaver' | 'lens';
+export type PillarId = 'axiom' | 'archon' | 'specweaver' | 'lens' | 'memoria';
 
 interface PillarIconProps {
   pillar: PillarId;
@@ -39,11 +39,19 @@ const LensIcon = (
   </>
 );
 
+const MemoriaIcon = (
+  <>
+    <path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z" />
+    <path d="M5 5.5v15M9 7h6M9 11h6M9 15h4" />
+  </>
+);
+
 const ICONS: Record<PillarId, ReactNode> = {
   axiom: AxiomIcon,
   archon: ArchonIcon,
   specweaver: SpecWeaverIcon,
   lens: LensIcon,
+  memoria: MemoriaIcon,
 };
 
 /**

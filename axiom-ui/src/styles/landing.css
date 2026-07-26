@@ -324,3 +324,29 @@
     transform: rotate(90deg);
   }
 }
+
+.dark .btn-secondary,
+.dark .feature-card,
+.dark .pipeline-stage-chip,
+.dark .workflow-step {
+  background: #2f2f2f;
+  border-color: #4d4d4f;
+  color: #d1d5db;
+}
+
+.dark .btn-secondary:hover:not(:disabled),
+.dark .feature-card:hover { background: #40414f; border-color: #565869; }
+
+.dark .feature-card-title,
+.dark .section-heading-title,
+.dark .workflow-step h3,
+.dark .pillar-hero h1 { color: #ececf1; }
+
+.dark .feature-card-desc,
+.dark .feature-card-kicker,
+.dark .feature-card-highlight,
+.dark .section-heading-subtitle,
+.dark .workflow-step p,
+.dark .pillar-hero p { color: #acacbe; }
+
+.dark .feature-card-highlight { border-color: #4d4d4f; }

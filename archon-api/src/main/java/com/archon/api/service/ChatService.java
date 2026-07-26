@@ -5,6 +5,7 @@ import com.archon.api.domain.model.MessageRole;
 import com.archon.api.dto.AgentRequest;
 import com.archon.api.dto.AgentResponse;
 import com.archon.api.dto.ChatRequest;
+import com.archon.api.dto.ArchitectureOutputDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,8 @@ import reactor.core.publisher.SynchronousSink;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,6 +36,7 @@ public class ChatService {
     private final UsageService usageService;
     private final PipelineRunService pipelineRunService;
     private final PipelineRunBroadcaster pipelineRunBroadcaster;
+    private final MemoriaNotificationClient memoriaNotificationClient;
     private final ObjectMapper objectMapper;
 
     public Flux<AgentResponse> streamChat(ChatRequest request, String userId) {
@@ -43,12 +47,39 @@ public class ChatService {
         conversationService.saveMessage(
                 conversation, MessageRole.USER, request.getMessage(), null);
 
+        var memoriaContext = memoriaNotificationClient.fetchConversationContext(conversation.getId());
+
+        Map<String, Object> previousArchitecture = null;
+        boolean iterativeMode = false;
+        if (request.getConversationId() != null) {
+            try {
+                Optional<ArchitectureOutputDto> previous =
+                        architectureOutputService.getLatest(conversation.getId());
+                if (previous.isPresent()) {
+                    previousArchitecture = buildPreviousArchitecturePayload(previous.get());
+                    iterativeMode = true;
+                    log.info("Iterative mode active. conversation={} style={} components={}",
+                            conversation.getId(), previous.get().getStyle(),
+                            previous.get().getComponentCount());
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to retrieve previous architecture for conversation={}. "
+                                + "Falling back to fresh pipeline run. error={}",
+                        conversation.getId(), ex.getMessage());
+            }
+        }
+
         AgentRequest agentRequest = AgentRequest.builder()
                 .conversationId(conversation.getId().toString())
                 .userMessage(request.getMessage())
                 .mode(request.getMode().name())
                 .history(conversationService.getRecentMessages(
                              conversation.getId(), 20))
+                .context(memoriaContext
+                        .map(context -> Map.of("project_memory_context", (Object) context))
+                        .orElse(null))
+                .previousArchitecture(previousArchitecture)
+                .iterativeMode(iterativeMode)
                 .build();
 
         AtomicReference<StringBuilder> buffer =
@@ -176,8 +207,10 @@ public class ChatService {
                                 );
                             })
                             .doOnComplete(() -> {
-                                // Schedule blocking JPA persistence off the reactive thread
-                                // so the SSE completion signal propagates immediately.
+                                // COMPLETE is the consistency boundary: persist the exact
+                                // structured output before closing the SSE stream. Otherwise
+                                // the Architecture View can immediately fetch the previous
+                                // run while this work is still queued in the background.
                                 CompletableFuture.runAsync(() -> {
                                     try {
                                         String text = buffer.get().toString();
@@ -238,6 +271,10 @@ public class ChatService {
                                         if (cp != null) {
                                             persistTokenUsage(conversation.getId(), cp);
                                         }
+                                        memoriaNotificationClient.notifyConversationComplete(
+                                                conversation.getId(),
+                                                text,
+                                                so);
                                         // Mark pipeline run complete — persist has_gaps and
                                         // pipeline_gaps from the COMPLETE payload so degraded
                                         // runs are not reported as clean successful runs.
@@ -317,7 +354,7 @@ public class ChatService {
                                                 "Post-stream persistence failed for conversation={}",
                                                 conversation.getId(), e);
                                     }
-                                });
+                                }).join();
                             });
 
                     auditEventWrite(
@@ -328,6 +365,24 @@ public class ChatService {
                     );
                     return Flux.concat(Mono.just(runCreatedEvent), monitoredFlux);
                 });
+    }
+
+    private Map<String, Object> buildPreviousArchitecturePayload(
+            ArchitectureOutputDto dto) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("style", dto.getStyle());
+        payload.put("domain", dto.getDomain());
+        payload.put("system_type", dto.getSystemType());
+        payload.put("components", dto.getComponents());
+        payload.put("interactions", dto.getInteractions());
+        payload.put("characteristics", dto.getCharacteristics());
+        payload.put("trade_offs", dto.getTradeOffs());
+        payload.put("adl_rules", dto.getAdlRules());
+        payload.put("adl_document", dto.getAdlDocument());
+        payload.put("weaknesses", dto.getWeaknesses());
+        payload.put("fmea_risks", dto.getFmeaRisks());
+        payload.put("diagrams", dto.getDiagrams());
+        return payload;
     }
 
     /**

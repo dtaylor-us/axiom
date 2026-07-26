@@ -37,6 +37,14 @@ const PILLARS: Pillar[] = [
     enabled: true,
     color: 'var(--color-pillar-lens)',
   },
+  {
+    id: 'memoria',
+    name: 'Memoria',
+    description: 'Project Memory',
+    path: '/memoria',
+    enabled: true,
+    color: 'var(--color-pillar-memoria)',
+  },
 ];
 
 function isPillarActive(pillar: Pillar, pathname: string): boolean {

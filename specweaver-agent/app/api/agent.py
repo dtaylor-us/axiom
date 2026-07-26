@@ -28,6 +28,7 @@ async def extract(
         context = SpecWeaverContext(
             session_id=request.session_id,
             documents=request.documents,
+            project_memory_context=request.project_memory_context,
         )
         result = coerce_context(await graph.ainvoke(context))
 

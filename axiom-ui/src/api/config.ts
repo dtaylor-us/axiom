@@ -16,6 +16,7 @@ export const SPECWEAVER_API_BASE = USE_GATEWAY ? '/api/v1/specweaver' : '/specwe
 // Outside Vite dev, route through gateway so docker/nginx deployments keep
 // the platform entrypoint contract.
 export const LENS_API_BASE = USE_GATEWAY || !IS_VITE_DEV ? '/api/v1/lens' : '/lens-api/api/v1/lens';
+export const MEMORIA_API_BASE = USE_GATEWAY || !IS_VITE_DEV ? '/api/v1/memoria' : '/memoria-api/api/v1/memoria';
 
 export const AUTH_BASE = '/api/v1/auth';
 export const CHAT_BASE = `${ARCHON_API_BASE}/chat`;

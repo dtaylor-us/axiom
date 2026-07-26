@@ -52,6 +52,7 @@ public class SecurityConfig {
                 .authorizeExchange(spec -> spec
                         .pathMatchers("/api/v1/auth/**").permitAll()
                         .pathMatchers("/api/v1/lens/**").authenticated()
+                        .pathMatchers("/api/v1/memoria/**").authenticated()
                         .pathMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .anyExchange().authenticated())
                 .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)

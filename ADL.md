@@ -53,6 +53,8 @@ stripped pseudo-code.
 | specweaver-agent | app (specweaver-agent/) | 8085 | FastAPI + LangGraph | Active |
 | lens-api | com.lens.api | 8083 | Spring Boot | Active |
 | lens-agent | app (lens-agent/) | 8086 | FastAPI + LangGraph | Active |
+| memoria-api | com.memoria.api | 8084 | Spring Boot | Active |
+| memoria-agent | app (memoria-agent/) | 8087 | FastAPI + LangGraph | Active |
 
 All external traffic enters through **axiom-api**. Each pillar owns its own
 PostgreSQL database. Cross-pillar communication is HTTP only.
@@ -115,6 +117,17 @@ PostgreSQL database. Cross-pillar communication is HTTP only.
 | ADL-092 | lens-agent | Database access prohibition | PyTestArch | Hard |
 | ADL-093 | lens-agent | Gap elicitation never blocks user | pytest | Hard |
 | ADL-094 | lens-agent | Risk and recommendation caps | pytest | Hard |
+| ADL-095 | memoria-api | Domain structure | ArchUnit | Soft |
+| ADL-096 | memoria-api | LLM call prohibition | ArchUnit | Hard |
+| ADL-097 | memoria-api | RestTemplate prohibition | ArchUnit | Hard |
+| ADL-098 | memoria-api | pgvector embedding column required | ArchUnit | Hard |
+| ADL-099 | memoria-api | STALE entries excluded from context | pytest | Hard |
+| ADL-100 | memoria-api | Supersession preserves entries | ArchUnit | Hard |
+| ADL-101 | memoria-agent | Domain structure | PyTestArch | Soft |
+| ADL-102 | memoria-agent | Database access prohibition | PyTestArch | Hard |
+| ADL-103 | memoria-agent | Pillar agent call prohibition | PyTestArch | Hard |
+| ADL-104 | Cross-pillar | Memoria isolation | PyTestArch | Hard |
+| ADL-105 | Platform | Two services per pillar includes memoria | bash | Hard |
 | ADL-074 | specweaver-api | Domain structure | ArchUnit | Soft |
 | ADL-075 | specweaver-api | Database access boundary | ArchUnit | Hard |
 | ADL-076 | specweaver-api | LLM call prohibition | ArchUnit | Hard |
@@ -1233,14 +1246,14 @@ REQUIRES Custom bash fitness function
 DESCRIPTION Each pillar must contain at most two service directories:
 one *-api and one *-agent.
 PROMPT Based on this pseudo-code, write a bash script that checks each pillar
-directory (archon, specweaver, lens) contains at most two subdirectories
+directory (archon, specweaver, lens, memoria) contains at most two subdirectories
 matching *-api and *-agent patterns. Exit 1 if any pillar has more than two
 service directories. Rule: axiom-two-service-limit.
 
 DEFINE SYSTEM Axiom AS platform root directory
   DEFINE CONST MAX_SERVICES_PER_PILLAR AS 2
 
-FOREACH $X IN {archon, specweaver, lens} DO
+FOREACH $X IN {archon, specweaver, lens, memoria} DO
   ASSERT($X CONTAINS AT MOST MAX_SERVICES_PER_PILLAR SERVICES)
 END
 ```
@@ -1618,6 +1631,17 @@ ASSERT(NginxConfig CONTAINS "proxy_read_timeout")
 | ADL-084 | Hard | Unbounded uploads risk OOM on the specweaver-api pod |
 | ADL-085 | Hard | Auth endpoints inaccessible through the gateway break the login flow for all users |
 | ADL-086 | Hard | Direct pillar routing in nginx bypasses JWT validation; SSE timeout below 600s breaks the Archon pipeline progress stream |
+| ADL-095 | Soft | Domain organisation in memoria-api improves navigability |
+| ADL-096 | Hard | LLM calls in memoria-api bypass the agent pipeline and scatter API key usage |
+| ADL-097 | Hard | RestTemplate is blocking and incompatible with reactive WebFlux |
+| ADL-098 | Hard | Missing embedding column prevents semantic search on memory entries |
+| ADL-099 | Hard | Stale memory injected into LLM context causes hallucination — the primary risk this pillar is designed to prevent |
+| ADL-100 | Hard | Deleting memory entries destroys decision lineage — the primary value of the ADR register |
+| ADL-101 | Soft | Domain organisation in memoria-agent improves navigability |
+| ADL-102 | Hard | Agent services must not own relational data |
+| ADL-103 | Hard | Pillar agents calling memoria-agent directly bypasses the HTTP-only inter-service contract |
+| ADL-104 | Hard | Pillar agent imports of memoria bypass the platform contract and create hidden coupling |
+| ADL-105 | Hard | Memoria must follow the same two-service constraint as all other pillars |
 
 ```text
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1805,4 +1829,268 @@ DEFINE SYSTEM Axiom AS com.axiom
 
 ASSERT(RiskIdentifier RETURNS AT MOST MAX_RISKS items)
 ASSERT(RecommendationGenerator RETURNS AT MOST MAX_RECOMMENDATIONS items)
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-095: MEMORIA API SERVICE — DOMAIN STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES ArchUnit Java library
+DESCRIPTION Enforces that all classes in memoria-api belong to one
+of the defined domains.
+PROMPT Write an ArchUnit test verifying every class under
+com.memoria.api resides in one of (controller, domain, service,
+client, config, security). Test class:
+MemoriaApiDomainStructureArchitectureTest.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Memoria API Service AS com.memoria.api
+    DEFINE DOMAIN Controller AS com.memoria.api.controller
+    DEFINE DOMAIN Domain AS com.memoria.api.domain
+    DEFINE DOMAIN Service AS com.memoria.api.service
+    DEFINE DOMAIN Client AS com.memoria.api.client
+    DEFINE DOMAIN Security AS com.memoria.api.security
+    DEFINE DOMAIN Configuration AS com.memoria.api.config
+
+FOREACH $X IN CLASSES DO
+  ASSERT($X CONTAINED WITHIN
+    {Controller, Domain, Service, Client, Security, Configuration})
+END
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-096: MEMORIA API SERVICE — LLM CALL PROHIBITION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES ArchUnit Java library
+DESCRIPTION Ensures memoria-api has no dependency on any LLM client
+library. All LLM calls belong in memoria-agent.
+PROMPT Write an ArchUnit test verifying no class under com.memoria.api
+depends on com.theokanning.openai, com.azure.ai.openai, or
+dev.langchain4j. Test class: MemoriaApiLlmCallProhibitionTest.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Memoria API Service AS com.memoria.api
+  DEFINE LIBRARY OpenAI Library AS com.theokanning.openai
+  DEFINE LIBRARY Azure OpenAI Library AS com.azure.ai.openai
+  DEFINE LIBRARY LangChain Library AS dev.langchain4j
+
+ASSERT(Memoria API Service has NO DEPENDENCY ON OpenAI Library)
+ASSERT(Memoria API Service has NO DEPENDENCY ON Azure OpenAI Library)
+ASSERT(Memoria API Service has NO DEPENDENCY ON LangChain Library)
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-097: MEMORIA API SERVICE — RESTTEMPLATE PROHIBITION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES ArchUnit Java library
+DESCRIPTION Ensures no class in memoria-api depends on RestTemplate.
+PROMPT Write an ArchUnit test verifying no class under com.memoria.api
+imports RestTemplate. Test class: MemoriaApiRestTemplateProhibitionTest.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Memoria API Service AS com.memoria.api
+  DEFINE LIBRARY Rest Template
+    AS org.springframework.web.client.RestTemplate
+
+FOREACH $X IN CLASSES DO
+  ASSERT($X has NO DEPENDENCY ON Rest Template)
+END
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-098: MEMORIA API SERVICE — PGVECTOR EMBEDDING COLUMN REQUIRED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES ArchUnit Java library
+DESCRIPTION Ensures the MemoryEntry entity declares an embedding
+field of type float[] or pgvector-compatible type, and that the
+Flyway migration creates the ivfflat index.
+PROMPT Write an ArchUnit test verifying
+com.memoria.api.domain.model.MemoryEntry declares a field named
+embedding. Also write a bash check that the V1 or V2 Flyway
+migration contains "vector(1536)" and "ivfflat". Test class:
+MemoriaApiEmbeddingColumnTest.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Memoria API Service AS com.memoria.api
+  DEFINE COMPONENT MemoryEntry
+    AS com.memoria.api.domain.model.MemoryEntry
+  DEFINE CONST EMBEDDING_FIELD AS "embedding"
+  DEFINE CONST VECTOR_TYPE AS "vector(1536)"
+  DEFINE CONST INDEX_TYPE AS "ivfflat"
+
+ASSERT(MemoryEntry CONTAINS EMBEDDING_FIELD)
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-099: MEMORIA API SERVICE — STALE ENTRIES EXCLUDED FROM CONTEXT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES Custom fitness function via pytest
+DESCRIPTION The context assembly endpoint must never return STALE,
+SUPERSEDED, ARCHIVED, or SESSION_SUMMARY memory entries. These
+must be filtered before the context package is built.
+PROMPT Write a pytest/JUnit integration test that inserts memory
+entries with all four excluded statuses and one ACTIVE DECISION entry,
+calls GET /api/v1/memoria/projects/{id}/context, and verifies only
+the ACTIVE DECISION entry appears. Test:
+test_stale_entries_excluded_from_context.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Memoria API Service AS com.memoria.api
+  DEFINE COMPONENT ContextAssemblyService
+    AS com.memoria.api.service.ContextAssemblyService
+  DEFINE CONST EXCLUDED_STATUSES
+    AS {STALE, SUPERSEDED, ARCHIVED, SESSION_SUMMARY}
+
+ASSERT(ContextAssemblyService has NO DEPENDENCY ON EXCLUDED_STATUSES)
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-100: MEMORIA API SERVICE — SUPERSESSION PRESERVES ENTRIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES ArchUnit Java library
+DESCRIPTION Ensures MemoryEntryService never calls
+MemoryEntryRepository.delete() or deleteById(). Supersession sets
+status=SUPERSEDED and links superseded_by. Deletion is prohibited
+to preserve decision lineage.
+PROMPT Write an ArchUnit test verifying no method in
+com.memoria.api.service.MemoryEntryService calls
+MemoryEntryRepository.delete or MemoryEntryRepository.deleteById.
+Test class: MemoriaSupersessionPreservationTest.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Memoria API Service AS com.memoria.api
+  DEFINE COMPONENT MemoryEntryService
+    AS com.memoria.api.service.MemoryEntryService
+  DEFINE COMPONENT MemoryEntryRepository
+    AS com.memoria.api.domain.repository.MemoryEntryRepository
+
+ASSERT(MemoryEntryService has NO DEPENDENCY ON
+  MemoryEntryRepository.delete)
+ASSERT(MemoryEntryService has NO DEPENDENCY ON
+  MemoryEntryRepository.deleteById)
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-101: MEMORIA AGENT SERVICE — DOMAIN STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES PyTestArch Python library
+DESCRIPTION Enforces that all modules in memoria-agent belong to
+one of the defined domains.
+PROMPT Write a PyTestArch test verifying every module under app
+resides in one of (pipeline, tools, llm, models, api). Test
+function: test_memoria_agent_domain_structure.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Memoria Agent Service AS memoria-agent/app
+    DEFINE DOMAIN Pipeline AS app.pipeline
+    DEFINE DOMAIN Tools AS app.tools
+    DEFINE DOMAIN LLM AS app.llm
+    DEFINE DOMAIN Models AS app.models
+    DEFINE DOMAIN API AS app.api
+
+FOREACH $X IN CLASSES DO
+  ASSERT($X CONTAINED WITHIN {Pipeline, Tools, LLM, Models, API})
+END
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-102: MEMORIA AGENT SERVICE — DATABASE ACCESS PROHIBITION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES PyTestArch Python library
+DESCRIPTION Ensures memoria-agent has no dependency on PostgreSQL
+client libraries. All persistence belongs in memoria-api.
+PROMPT Write a PyTestArch test verifying no module under app imports
+from psycopg2, asyncpg, or sqlalchemy. Test function:
+test_memoria_agent_database_access_prohibition.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Memoria Agent Service AS memoria-agent/app
+  DEFINE LIBRARY Psycopg2 AS psycopg2
+  DEFINE LIBRARY Asyncpg AS asyncpg
+  DEFINE LIBRARY SQLAlchemy AS sqlalchemy
+
+ASSERT(Memoria Agent Service has NO DEPENDENCY ON Psycopg2)
+ASSERT(Memoria Agent Service has NO DEPENDENCY ON Asyncpg)
+ASSERT(Memoria Agent Service has NO DEPENDENCY ON SQLAlchemy)
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-103: MEMORIA AGENT — PILLAR AGENT CALL PROHIBITION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES PyTestArch Python library
+DESCRIPTION Ensures memoria-agent does not import from or call
+archon-agent, specweaver-agent, or lens-agent. Only memoria-api
+may call memoria-agent. The distillation pipeline is always
+invoked by the pillar API, not by the pillar agent.
+PROMPT Write a PyTestArch test verifying no module under
+memoria-agent/app imports from archon_agent, specweaver_agent,
+or lens_agent. Test function:
+test_memoria_agent_no_pillar_agent_calls.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Memoria Agent Service AS memoria-agent/app
+  DEFINE SERVICE Archon Agent Service AS archon-agent/app
+  DEFINE SERVICE SpecWeaver Agent Service AS specweaver-agent/app
+  DEFINE SERVICE Lens Agent Service AS lens-agent/app
+
+ASSERT(Memoria Agent Service has NO DEPENDENCY ON
+  Archon Agent Service)
+ASSERT(Memoria Agent Service has NO DEPENDENCY ON
+  SpecWeaver Agent Service)
+ASSERT(Memoria Agent Service has NO DEPENDENCY ON
+  Lens Agent Service)
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-104: CROSS-PILLAR — MEMORIA ISOLATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES PyTestArch Python library
+DESCRIPTION Asserts that no pillar agent imports from
+memoria-agent. Pillar agents communicate with memoria only
+through their own API layer (archon-api → memoria-api via HTTP).
+PROMPT Write a PyTestArch test verifying that archon-agent,
+specweaver-agent, and lens-agent have no imports from
+memoria-agent. Test function: test_pillar_agents_no_memoria_import.
+
+DEFINE SYSTEM Axiom AS com.axiom
+  DEFINE SERVICE Archon Agent Service AS archon-agent/app
+  DEFINE SERVICE SpecWeaver Agent Service AS specweaver-agent/app
+  DEFINE SERVICE Lens Agent Service AS lens-agent/app
+  DEFINE SERVICE Memoria Agent Service AS memoria-agent/app
+
+ASSERT(Archon Agent Service has NO DEPENDENCY ON
+  Memoria Agent Service)
+ASSERT(SpecWeaver Agent Service has NO DEPENDENCY ON
+  Memoria Agent Service)
+ASSERT(Lens Agent Service has NO DEPENDENCY ON
+  Memoria Agent Service)
+```
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADL-105: PLATFORM — TWO SERVICES PER PILLAR INCLUDES MEMORIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRES Custom bash fitness function
+DESCRIPTION Updates the two-service-per-pillar rule to include
+the memoria pillar. Each pillar must contain at most two service
+directories: one *-api and one *-agent.
+PROMPT Update the existing bash fitness function from ADL-073 to
+check memoria in addition to archon, specweaver, and lens.
+Rule: axiom-two-service-limit.
+
+DEFINE SYSTEM Axiom AS platform root directory
+  DEFINE CONST MAX_SERVICES_PER_PILLAR AS 2
+
+FOREACH $X IN {archon, specweaver, lens, memoria} DO
+  ASSERT($X CONTAINS AT MOST MAX_SERVICES_PER_PILLAR SERVICES)
+END
 ```

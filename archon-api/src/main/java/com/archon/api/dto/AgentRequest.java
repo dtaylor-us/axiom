@@ -1,5 +1,6 @@
 package com.archon.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Data;
 import java.util.List;
@@ -20,4 +21,11 @@ public class AgentRequest {
     private String mode;
     private List<MessageDto> history;
     private Map<String, Object> context;
+
+    /** Structured output from the most recent completed run, when available. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Map<String, Object> previousArchitecture;
+
+    /** Whether the user message should be interpreted as a delta. */
+    private boolean iterativeMode;
 }

@@ -248,6 +248,68 @@ jobs:
             --file lens-agent/Dockerfile \
             lens-agent/
 
+  build-memoria-api:
+    name: Build memoria-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip message when memoria-api Dockerfile is absent
+        if: ${{ hashFiles('memoria-api/Dockerfile') == '' }}
+        run: echo "Skipping memoria-api image build because memoria-api/Dockerfile is missing"
+
+      - uses: azure/login@v2
+        if: ${{ hashFiles('memoria-api/Dockerfile') != '' }}
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        if: ${{ hashFiles('memoria-api/Dockerfile') != '' }}
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push memoria-api
+        if: ${{ hashFiles('memoria-api/Dockerfile') != '' }}
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image memoria-api:${{ github.sha }} \
+            --image memoria-api:latest \
+            --file memoria-api/Dockerfile \
+            memoria-api/
+
+  build-memoria-agent:
+    name: Build memoria-agent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip message when memoria-agent Dockerfile is absent
+        if: ${{ hashFiles('memoria-agent/Dockerfile') == '' }}
+        run: echo "Skipping memoria-agent image build because memoria-agent/Dockerfile is missing"
+
+      - uses: azure/login@v2
+        if: ${{ hashFiles('memoria-agent/Dockerfile') != '' }}
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        if: ${{ hashFiles('memoria-agent/Dockerfile') != '' }}
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push memoria-agent
+        if: ${{ hashFiles('memoria-agent/Dockerfile') != '' }}
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image memoria-agent:${{ github.sha }} \
+            --image memoria-agent:latest \
+            --file memoria-agent/Dockerfile \
+            memoria-agent/
+
   check-pillar-structure:
     name: Check pillar service count
     runs-on: ubuntu-latest
@@ -257,7 +319,7 @@ jobs:
       - name: Verify max two services per pillar
         run: |
           FAILED=0
-          for pillar in archon specweaver lens; do
+          for pillar in archon specweaver lens memoria; do
             COUNT=0
             [ -d "${pillar}-api" ] && COUNT=$((COUNT+1))
             [ -d "${pillar}-agent" ] && COUNT=$((COUNT+1))
@@ -280,6 +342,8 @@ jobs:
       - build-specweaver-agent
       - build-lens-api
       - build-lens-agent
+      - build-memoria-api
+      - build-memoria-agent
     environment: production
     steps:
       - uses: actions/checkout@v4
@@ -455,6 +519,35 @@ jobs:
             echo "lens-jwt-secret: OK"
           fi
 
+      - name: Verify memoria prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Verify memoria database exists on psql-axiom-dev-bpxn.
+          # memoria-api Flyway migrations require this before first startup.
+          # The pgvector extension (used by memory_entries.embedding) must also
+          # be enabled — Flyway migration V3 runs CREATE EXTENSION IF NOT EXISTS vector.
+          # Azure PostgreSQL Flexible Server supports pgvector natively on PG 13+.
+          DB_EXISTS=$(az postgres flexible-server db list \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --server-name psql-axiom-dev-bpxn \
+            --query "[?name=='memoria'].name" \
+            --output tsv 2>/dev/null || echo "")
+          if [[ -z "$DB_EXISTS" ]]; then
+            echo "::error::memoria database not found on psql-axiom-dev-bpxn."
+            echo "Create it with:"
+            echo "  az postgres flexible-server db create \\"
+            echo "    --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \\"
+            echo "    --server-name psql-axiom-dev-bpxn \\"
+            echo "    --database-name memoria"
+            echo "Or apply Terraform: azurerm_postgresql_flexible_server_database.memoria"
+            echo "Note: pgvector is enabled by Flyway V3 migration (CREATE EXTENSION IF NOT EXISTS vector)."
+            echo "Azure PostgreSQL Flexible Server supports pgvector on PG 13+ without manual installation."
+            exit 1
+          fi
+          echo "memoria database: OK"
+
       - name: Get ingress FQDN
         id: ingress
         run: |
@@ -491,6 +584,10 @@ jobs:
             --set lensApi.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
             --set lensAgent.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/lens-agent \
             --set lensAgent.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
+            --set memoriaApi.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/memoria-api \
+            --set memoriaApi.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
+            --set memoriaAgent.image.repository=${{ secrets.ACR_LOGIN_SERVER }}/memoria-agent \
+            --set memoriaAgent.image.tag=${{ needs.build-and-push.outputs.image_tag }} \
             --set database.host=psql-axiom-dev-bpxn.postgres.database.azure.com \
             --set keyVault.vaultName=${{ secrets.KEY_VAULT_NAME }} \
             --set keyVault.tenantId=${{ secrets.KEY_VAULT_TENANT_ID }} \
@@ -546,6 +643,10 @@ jobs:
           kubectl rollout status deployment/lens-api \
             --namespace ai-architect --timeout=5m
           kubectl rollout status deployment/lens-agent \
+            --namespace ai-architect --timeout=5m
+          kubectl rollout status deployment/memoria-api \
+            --namespace ai-architect --timeout=5m
+          kubectl rollout status deployment/memoria-agent \
             --namespace ai-architect --timeout=5m
 
       - name: Verify certificate issuance
