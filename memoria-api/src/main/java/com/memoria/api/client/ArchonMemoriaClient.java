@@ -68,18 +68,7 @@ public class ArchonMemoriaClient {
                 log.debug("ArchonMemoriaClient: empty response for sessionId={}", sessionId);
                 return Optional.empty();
             }
-            log.info("DIAG archon-raw-response: sessionId={} rawKeys={} rawSize={}",
-                    sessionId, response.keySet(), response.size());
             Map<String, Object> normalised = normaliseArchonPayload(response);
-            log.info("DIAG archon-normalised: sessionId={} normalisedKeys={}",
-                    sessionId, normalised.keySet());
-            normalised.forEach((key, value) -> {
-                if (value instanceof java.util.List<?> list) {
-                    log.info("DIAG archon-normalised-list: key={} size={}", key, list.size());
-                } else if (value instanceof Map<?, ?> map) {
-                    log.info("DIAG archon-normalised-map: key={} subKeys={}", key, map.keySet());
-                }
-            });
             log.debug("ArchonMemoriaClient: normalised payload sessionId={} keys={}",
                     sessionId, normalised.keySet());
             return Optional.of(normalised);

@@ -17,14 +17,10 @@ deterministic extractor cannot classify.
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
 
 from app.models.contracts import MemoryCandidate
-
-logger = logging.getLogger("uvicorn.error")
-
 
 # ---------------------------------------------------------------------------
 # Type hint maps
@@ -97,27 +93,10 @@ async def extract_facts(
 ) -> list[MemoryCandidate]:
     candidates: list[MemoryCandidate] = []
     payload = session_payload or {}
-    logger.info(
-        "DIAG extract-facts: pillar_hint_from_payload_keys=%s",
-        [k for k in payload.keys()][:20],
-    )
-
     # Pillar-specific extractors run first
-    archon_candidates = _extract_archon(payload)
-    logger.info(
-        "DIAG extractor-archon: session_payload_keys=%s archon_count=%d",
-        list(payload.keys()),
-        len(archon_candidates),
-    )
-    candidates.extend(archon_candidates)
-
-    lens_candidates = _extract_lens(payload)
-    logger.info("DIAG extractor-lens: lens_count=%d", len(lens_candidates))
-    candidates.extend(lens_candidates)
-
-    specweaver_candidates = _extract_specweaver(payload)
-    logger.info("DIAG extractor-specweaver: sw_count=%d", len(specweaver_candidates))
-    candidates.extend(specweaver_candidates)
+    candidates.extend(_extract_archon(payload))
+    candidates.extend(_extract_lens(payload))
+    candidates.extend(_extract_specweaver(payload))
 
     # Generic walk for any remaining unmapped fields
     for key, value in payload.items():

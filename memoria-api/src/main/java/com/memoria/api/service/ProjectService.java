@@ -36,13 +36,9 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public Project getProject(UUID id, UUID userId) {
-        log.info("DIAG project-lookup: projectId={} requestedUserId={}", id, userId);
         return projectRepository.findById(id)
                 .filter(project -> project.getUserId().equals(userId))
-                .orElseThrow(() -> {
-                    log.warn("DIAG project-notfound: projectId={} requestedUserId={}", id, userId);
-                    return new ResourceNotFoundException("Project not found");
-                });
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
     }
 
     @Transactional(readOnly = true)
