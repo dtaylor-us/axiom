@@ -1,5 +1,6 @@
 package com.memoria.api.config;
 
+import com.memoria.api.security.GatewayBypassMode;
 import com.memoria.api.security.GatewayHeaderAuthFilter;
 import com.memoria.api.security.JwtAuthFilter;
 import jakarta.servlet.DispatcherType;
@@ -44,8 +45,6 @@ public class SecurityConfig {
     }
 
     private boolean isGatewayBypassEnabled() {
-        return Boolean.parseBoolean(environment.getProperty(
-                "AXIOM_GATEWAY_BYPASS",
-                environment.getProperty("axiom.gateway.bypass", "false")));
+                return GatewayBypassMode.isEnabled(environment);
     }
 }

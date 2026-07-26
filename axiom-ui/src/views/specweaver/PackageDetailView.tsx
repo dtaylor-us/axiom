@@ -10,9 +10,10 @@ import type {
 import { ConflictsPanel } from '../../components/specweaver/ConflictsPanel';
 import { GapsPanel } from '../../components/specweaver/GapsPanel';
 import { ReadinessScore } from '../../components/specweaver/ReadinessScore';
+import { MarkdownExportActions } from '../../components/StructuredData';
 import { useStore } from '../../store/useStore';
 import { useSpecWeaverStore } from '../../store/useSpecWeaverStore';
-import { downloadPackageExport } from './packageExport';
+import { buildPackageMarkdown, buildRequirementsMarkdown, downloadPackageExport } from './packageExport';
 import { PillarBadge } from '../../components/PillarBadge';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -218,6 +219,16 @@ export function PackageDetailView() {
     [currentPackage?.requirements],
   );
 
+  const packageMarkdown = useMemo(
+    () => (currentPackage ? buildPackageMarkdown(currentPackage) : ''),
+    [currentPackage],
+  );
+
+  const requirementsMarkdown = useMemo(
+    () => (currentPackage ? buildRequirementsMarkdown(currentPackage) : ''),
+    [currentPackage],
+  );
+
   if (!sessionId) {
     return <div className="p-6 text-[13px] text-gray-500">Session not found.</div>;
   }
@@ -272,9 +283,24 @@ export function PackageDetailView() {
           </div>
           {currentPackage && (
             <div className="package-export-actions">
-              <button type="button" onClick={() => downloadPackageExport(currentPackage, 'markdown')}>
-                Export Markdown
-              </button>
+              <div className="package-export-group">
+                <p className="package-export-group-label">Package markdown</p>
+                <MarkdownExportActions
+                  markdown={packageMarkdown}
+                  markdownFilename={`specweaver-${sessionId}-package.md`}
+                  copyButtonTitle="Copy package as Markdown"
+                  compact
+                />
+              </div>
+              <div className="package-export-group">
+                <p className="package-export-group-label">Requirements markdown</p>
+                <MarkdownExportActions
+                  markdown={requirementsMarkdown}
+                  markdownFilename={`specweaver-${sessionId}-requirements.md`}
+                  copyButtonTitle="Copy requirements as Markdown"
+                  compact
+                />
+              </div>
               <button type="button" onClick={() => downloadPackageExport(currentPackage, 'text')}>
                 Export Text
               </button>

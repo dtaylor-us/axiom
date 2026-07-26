@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -20,10 +21,13 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
     static final String AXIOM_INTERNAL_SECRET_HEADER = "X-Axiom-Internal-Secret";
 
     private final String internalSecret;
+    private final Environment environment;
 
     public GatewayHeaderAuthFilter(
-            @Value("${axiom.gateway.internal-secret:}") String internalSecret) {
+            @Value("${axiom.gateway.internal-secret:}") String internalSecret,
+            Environment environment) {
         this.internalSecret = internalSecret;
+        this.environment = environment;
     }
 
     @Override
@@ -32,6 +36,11 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
         String userId = request.getHeader(AXIOM_USER_ID_HEADER);
+        if (GatewayBypassMode.isEnabled(environment)) {
+            setAuthentication(userId == null || userId.isBlank() ? "local-dev" : userId);
+            filterChain.doFilter(request, response);
+            return;
+        }
         if (userId == null || userId.isBlank()) {
             filterChain.doFilter(request, response);
             return;
@@ -40,9 +49,13 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
-        var auth = new UsernamePasswordAuthenticationToken(userId, null, List.of());
-        SecurityContextHolder.getContext().setAuthentication(auth);
+        setAuthentication(userId);
         filterChain.doFilter(request, response);
+    }
+
+    private void setAuthentication(String subject) {
+        var auth = new UsernamePasswordAuthenticationToken(subject, null, List.of());
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     private boolean isInternalSecretRequired() {

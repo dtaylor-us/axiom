@@ -1,6 +1,5 @@
 package com.memoria.api.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.memoria.api.client.ArchonMemoriaClient;
 import com.memoria.api.client.LensMemoriaClient;
@@ -18,7 +17,6 @@ import com.memoria.api.repository.ProjectRepository;
 import com.memoria.api.repository.ProjectSessionLinkRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,14 +43,14 @@ public class BatchDistillationService {
 
     @Transactional
     public DistillationJob distillAllLinkedSessions(UUID projectId) {
-        projectRepository.findById(projectId)
+        var project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
 
         List<ProjectSessionLink> linkedSessions = sessionLinkRepository.findByProjectId(projectId);
 
         DistillationJob job = distillationJobRepository.save(
                 DistillationJob.builder()
-                        .project(projectRepository.getReferenceById(projectId))
+                .project(project)
                         .status(DistillationJobStatus.RUNNING)
                         .sessionCount(linkedSessions.size())
                         .totalCandidates(0)
@@ -72,6 +70,7 @@ public class BatchDistillationService {
         List<SessionDistillResult> sessionResults = new ArrayList<>();
         int successCount = 0;
         int failCount = 0;
+        int skippedCount = 0;
 
         for (ProjectSessionLink link : linkedSessions) {
             SessionDistillResult result = processLinkedSession(projectId, link);
@@ -83,16 +82,20 @@ public class BatchDistillationService {
                 job.setTotalPersisted(job.getTotalPersisted() + result.persisted());
                 job.setTotalSuperseded(job.getTotalSuperseded() + result.superseded());
                 job.setTotalConflicts(job.getTotalConflicts() + result.conflicts());
+            } else if ("FAILED".equals(result.status())) {
+                failCount++;
+            } else if ("SKIPPED".equals(result.status())) {
+                skippedCount++;
             } else {
                 failCount++;
             }
         }
 
         DistillationJobStatus finalStatus;
-        if (failCount == 0) {
+        if (failCount == 0 && skippedCount == 0) {
             finalStatus = DistillationJobStatus.COMPLETE;
         } else if (successCount == 0) {
-            finalStatus = DistillationJobStatus.FAILED;
+            finalStatus = failCount > 0 ? DistillationJobStatus.FAILED : DistillationJobStatus.PARTIAL;
         } else {
             finalStatus = DistillationJobStatus.PARTIAL;
         }

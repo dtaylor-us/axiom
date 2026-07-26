@@ -153,8 +153,8 @@ class BatchDistillationServiceTest {
 
         DistillationJob job = service.distillAllLinkedSessions(projectId);
 
-        // Skipped session counts as a failure for overall job status.
-        assertThat(job.getStatus()).isEqualTo(DistillationJobStatus.FAILED);
+        // Skipped-only runs are partial rather than hard failures.
+        assertThat(job.getStatus()).isEqualTo(DistillationJobStatus.PARTIAL);
         assertThat(job.getTotalPersisted()).isEqualTo(0);
         assertThat(job.getSessionResults()).contains("SKIPPED");
     }

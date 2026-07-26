@@ -11,6 +11,7 @@ import {
   listMemoryEntries,
   listProjects,
   listSessionLinks,
+  promoteMemoryEntry,
 } from '../api/memoria';
 import { emitToast } from '../components/Toast';
 import { ApiError } from '../api/http';
@@ -230,6 +231,40 @@ describe('MemoriaHomePage', () => {
 
     expect(await screen.findByText('4a214a1c-c9e7-4b64-90a9-622aa75083c8')).toBeInTheDocument();
     expect(emitToast).toHaveBeenCalledWith('ADR query failed', 'error');
+  });
+
+  it('opens promotion fields beside the selected memory and promotes it', async () => {
+    const user = userEvent.setup();
+    (promoteMemoryEntry as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'adr-3' });
+
+    render(
+      <MemoryRouter initialEntries={['/memoria/projects/project-1']}>
+        <Routes>
+          <Route path="/memoria/projects/:projectId" element={<MemoriaWorkspacePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const firstMemoryRow = (await screen.findByText('First memory', { selector: 'p' })).closest('article');
+    expect(firstMemoryRow).not.toBeNull();
+    await user.click(within(firstMemoryRow as HTMLElement).getByRole('button', { name: 'Promote to ADR' }));
+
+    const promotionForm = within(firstMemoryRow as HTMLElement).getByRole('region', { name: 'Promote memory to ADR' });
+    expect(within(promotionForm).getByLabelText('ADR title')).toHaveValue('First memory');
+    expect(within(promotionForm).getByLabelText('ADR decision')).toHaveValue('First memory');
+    expect(within(promotionForm).getByRole('button', { name: 'Promote' })).toBeDisabled();
+
+    await user.type(within(promotionForm).getByLabelText('ADR context'), 'Existing decision context');
+    await user.click(within(promotionForm).getByRole('button', { name: 'Promote' }));
+
+    await waitFor(() => expect(promoteMemoryEntry).toHaveBeenCalledWith('jwt', 'project-1', 'entry-1', {
+      title: 'First memory',
+      context: 'Existing decision context',
+      decision: 'First memory',
+    }));
+    expect(emitToast).toHaveBeenCalledWith('Memory promoted to ADR.', 'info');
+    expect(within(firstMemoryRow as HTMLElement).getByText('Added to ADR')).toBeInTheDocument();
+    expect(within(firstMemoryRow as HTMLElement).queryByRole('button', { name: 'Promote to ADR' })).not.toBeInTheDocument();
   });
 
   it('links a selected recent session and refreshes the linked-session list', async () => {

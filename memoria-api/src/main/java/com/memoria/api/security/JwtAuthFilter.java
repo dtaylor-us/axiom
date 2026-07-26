@@ -44,9 +44,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private boolean isGatewayBypassEnabled() {
-        return Boolean.parseBoolean(environment.getProperty(
-                "AXIOM_GATEWAY_BYPASS",
-                environment.getProperty("axiom.gateway.bypass", "false")));
+        return GatewayBypassMode.isEnabled(environment);
     }
 
     private void setAuthentication(String subject) {

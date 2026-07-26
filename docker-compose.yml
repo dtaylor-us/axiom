@@ -380,7 +380,7 @@ services:
       - JWT_SECRET=${MEMORIA_JWT_SECRET:-dev-jwt-secret-minimum-32-chars-here}
       - MEMORIA_AGENT_BASE_URL=http://memoria-agent:8087
       - AXIOM_GATEWAY_BYPASS=true
-      - AXIOM_INTERNAL_SECRET=
+      - AXIOM_INTERNAL_SECRET=${AXIOM_INTERNAL_SECRET:-dev-secret-change-in-prod}
       - OTEL_SDK_DISABLED=true
       - MANAGEMENT_TRACING_ENABLED=false
     depends_on:

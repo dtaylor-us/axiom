@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnTransformer;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -58,6 +59,7 @@ public class DistillationJob {
     // Schema: list of { sessionId, pillar, status, candidates,
     //                   persisted, superseded, conflicts, error }
     @Column(columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
     private String sessionResults;
 
     @Column(nullable = false, updatable = false)

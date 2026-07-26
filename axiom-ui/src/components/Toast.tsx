@@ -10,13 +10,13 @@ import type { ReactElement, ReactNode } from 'react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type ToastType = 'error' | 'warning' | 'info';
+export type ToastType = 'error' | 'warning' | 'info' | 'success';
 
 interface ToastItem {
   id: string;
   message: string;
   type: ToastType;
-  /** Duration in ms. Defaults: error 8 000, warning 5 000, info 4 000. */
+  /** Duration in ms. Defaults: error 8 000, warning 5 000, info 4 000, success 4 000. */
   duration: number;
 }
 
@@ -28,6 +28,7 @@ const DEFAULT_DURATIONS: Record<ToastType, number> = {
   error:   8_000,
   warning: 5_000,
   info:    4_000,
+  success: 4_000,
 };
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -140,18 +141,26 @@ const ICON: Record<ToastType, ReactElement> = {
       <circle cx="8" cy="4.5" r="0.5" fill="currentColor" stroke="none" />
     </svg>
   ),
+  success: (
+    <svg className="w-4 h-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M4.8 8.2l2.1 2.1 4.3-4.3" />
+    </svg>
+  ),
 };
 
 const STYLE: Record<ToastType, string> = {
   error:   'bg-white border border-red-200 text-red-800 shadow-lg shadow-red-100/50',
   warning: 'bg-white border border-amber-200 text-amber-800 shadow-lg shadow-amber-100/50',
   info:    'bg-white border border-gray-200 text-gray-700 shadow-lg shadow-gray-100/50',
+  success: 'bg-white border border-emerald-200 text-emerald-800 shadow-lg shadow-emerald-100/50',
 };
 
 const ICON_STYLE: Record<ToastType, string> = {
   error:   'text-red-500',
   warning: 'text-amber-500',
   info:    'text-gray-400',
+  success: 'text-emerald-500',
 };
 
 function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {

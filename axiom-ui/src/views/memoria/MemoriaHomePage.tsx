@@ -37,6 +37,7 @@ import { getSessions as listSpecWeaverSessions } from '../../api/specweaver';
 import { listReviewSessions } from '../../api/lens';
 import { CopyButton } from '../../components/CopyButton';
 import { PillarBadge } from '../../components/PillarBadge';
+import { MarkdownExportActions } from '../../components/StructuredData';
 import { emitToast } from '../../components/Toast';
 import { FeatureCard } from '../../components/landing/FeatureCard';
 import { SectionHeading } from '../../components/landing/SectionHeading';
@@ -146,6 +147,88 @@ function statusClass(status: MemoryStatus | AdrStatus): string {
   if (status === 'STALE' || status === 'PROPOSED') return 'bg-amber-50 text-amber-700 ring-amber-200';
   if (status === 'SUPERSEDED') return 'bg-slate-100 text-slate-600 ring-slate-200';
   return 'bg-rose-50 text-rose-700 ring-rose-200';
+}
+
+function slugify(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'memoria-project';
+}
+
+function buildMemoryEntriesMarkdown(projectName: string, entries: MemoryEntry[]): string {
+  const lines: string[] = [
+    `# Memoria Knowledge Export: ${projectName}`,
+    '',
+    `- Entries: ${entries.length}`,
+    '',
+    '## Memory Entries',
+    '',
+  ];
+
+  if (entries.length === 0) {
+    lines.push('_No memory entries match current filters._');
+    return `${lines.join('\n').trim()}\n`;
+  }
+
+  entries.forEach((entry, index) => {
+    lines.push(
+      `### ${index + 1}. ${label(entry.memoryType)} (${entry.id})`,
+      '',
+      `- **Status:** ${label(entry.status)}`,
+      `- **Confidence:** ${label(entry.confidence)}`,
+      `- **Created:** ${entry.createdAt}`,
+      `- **Expires:** ${entry.expiresAt ?? 'No expiry'}`,
+      `- **Source:** ${entry.sourcePillar ? label(entry.sourcePillar) : 'Manual'}`,
+      `- **Source Session:** ${entry.sourceSessionId ?? 'N/A'}`,
+      `- **Tags:** ${entry.tags?.join(', ') || 'None'}`,
+      '',
+      '**Content**',
+      '',
+      entry.content,
+      '',
+      '**Rationale**',
+      '',
+      entry.rationale ?? 'N/A',
+      '',
+    );
+  });
+
+  return `${lines.join('\n').trim()}\n`;
+}
+
+function buildAdrMarkdown(projectName: string, adrs: ArchitectureDecision[]): string {
+  const lines: string[] = [
+    `# Memoria ADR Export: ${projectName}`,
+    '',
+    `- ADRs: ${adrs.length}`,
+    '',
+    '## ADR Register',
+    '',
+  ];
+
+  if (adrs.length === 0) {
+    lines.push('_No ADRs match current filters._');
+    return `${lines.join('\n').trim()}\n`;
+  }
+
+  adrs.forEach((adr) => {
+    lines.push(
+      `### ADR ${adr.adrNumber}: ${adr.title}`,
+      '',
+      `- **Status:** ${label(adr.status)}`,
+      `- **Created:** ${adr.createdAt}`,
+      `- **Source Memory Entry:** ${adr.sourceMemoryEntryId ?? 'N/A'}`,
+      '',
+      '**Context**',
+      '',
+      adr.context,
+      '',
+      '**Decision**',
+      '',
+      adr.decision,
+      '',
+    );
+  });
+
+  return `${lines.join('\n').trim()}\n`;
 }
 
 function Badge({ value }: { value: string }) {
@@ -337,6 +420,7 @@ export function MemoriaWorkspacePage() {
   const [supersedeTargets, setSupersedeTargets] = useState<Record<string, string>>({});
   const [promoteEntryId, setPromoteEntryId] = useState('');
   const [promoteDraft, setPromoteDraft] = useState({ title: '', context: '', decision: '' });
+  const [promotedEntryIds, setPromotedEntryIds] = useState<Set<string>>(() => new Set());
   const [adrTitle, setAdrTitle] = useState('');
   const [adrContext, setAdrContext] = useState('');
   const [adrDecision, setAdrDecision] = useState('');
@@ -357,8 +441,19 @@ export function MemoriaWorkspacePage() {
     [projects, selectedProjectId],
   );
 
+  const memoryExportMarkdown = useMemo(
+    () => buildMemoryEntriesMarkdown(selectedProject?.name ?? 'Untitled project', entries),
+    [entries, selectedProject?.name],
+  );
+
+  const adrExportMarkdown = useMemo(
+    () => buildAdrMarkdown(selectedProject?.name ?? 'Untitled project', adrs),
+    [adrs, selectedProject?.name],
+  );
+
   useEffect(() => {
     setSelectedProjectId(projectId ?? '');
+    setPromotedEntryIds(new Set());
   }, [projectId]);
 
   useEffect(() => {
@@ -449,7 +544,16 @@ export function MemoriaWorkspacePage() {
         if (cancelled) return;
         if (nextSummary.status === 'fulfilled') setSummary(nextSummary.value);
         if (nextEntries.status === 'fulfilled') setEntries(nextEntries.value);
-        if (nextAdrs.status === 'fulfilled') setAdrs(nextAdrs.value);
+        if (nextAdrs.status === 'fulfilled') {
+          setAdrs(nextAdrs.value);
+          setPromotedEntryIds((current) => {
+            const next = new Set(current);
+            nextAdrs.value.forEach((adr) => {
+              if (adr.sourceMemoryEntryId) next.add(adr.sourceMemoryEntryId);
+            });
+            return next;
+          });
+        }
         if (nextLinks.status === 'fulfilled') setLinks(nextLinks.value);
         if (nextJobs.status === 'fulfilled') {
           const jobs = nextJobs.value;
@@ -525,14 +629,20 @@ export function MemoriaWorkspacePage() {
 
   async function handlePromote(entryId: string) {
     if (!token || !selectedProjectId || !promoteDraft.context.trim() || !promoteDraft.decision.trim()) return;
-    await promoteMemoryEntry(token, selectedProjectId, entryId, {
-      title: promoteDraft.title.trim() || undefined,
-      context: promoteDraft.context.trim(),
-      decision: promoteDraft.decision.trim(),
-    });
-    setPromoteEntryId('');
-    setPromoteDraft({ title: '', context: '', decision: '' });
-    reload();
+    try {
+      await promoteMemoryEntry(token, selectedProjectId, entryId, {
+        title: promoteDraft.title.trim() || undefined,
+        context: promoteDraft.context.trim(),
+        decision: promoteDraft.decision.trim(),
+      });
+      setPromoteEntryId('');
+      setPromoteDraft({ title: '', context: '', decision: '' });
+      setPromotedEntryIds((current) => new Set(current).add(entryId));
+      emitToast('Memory promoted to ADR.', 'info');
+      reload();
+    } catch (error) {
+      emitToast((error as Error).message, 'error');
+    }
   }
 
   function startPromote(entry: MemoryEntry) {
@@ -633,8 +743,8 @@ export function MemoriaWorkspacePage() {
           <div className="text-xs font-medium text-slate-500">{loading ? 'Syncing...' : 'Manual memory mode'}</div>
         </header>
 
-        <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="space-y-4">
+        <div className="grid items-start gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="space-y-4 xl:sticky xl:top-5">
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="text-sm font-semibold text-slate-900">Projects</h2>
               <select
@@ -649,17 +759,31 @@ export function MemoriaWorkspacePage() {
                 <option value="">Select a project</option>
                 {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
               </select>
-              <div className="mt-3 space-y-2">
+              <details className="group mt-3 border-t border-slate-100 pt-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-[var(--color-pillar-memoria-text)] [&::-webkit-details-marker]:hidden">
+                  <span>New project</span>
+                  <span aria-hidden="true" className="text-lg font-normal transition-transform group-open:rotate-45">+</span>
+                </summary>
+                <div className="mt-3 space-y-2">
                 <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="New project name" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
                 <textarea className="min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Description" value={projectDescription} onChange={(event) => setProjectDescription(event.target.value)} />
                 <button type="button" className="w-full rounded-md bg-[var(--color-pillar-memoria-text)] px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800" onClick={() => void handleCreateProject()}>
                   Create project
                 </button>
-              </div>
+                </div>
+              </details>
             </section>
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="text-sm font-semibold text-slate-900">Linked sessions</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-slate-900">Linked sessions</h2>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{links.length}</span>
+              </div>
+              <details className="group mt-3 border-b border-slate-100 pb-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-semibold text-[var(--color-pillar-memoria-text)] [&::-webkit-details-marker]:hidden">
+                  <span>Link another session</span>
+                  <span aria-hidden="true" className="text-base font-normal transition-transform group-open:rotate-45">+</span>
+                </summary>
               <div className="mt-3 grid grid-cols-[1fr_1.4fr] gap-2">
                 <select className="rounded-md border border-slate-300 px-2 py-2 text-sm" value={linkPillar} onChange={(event) => setLinkPillar(event.target.value as Pillar)}>
                   {PILLARS.map((pillar) => <option key={pillar} value={pillar}>{label(pillar)}</option>)}
@@ -689,6 +813,7 @@ export function MemoriaWorkspacePage() {
               <button type="button" className="mt-2 w-full rounded-md border border-[var(--color-pillar-memoria-text)] px-3 py-2 text-sm font-semibold text-[var(--color-pillar-memoria-text)] hover:bg-[var(--color-pillar-memoria-bg)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void handleLinkSession()} disabled={!selectedProjectId || !linkSessionId.trim() || linkingSession}>
                 {linkingSession ? 'Linking...' : 'Link session'}
               </button>
+              </details>
               <div className="mt-3 space-y-2">
                 {links.length === 0 ? <p className="text-xs text-slate-500">No linked sessions.</p> : (
                   <>
@@ -762,9 +887,9 @@ export function MemoriaWorkspacePage() {
                 </div>
                 {lastJob.sessionResults.length > 0 && (
                   <div className="mt-3 space-y-1">
-                    {lastJob.sessionResults.map((result) => (
+                    {lastJob.sessionResults.map((result, index) => (
                       <div
-                        key={result.sessionId}
+                        key={`${result.pillar}-${result.sessionId}-${index}`}
                         className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5 text-xs"
                       >
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -816,7 +941,15 @@ export function MemoriaWorkspacePage() {
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-base font-semibold text-slate-950">Knowledge browser</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-slate-950">Knowledge browser</h2>
+                  <MarkdownExportActions
+                    markdown={memoryExportMarkdown}
+                    markdownFilename={`memoria-${slugify(selectedProject?.name ?? 'project')}-knowledge.md`}
+                    copyButtonTitle="Copy memory entries as Markdown"
+                    compact
+                  />
+                </div>
                 <div className="grid gap-2 sm:grid-cols-3">
                   <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Search memory" value={memorySearch} onChange={(event) => setMemorySearch(event.target.value)} />
                   <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Tag" value={memoryTagFilter} onChange={(event) => setMemoryTagFilter(event.target.value)} />
@@ -827,7 +960,25 @@ export function MemoriaWorkspacePage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <details className="group mt-4 rounded-lg border border-rose-200 bg-rose-50/50 p-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-[var(--color-pillar-memoria-text)] [&::-webkit-details-marker]:hidden">
+                  <span>Add memory manually</span>
+                  <span className="font-normal text-slate-500">Use when a session is not available <span aria-hidden="true" className="ml-2 inline-block text-lg text-[var(--color-pillar-memoria-text)] transition-transform group-open:rotate-45">+</span></span>
+                </summary>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={memoryType} onChange={(event) => setMemoryType(event.target.value as MemoryType)}>
+                    {MEMORY_TYPES.map((type) => <option key={type} value={type}>{label(type)}</option>)}
+                  </select>
+                  <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={memoryConfidence} onChange={(event) => setMemoryConfidence(event.target.value as MemoryConfidence)}>
+                    <option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option><option value="INFERRED">Inferred</option>
+                  </select>
+                  <textarea className="min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm md:col-span-2" placeholder="Memory content" value={memoryContent} onChange={(event) => setMemoryContent(event.target.value)} />
+                  <textarea className="min-h-16 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Rationale (optional)" value={memoryRationale} onChange={(event) => setMemoryRationale(event.target.value)} />
+                  <div className="space-y-2"><input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Tags, comma separated" value={memoryTags} onChange={(event) => setMemoryTags(event.target.value)} /><button type="button" className="w-full rounded-md bg-[var(--color-pillar-memoria-text)] px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800" onClick={() => void handleCreateMemory()} disabled={!selectedProjectId}>Add memory</button></div>
+                </div>
+              </details>
+
+              <div className="mt-4">
                 <div className="space-y-3">
                   {entries.length === 0 ? <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">No memory entries match the current filters.</p> : entries.map((entry) => (
                     <article key={entry.id} className="rounded-lg border border-slate-200 p-3">
@@ -860,7 +1011,11 @@ export function MemoriaWorkspacePage() {
                           <>
                             <button type="button" className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50" onClick={() => void handleTransition(entry.id, 'mark-stale')}>Mark stale</button>
                             <button type="button" className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50" onClick={() => void handleTransition(entry.id, 'archive')}>Archive</button>
-                            <button type="button" className="rounded-md border border-[var(--color-pillar-memoria-text)] px-2 py-1 text-xs font-semibold text-[var(--color-pillar-memoria-text)] hover:bg-[var(--color-pillar-memoria-bg)]" onClick={() => startPromote(entry)}>Promote to ADR</button>
+                            {promotedEntryIds.has(entry.id) ? (
+                              <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Added to ADR</span>
+                            ) : (
+                              <button type="button" className="rounded-md border border-[var(--color-pillar-memoria-text)] px-2 py-1 text-xs font-semibold text-[var(--color-pillar-memoria-text)] hover:bg-[var(--color-pillar-memoria-bg)]" onClick={() => startPromote(entry)}>Promote to ADR</button>
+                            )}
                           </>
                         )}
                         {entry.status === 'STALE' && (
@@ -893,36 +1048,38 @@ export function MemoriaWorkspacePage() {
                           </details>
                         )}
                       </div>
+                      {promoteEntryId === entry.id && (
+                        <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3" role="region" aria-label="Promote memory to ADR">
+                          <h3 className="text-sm font-semibold text-rose-950">Promote memory to ADR</h3>
+                          <div className="mt-3 space-y-2">
+                            <input aria-label="ADR title" className="w-full rounded-md border border-rose-200 px-3 py-2 text-sm" placeholder="Title" value={promoteDraft.title} onChange={(event) => setPromoteDraft((current) => ({ ...current, title: event.target.value }))} />
+                            <textarea aria-label="ADR context" className="min-h-20 w-full rounded-md border border-rose-200 px-3 py-2 text-sm" placeholder="Context" value={promoteDraft.context} onChange={(event) => setPromoteDraft((current) => ({ ...current, context: event.target.value }))} />
+                            <textarea aria-label="ADR decision" className="min-h-20 w-full rounded-md border border-rose-200 px-3 py-2 text-sm" placeholder="Decision" value={promoteDraft.decision} onChange={(event) => setPromoteDraft((current) => ({ ...current, decision: event.target.value }))} />
+                            <p className="text-xs text-rose-700">Context and decision are required.</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button type="button" className="rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100" onClick={() => { setPromoteEntryId(''); setPromoteDraft({ title: '', context: '', decision: '' }); }}>Cancel</button>
+                              <button type="button" className="rounded-md bg-[var(--color-pillar-memoria-text)] px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void handlePromote(entry.id)} disabled={!promoteDraft.context.trim() || !promoteDraft.decision.trim()}>Promote</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </article>
                   ))}
-                </div>
-
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <h3 className="text-sm font-semibold text-slate-900">Create memory</h3>
-                  <div className="mt-3 space-y-2">
-                    <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={memoryType} onChange={(event) => setMemoryType(event.target.value as MemoryType)}>
-                      {MEMORY_TYPES.map((type) => <option key={type} value={type}>{label(type)}</option>)}
-                    </select>
-                    <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={memoryConfidence} onChange={(event) => setMemoryConfidence(event.target.value as MemoryConfidence)}>
-                      <option value="HIGH">High</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="LOW">Low</option>
-                      <option value="INFERRED">Inferred</option>
-                    </select>
-                    <textarea className="min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Memory content" value={memoryContent} onChange={(event) => setMemoryContent(event.target.value)} />
-                    <textarea className="min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Rationale" value={memoryRationale} onChange={(event) => setMemoryRationale(event.target.value)} />
-                    <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Tags, comma separated" value={memoryTags} onChange={(event) => setMemoryTags(event.target.value)} />
-                    <button type="button" className="w-full rounded-md bg-[var(--color-pillar-memoria-text)] px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800" onClick={() => void handleCreateMemory()} disabled={!selectedProjectId}>
-                      Add memory
-                    </button>
-                  </div>
                 </div>
               </div>
             </section>
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-base font-semibold text-slate-950">ADR register</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-slate-950">ADR register</h2>
+                  <MarkdownExportActions
+                    markdown={adrExportMarkdown}
+                    markdownFilename={`memoria-${slugify(selectedProject?.name ?? 'project')}-adrs.md`}
+                    copyButtonTitle="Copy ADR register as Markdown"
+                    compact
+                  />
+                </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Search ADRs" value={adrSearch} onChange={(event) => setAdrSearch(event.target.value)} />
                   <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={adrStatus} onChange={(event) => setAdrStatus(event.target.value as AdrStatus | '')}>
@@ -931,7 +1088,16 @@ export function MemoriaWorkspacePage() {
                   </select>
                 </div>
               </div>
-              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <details className="group mt-4 rounded-lg border border-rose-200 bg-rose-50/50 p-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-[var(--color-pillar-memoria-text)] [&::-webkit-details-marker]:hidden"><span>Create ADR</span><span aria-hidden="true" className="text-lg font-normal transition-transform group-open:rotate-45">+</span></summary>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm md:col-span-2" placeholder="Title" value={adrTitle} onChange={(event) => setAdrTitle(event.target.value)} />
+                  <textarea className="min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Context" value={adrContext} onChange={(event) => setAdrContext(event.target.value)} />
+                  <textarea className="min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Decision" value={adrDecision} onChange={(event) => setAdrDecision(event.target.value)} />
+                  <button type="button" className="rounded-md bg-[var(--color-pillar-memoria-text)] px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800 md:col-start-2" onClick={() => void handleCreateAdr()} disabled={!selectedProjectId}>Create ADR</button>
+                </div>
+              </details>
+              <div className="mt-4">
                 <div className="space-y-3">
                   {adrs.length === 0 ? <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">No ADRs match the current filters.</p> : adrs.map((adr) => (
                     <article key={adr.id} className="rounded-lg border border-slate-200 p-3">
@@ -961,33 +1127,6 @@ export function MemoriaWorkspacePage() {
                     </article>
                   ))}
                 </div>
-
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <h3 className="text-sm font-semibold text-slate-900">Create ADR</h3>
-                  <div className="mt-3 space-y-2">
-                    <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Title" value={adrTitle} onChange={(event) => setAdrTitle(event.target.value)} />
-                    <textarea className="min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Context" value={adrContext} onChange={(event) => setAdrContext(event.target.value)} />
-                    <textarea className="min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Decision" value={adrDecision} onChange={(event) => setAdrDecision(event.target.value)} />
-                    <button type="button" className="w-full rounded-md bg-[var(--color-pillar-memoria-text)] px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800" onClick={() => void handleCreateAdr()} disabled={!selectedProjectId}>
-                      Create ADR
-                    </button>
-                  </div>
-                </div>
-
-                {promoteEntryId && (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
-                    <h3 className="text-sm font-semibold text-rose-950">Promote memory to ADR</h3>
-                    <div className="mt-3 space-y-2">
-                      <input className="w-full rounded-md border border-rose-200 px-3 py-2 text-sm" placeholder="Title" value={promoteDraft.title} onChange={(event) => setPromoteDraft((current) => ({ ...current, title: event.target.value }))} />
-                      <textarea className="min-h-20 w-full rounded-md border border-rose-200 px-3 py-2 text-sm" placeholder="Context" value={promoteDraft.context} onChange={(event) => setPromoteDraft((current) => ({ ...current, context: event.target.value }))} />
-                      <textarea className="min-h-20 w-full rounded-md border border-rose-200 px-3 py-2 text-sm" placeholder="Decision" value={promoteDraft.decision} onChange={(event) => setPromoteDraft((current) => ({ ...current, decision: event.target.value }))} />
-                      <div className="grid grid-cols-2 gap-2">
-                        <button type="button" className="rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100" onClick={() => { setPromoteEntryId(''); setPromoteDraft({ title: '', context: '', decision: '' }); }}>Cancel</button>
-                        <button type="button" className="rounded-md bg-[var(--color-pillar-memoria-text)] px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800" onClick={() => void handlePromote(promoteEntryId)}>Promote</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </section>
           </main>

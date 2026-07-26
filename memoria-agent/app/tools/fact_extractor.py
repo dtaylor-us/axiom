@@ -25,14 +25,22 @@ TYPE_KEYWORDS = {
 
 FIELD_TYPE_HINTS = {
     "decisions": "DECISION",
-    "architecture_decisions": "DECISION",
+    "architecturedecisions": "DECISION",
+    "components": "DECISION",
+    "interactions": "DECISION",
+    "tradeoffs": "DECISION",
     "requirements": "REQUIREMENT",
+    "characteristics": "REQUIREMENT",
     "risks": "RISK",
-    "fmea_risks": "RISK",
-    "quality_scores": "QUALITY_SCORE",
-    "waf_scores": "QUALITY_SCORE",
+    "fmearisks": "RISK",
+    "weaknesses": "RISK",
+    "gaps": "RISK",
+    "qualityscores": "QUALITY_SCORE",
+    "wafscores": "QUALITY_SCORE",
+    "readinessscore": "QUALITY_SCORE",
     "assumptions": "ASSUMPTION",
     "constraints": "CONSTRAINT",
+    "systemdescription": "SESSION_SUMMARY",
 }
 
 
@@ -41,7 +49,7 @@ async def extract_facts(session_summary: str | None = None, session_payload: dic
     payload = session_payload or {}
 
     for key, value in payload.items():
-        hinted_type = FIELD_TYPE_HINTS.get(key.lower())
+        hinted_type = _field_type_hint(key)
         candidates.extend(_extract_from_value(value, hinted_type, key))
 
     if session_summary and session_summary.strip():
@@ -69,12 +77,28 @@ def _extract_from_value(value: Any, hinted_type: str | None, source_key: str) ->
             candidates.extend(_extract_from_value(item, hinted_type, source_key))
         return candidates
     if isinstance(value, dict):
-        memory_type = hinted_type or _infer_type(" ".join(str(v) for v in value.values()))
-        content = _first_text(value, ("content", "decision", "requirement", "risk", "title", "description", "summary"))
+        memory_type = hinted_type or _infer_type(" ".join(str(v) for v in value.values())) or "SESSION_SUMMARY"
+        content = _first_text(
+            value,
+            (
+                "content",
+                "decision",
+                "requirement",
+                "risk",
+                "statement",
+                "title",
+                "name",
+                "description",
+                "summary",
+                "recommendation",
+                "mitigation",
+                "choice",
+            ),
+        )
         if not content:
             nested: list[MemoryCandidate] = []
             for child_key, child_value in value.items():
-                nested.extend(_extract_from_value(child_value, FIELD_TYPE_HINTS.get(child_key.lower()) or hinted_type, child_key))
+                nested.extend(_extract_from_value(child_value, _field_type_hint(child_key) or hinted_type, child_key))
             return nested
         rationale = _first_text(value, ("rationale", "reason", "context", "evidence", "impact")) or f"Extracted from {source_key}."
         return [
@@ -147,20 +171,27 @@ def _first_text(value: dict, keys: tuple[str, ...]) -> str | None:
     return None
 
 
+def _field_type_hint(key: str) -> str | None:
+    """Resolve both Java camelCase and Python snake_case payload keys."""
+    normalized = re.sub(r"[^a-z0-9]", "", key.lower())
+    return FIELD_TYPE_HINTS.get(normalized)
+
+
 def _confidence(value: dict) -> str:
     raw = str(value.get("confidence", "")).upper()
     return raw if raw in {"HIGH", "MEDIUM", "LOW", "INFERRED"} else "MEDIUM"
 
 
-def _tags(value: dict, memory_type: str, source_key: str) -> list[str]:
+def _tags(value: dict, memory_type: str | None, source_key: str) -> list[str]:
     raw_tags = value.get("tags")
     if isinstance(raw_tags, list):
         return [str(tag).strip().lower() for tag in raw_tags if str(tag).strip()][:8]
     return _keyword_tags(f"{source_key} {value}", memory_type)
 
 
-def _keyword_tags(text: str, memory_type: str) -> list[str]:
-    tags = {memory_type.lower().replace("_", "-")}
+def _keyword_tags(text: str, memory_type: str | None) -> list[str]:
+    normalized_type = (memory_type or _infer_type(text) or "SESSION_SUMMARY").lower().replace("_", "-")
+    tags = {normalized_type}
     for token in re.findall(r"[A-Za-z][A-Za-z0-9-]{3,}", text.lower()):
         if token not in {"this", "that", "with", "from", "have", "will", "must", "should", "architecture"}:
             tags.add(token)

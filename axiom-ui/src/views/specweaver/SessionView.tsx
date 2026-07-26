@@ -5,7 +5,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import { useSpecWeaverStore } from '../../store/useSpecWeaverStore';
 import type { DocumentType, SessionDocument } from '../../api/specweaver';
-import { downloadPackageExport } from './packageExport';
+import { MarkdownExportActions } from '../../components/StructuredData';
+import { buildPackageMarkdown, buildRequirementsMarkdown, downloadPackageExport } from './packageExport';
 import { CopyButton } from '../../components/CopyButton';
 import { PillarBadge } from '../../components/PillarBadge';
 
@@ -111,6 +112,16 @@ export function SessionView() {
     });
     return counts;
   }, [currentPackage?.requirements]);
+
+  const packageMarkdown = useMemo(
+    () => (currentPackage ? buildPackageMarkdown(currentPackage) : ''),
+    [currentPackage],
+  );
+
+  const requirementsMarkdown = useMemo(
+    () => (currentPackage ? buildRequirementsMarkdown(currentPackage) : ''),
+    [currentPackage],
+  );
 
   const isOwnershipError =
     error === 'You do not have access to this SpecWeaver session.'
@@ -430,18 +441,33 @@ export function SessionView() {
                   View package details
                 </Link>
 
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => downloadPackageExport(currentPackage, 'markdown')}
-                    className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                  >
-                    Export as Markdown
-                  </button>
+                <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Full package</p>
+                    <div className="mt-1">
+                      <MarkdownExportActions
+                        markdown={packageMarkdown}
+                        markdownFilename={`specweaver-${sessionId}-package.md`}
+                        copyButtonTitle="Copy package as Markdown"
+                        copyLabel="Copy package"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Requirements only</p>
+                    <div className="mt-1">
+                      <MarkdownExportActions
+                        markdown={requirementsMarkdown}
+                        markdownFilename={`specweaver-${sessionId}-requirements.md`}
+                        copyButtonTitle="Copy requirements as Markdown"
+                        copyLabel="Copy requirements"
+                      />
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => downloadPackageExport(currentPackage, 'text')}
-                    className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
                   >
                     Export as Text
                   </button>
