@@ -285,3 +285,21 @@ Phase 4 adds curated project context assembly and best-effort context injection 
   - Added a shared `MIN_ADL_BLOCKS` constant in the ADL generator and used it for runtime low-output warnings.
   - Updated the ADL prompt from a 5-12 block range to a 15-20 block range.
   - Added focused test coverage that verifies the prompt carries the 15-block instruction and that below-floor model output logs the 15-block minimum.
+
+# Memoria Linked-Session Distillation Fix
+
+## Work Notes
+
+- 2026-07-25: Fixed per-session Distill returning immediately with zero entries:
+  - The UI's per-session request intentionally contains only the project and linked-session identity, but `DistillationService` previously forwarded its empty summary/payload directly to `memoria-agent`.
+  - `DistillationService` now hydrates missing content from the corresponding Archon architecture output, SpecWeaver package, or Lens report before calling the agent.
+  - An unavailable or empty source artifact is now reported as a distillation failure instead of being presented as a successful zero-entry operation.
+- 2026-07-25: Fixed Distill all producing entries only for Lens:
+  - Archon and SpecWeaver fetch clients were sending `X-Internal-Secret`, while both source APIs authenticate trusted service requests with `X-Axiom-Internal-Secret`.
+  - Both clients now use the same correct service-auth header already used by the working Lens client.
+- 2026-07-25: Added regression coverage proving identity-only per-session requests are hydrated and verifying the direct Archon and SpecWeaver requests carry the correct authentication header.
+
+## Verification Log
+
+- PASS: `cd memoria-api && mvn test -q -Dtest=DistillationServiceTest,PillarMemoriaClientTest,BatchDistillationServiceTest`
+- NOTE: The client tests require local socket binding for MockWebServer and were run outside the filesystem/network sandbox.

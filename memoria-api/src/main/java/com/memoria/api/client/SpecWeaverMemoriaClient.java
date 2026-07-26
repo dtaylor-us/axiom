@@ -15,7 +15,7 @@ import java.util.UUID;
 /**
  * Fetches SpecWeaver session package for Memoria distillation.
  *
- * <p>Uses X-Internal-Secret for service-to-service auth.
+ * <p>Uses X-Axiom-Internal-Secret for service-to-service auth.
  * Does NOT use RequestContextHolder — that fails in batch threads.</p>
  *
  * <p>The SpecWeaver package endpoint is GET /api/v1/sessions/{id}/package.
@@ -28,7 +28,7 @@ import java.util.UUID;
 public class SpecWeaverMemoriaClient {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
-    private static final String INTERNAL_SECRET_HEADER = "X-Internal-Secret";
+    private static final String INTERNAL_SECRET_HEADER = "X-Axiom-Internal-Secret";
 
     private final WebClient webClient;
     private final String internalSecret;

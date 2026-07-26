@@ -1,5 +1,8 @@
 package com.memoria.api.service;
 
+import com.memoria.api.client.ArchonMemoriaClient;
+import com.memoria.api.client.LensMemoriaClient;
+import com.memoria.api.client.SpecWeaverMemoriaClient;
 import com.memoria.api.domain.model.MemoryConfidence;
 import com.memoria.api.domain.model.MemoryEntry;
 import com.memoria.api.domain.model.MemoryStatus;
@@ -9,6 +12,7 @@ import com.memoria.api.domain.model.Pillar;
 import com.memoria.api.domain.model.Project;
 import com.memoria.api.domain.model.ProjectSessionLink;
 import com.memoria.api.dto.AgentConflictFlag;
+import com.memoria.api.dto.AgentDistillRequest;
 import com.memoria.api.dto.AgentDistillResponse;
 import com.memoria.api.dto.AgentMemoryCandidate;
 import com.memoria.api.dto.DistillSessionRequest;
@@ -27,7 +31,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,6 +44,9 @@ class DistillationServiceTest {
     private ProjectSessionLinkRepository sessionLinkRepository;
     private MemoryEntryRepository memoryEntryRepository;
     private MemoriaAgentClient memoriaAgentClient;
+    private ArchonMemoriaClient archonClient;
+    private SpecWeaverMemoriaClient specweaverClient;
+    private LensMemoriaClient lensClient;
     private DistillationService distillationService;
     private UUID projectId;
     private UUID sessionId;
@@ -50,13 +59,19 @@ class DistillationServiceTest {
         memoryEntryRepository = mock(MemoryEntryRepository.class);
         ArchitectureDecisionRepository adrRepository = mock(ArchitectureDecisionRepository.class);
         memoriaAgentClient = mock(MemoriaAgentClient.class);
+        archonClient = mock(ArchonMemoriaClient.class);
+        specweaverClient = mock(SpecWeaverMemoriaClient.class);
+        lensClient = mock(LensMemoriaClient.class);
         MemoryEntryService memoryEntryService = new MemoryEntryService(projectRepository, memoryEntryRepository, adrRepository);
         distillationService = new DistillationService(
                 projectRepository,
                 sessionLinkRepository,
                 memoryEntryRepository,
                 memoryEntryService,
-                memoriaAgentClient);
+                memoriaAgentClient,
+                archonClient,
+                specweaverClient,
+                lensClient);
         projectId = UUID.randomUUID();
         sessionId = UUID.randomUUID();
         project = Project.builder().id(projectId).build();
@@ -71,6 +86,22 @@ class DistillationServiceTest {
             when(memoryEntryRepository.findById(entry.getId())).thenReturn(Optional.of(entry));
             return entry;
         });
+    }
+
+    @Test
+    void distillLinkedSession_fetchesPillarPayloadWhenRequestContainsOnlyLinkIdentity() {
+        Map<String, Object> payload = Map.of("architecture", Map.of("title", "Orders"));
+        when(archonClient.getConversationOutput(sessionId)).thenReturn(Optional.of(payload));
+        when(memoryEntryRepository.findByProjectIdAndStatusOrderByCreatedAtDesc(projectId, MemoryStatus.ACTIVE))
+                .thenReturn(List.of());
+        when(memoriaAgentClient.distill(any())).thenReturn(new AgentDistillResponse(
+                sessionId.toString(), List.of(), List.of(), "ok"));
+
+        distillationService.distillLinkedSession(new DistillSessionRequest(
+                projectId, Pillar.ARCHON, sessionId, null, null));
+
+        verify(memoriaAgentClient).distill(argThat((AgentDistillRequest sent) ->
+                payload.equals(sent.sessionPayload())));
     }
 
     @Test
@@ -137,7 +168,7 @@ class DistillationServiceTest {
                 Pillar.SPECWEAVER,
                 sessionId,
                 null,
-                Map.of()));
+                Map.of("requirements", List.of("Use Azure SQL"))));
 
         assertThat(response.entriesSuperseded()).isEqualTo(1);
         assertThat(existing.getStatus()).isEqualTo(MemoryStatus.SUPERSEDED);
@@ -145,21 +176,18 @@ class DistillationServiceTest {
     }
 
     @Test
-    void distillLinkedSession_returnsEmptyResultWhenAgentCallFails() {
+    void distillLinkedSession_reportsWhenAgentCallFails() {
         when(memoryEntryRepository.findByProjectIdAndStatusOrderByCreatedAtDesc(projectId, MemoryStatus.ACTIVE))
                 .thenReturn(List.of());
         when(memoriaAgentClient.distill(any())).thenReturn(null);
 
-        DistillSessionResponse response = distillationService.distillLinkedSession(new DistillSessionRequest(
+        assertThatThrownBy(() -> distillationService.distillLinkedSession(new DistillSessionRequest(
                 projectId,
                 Pillar.ARCHON,
                 sessionId,
                 null,
-                Map.of()));
-
-        assertThat(response.candidatesReceived()).isZero();
-        assertThat(response.entriesCreated()).isZero();
-        assertThat(response.entriesSuperseded()).isZero();
-        assertThat(response.message()).isEqualTo("No distillation response");
+                Map.of("architecture", "test"))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Distillation agent unavailable");
     }
 }

@@ -1,5 +1,8 @@
 package com.memoria.api.service;
 
+import com.memoria.api.client.ArchonMemoriaClient;
+import com.memoria.api.client.LensMemoriaClient;
+import com.memoria.api.client.SpecWeaverMemoriaClient;
 import com.memoria.api.domain.model.MemoryConfidence;
 import com.memoria.api.domain.model.MemoryEntry;
 import com.memoria.api.domain.model.MemoryStatus;
@@ -27,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -39,6 +43,9 @@ public class DistillationService {
     private final MemoryEntryRepository memoryEntryRepository;
     private final MemoryEntryService memoryEntryService;
     private final MemoriaAgentClient memoriaAgentClient;
+    private final ArchonMemoriaClient archonClient;
+    private final SpecWeaverMemoriaClient specweaverClient;
+    private final LensMemoriaClient lensClient;
 
     @Transactional
     public DistillSessionResponse distillLinkedSession(DistillSessionRequest request) {
@@ -46,36 +53,37 @@ public class DistillationService {
         projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
 
+        DistillSessionRequest hydratedRequest = hydrateSessionPayload(request);
+
         List<MemoryEntry> existing = memoryEntryRepository.findByProjectIdAndStatusOrderByCreatedAtDesc(
                 projectId,
                 MemoryStatus.ACTIVE);
         log.info("DIAG pre-agent: pillar={} sessionId={} projectId={} payloadKeys={} existingCount={}",
-                request.pillar(),
-                request.sessionId(),
+                hydratedRequest.pillar(),
+                hydratedRequest.sessionId(),
                 projectId,
-                request.sessionPayload() != null ? request.sessionPayload().keySet() : "null",
+                hydratedRequest.sessionPayload() != null ? hydratedRequest.sessionPayload().keySet() : "null",
                 existing.size());
         AgentDistillResponse agentResponse = memoriaAgentClient.distill(AgentDistillRequest.from(
-                request.sessionId(),
+                hydratedRequest.sessionId(),
                 projectId,
-                request.pillar(),
-                request.sessionSummary(),
-                request.sessionPayload(),
+                hydratedRequest.pillar(),
+                hydratedRequest.sessionSummary(),
+                hydratedRequest.sessionPayload(),
                 existing.stream().map(this::toAgentEntry).toList()));
 
         if (agentResponse == null) {
             log.error("DIAG agent-response: NULL returned for pillar={} sessionId={}",
-                    request.pillar(), request.sessionId());
+                    hydratedRequest.pillar(), hydratedRequest.sessionId());
             throw new IllegalStateException("Distillation agent unavailable");
         } else {
             log.info("DIAG agent-response: pillar={} sessionId={} candidates={} conflicts={} msg={}",
-                    request.pillar(),
-                    request.sessionId(),
+                    hydratedRequest.pillar(),
+                    hydratedRequest.sessionId(),
                     agentResponse.candidates() == null ? "null" : agentResponse.candidates().size(),
                     agentResponse.conflicts() == null ? "null" : agentResponse.conflicts().size(),
                     agentResponse.message());
         }
-
 
         List<AgentMemoryCandidate> candidates = agentResponse.candidates() == null
                 ? List.of()
@@ -84,18 +92,18 @@ public class DistillationService {
         Map<Integer, MemoryEntry> createdByCandidateIndex = new HashMap<>();
         for (int index = 0; index < candidates.size(); index++) {
             AgentMemoryCandidate candidate = candidates.get(index);
-            if (isDuplicate(existing, created, request, candidate)) {
+            if (isDuplicate(existing, created, hydratedRequest, candidate)) {
                 continue;
             }
-            MemoryEntry entry = memoryEntryService.createEntry(projectId, toCreateRequest(request, candidate));
+            MemoryEntry entry = memoryEntryService.createEntry(projectId, toCreateRequest(hydratedRequest, candidate));
             created.add(entry);
             createdByCandidateIndex.put(index, entry);
         }
+        log.info("DIAG candidate-result: pillar={} sessionId={} total={} created={} duplicatesDropped={}",
+                hydratedRequest.pillar(), hydratedRequest.sessionId(), candidates.size(), created.size(),
+                candidates.size() - created.size());
 
         int superseded = applySupersession(projectId, createdByCandidateIndex, agentResponse);
-        log.info("DIAG candidate-result: pillar={} sessionId={} total={} created={} duplicatesDropped={}",
-                request.pillar(), request.sessionId(), candidates.size(), created.size(),
-                candidates.size() - created.size());
         return new DistillSessionResponse(
                 projectId,
                 request.sessionId(),
@@ -104,6 +112,25 @@ public class DistillationService {
                 superseded,
                 created.stream().map(ResponseMapper::toMemoryEntryResponse).toList(),
                 agentResponse.message());
+    }
+
+    private DistillSessionRequest hydrateSessionPayload(DistillSessionRequest request) {
+        boolean hasSummary = request.sessionSummary() != null && !request.sessionSummary().isBlank();
+        boolean hasPayload = request.sessionPayload() != null && !request.sessionPayload().isEmpty();
+        if (hasSummary || hasPayload) {
+            return request;
+        }
+
+        Optional<Map<String, Object>> payload = switch (request.pillar()) {
+            case ARCHON -> archonClient.getConversationOutput(request.sessionId());
+            case SPECWEAVER -> specweaverClient.getSessionPackage(request.sessionId());
+            case LENS -> lensClient.getReviewReport(request.sessionId());
+        };
+        if (payload.isEmpty() || payload.get().isEmpty()) {
+            throw new IllegalStateException("Session payload unavailable for distillation");
+        }
+        return new DistillSessionRequest(
+                request.projectId(), request.pillar(), request.sessionId(), request.sessionSummary(), payload.get());
     }
 
     private UUID resolveProjectId(DistillSessionRequest request) {
