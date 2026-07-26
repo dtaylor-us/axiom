@@ -11,7 +11,7 @@ from app.models.contracts import DistillRequest, DistillResponse, MemoryCandidat
 from app.tools.conflict_detector import _overlap, _tokens, detect_conflicts
 from app.tools.fact_extractor import extract_facts
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 MAX_LLM_CANDIDATES = 30
 MAX_SESSION_TEXT_CHARS = 6000
@@ -50,6 +50,12 @@ async def distill(request: DistillRequest) -> DistillResponse:
     # LLM candidates are added only if they do not duplicate an
     # already-extracted candidate by content similarity.
     all_candidates = _merge_candidates(deterministic_candidates, llm_candidates)
+    logger.info(
+        "DIAG merge: deterministic=%d llm=%d merged=%d",
+        len(deterministic_candidates),
+        len(llm_candidates),
+        len(all_candidates),
+    )
 
     # Stage 3 — conflict detection (existing)
     conflicts = await detect_conflicts(all_candidates, request.existing_entries)

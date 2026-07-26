@@ -18,6 +18,7 @@ import com.memoria.api.repository.MemoryEntryRepository;
 import com.memoria.api.repository.ProjectRepository;
 import com.memoria.api.repository.ProjectSessionLinkRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DistillationService {
 
     private final ProjectRepository projectRepository;
@@ -47,6 +49,12 @@ public class DistillationService {
         List<MemoryEntry> existing = memoryEntryRepository.findByProjectIdAndStatusOrderByCreatedAtDesc(
                 projectId,
                 MemoryStatus.ACTIVE);
+        log.info("DIAG pre-agent: pillar={} sessionId={} projectId={} payloadKeys={} existingCount={}",
+                request.pillar(),
+                request.sessionId(),
+                projectId,
+                request.sessionPayload() != null ? request.sessionPayload().keySet() : "null",
+                existing.size());
         AgentDistillResponse agentResponse = memoriaAgentClient.distill(AgentDistillRequest.from(
                 request.sessionId(),
                 projectId,
@@ -56,8 +64,18 @@ public class DistillationService {
                 existing.stream().map(this::toAgentEntry).toList()));
 
         if (agentResponse == null) {
+            log.error("DIAG agent-response: NULL returned for pillar={} sessionId={}",
+                    request.pillar(), request.sessionId());
             throw new IllegalStateException("Distillation agent unavailable");
+        } else {
+            log.info("DIAG agent-response: pillar={} sessionId={} candidates={} conflicts={} msg={}",
+                    request.pillar(),
+                    request.sessionId(),
+                    agentResponse.candidates() == null ? "null" : agentResponse.candidates().size(),
+                    agentResponse.conflicts() == null ? "null" : agentResponse.conflicts().size(),
+                    agentResponse.message());
         }
+
 
         List<AgentMemoryCandidate> candidates = agentResponse.candidates() == null
                 ? List.of()
@@ -75,6 +93,9 @@ public class DistillationService {
         }
 
         int superseded = applySupersession(projectId, createdByCandidateIndex, agentResponse);
+        log.info("DIAG candidate-result: pillar={} sessionId={} total={} created={} duplicatesDropped={}",
+                request.pillar(), request.sessionId(), candidates.size(), created.size(),
+                candidates.size() - created.size());
         return new DistillSessionResponse(
                 projectId,
                 request.sessionId(),

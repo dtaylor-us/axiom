@@ -11,6 +11,7 @@ import com.memoria.api.service.ProjectService;
 import com.memoria.api.service.ResponseMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +30,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/memoria")
 @RequiredArgsConstructor
+@Slf4j
 public class DistillationController {
 
     private final DistillationService distillationService;
@@ -54,7 +56,10 @@ public class DistillationController {
             @RequestBody DistillSessionRequest request,
             @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
             Authentication authentication) {
+        log.info("DIAG distill-request: endpoint={} projectId={} pillar={} sessionId={} userId={}",
+                "distillLinkedSession", request.projectId(), pillar, sessionId, userIdHeader);
         validateProjectAccess(request.projectId(), userIdHeader, authentication);
+        log.info("DIAG distill-access-granted: projectId={}", request.projectId());
         DistillSessionRequest normalized = new DistillSessionRequest(
                 request.projectId(),
                 pillar,
@@ -70,7 +75,10 @@ public class DistillationController {
             @PathVariable UUID projectId,
             @RequestHeader(value = "X-Axiom-User-Id", required = false) String userIdHeader,
             Authentication authentication) {
+        log.info("DIAG distill-request: endpoint={} projectId={} pillar={} sessionId={} userId={}",
+                "distillAll", projectId, null, null, userIdHeader);
         validateProjectAccess(projectId, userIdHeader, authentication);
+        log.info("DIAG distill-access-granted: projectId={}", projectId);
         return ResponseMapper.toDistillationJobResponse(
                 batchDistillationService.distillAllLinkedSessions(projectId));
     }

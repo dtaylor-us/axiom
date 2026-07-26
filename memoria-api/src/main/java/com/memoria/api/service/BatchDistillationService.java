@@ -124,6 +124,8 @@ public class BatchDistillationService {
             log.warn("Skipping session — payload unavailable pillar={} sessionId={}", pillar, sessionId);
             return new SessionDistillResult(sessionId, pillar.name(), "SKIPPED", 0, 0, 0, 0, "Payload unavailable");
         }
+        log.info("DIAG process-session: pillar={} sessionId={} payloadKeys={}",
+                pillar, sessionId, payloadOpt.get().keySet());
 
         try {
             DistillSessionRequest request = new DistillSessionRequest(
@@ -149,11 +151,18 @@ public class BatchDistillationService {
 
     private Optional<Map<String, Object>> fetchSessionPayload(Pillar pillar, UUID sessionId) {
         try {
-            return switch (pillar) {
+            Optional<Map<String, Object>> result = switch (pillar) {
                 case ARCHON -> archonClient.getConversationOutput(sessionId);
                 case SPECWEAVER -> specweaverClient.getSessionPackage(sessionId);
                 case LENS -> lensClient.getReviewReport(sessionId);
             };
+            log.info("DIAG fetch-payload: pillar={} sessionId={} present={}",
+                    pillar, sessionId, result.isPresent());
+            if (result.isPresent()) {
+                log.info("DIAG fetch-payload-keys: pillar={} sessionId={} keys={}",
+                        pillar, sessionId, result.get().keySet());
+            }
+            return result;
         } catch (Exception ex) {
             log.warn("Failed to fetch payload pillar={} session={} error={}",
                     pillar, sessionId, ex.getMessage());
