@@ -67,13 +67,15 @@ public class SecurityConfig {
                 .anyRequest().permitAll())
             .exceptionHandling(e -> e
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-            // Internal service authentication takes precedence over user authentication.
-            .addFilterBefore(internalSecretAuthFilter, GatewayHeaderAuthFilter.class)
             // Trusted gateway identity is valid in every mode. Local bypass additionally
             // accepts direct JWTs for standalone UI development.
             .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
         if (gatewayBypass) {
             http.addFilterBefore(jwtAuthFilter, GatewayHeaderAuthFilter.class);
+            // Internal service authentication takes precedence over both user auth paths.
+            http.addFilterBefore(internalSecretAuthFilter, JwtAuthFilter.class);
+        } else {
+            http.addFilterBefore(internalSecretAuthFilter, GatewayHeaderAuthFilter.class);
         }
         return http.build();
     }

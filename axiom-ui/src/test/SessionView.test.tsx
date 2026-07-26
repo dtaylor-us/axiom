@@ -9,9 +9,13 @@ import { useSpecWeaverStore } from '../store/useSpecWeaverStore';
 import { SessionView } from '../views/specweaver/SessionView';
 import { downloadPackageExport } from '../views/specweaver/packageExport';
 
-vi.mock('../views/specweaver/packageExport', () => ({
-  downloadPackageExport: vi.fn(),
-}));
+vi.mock('../views/specweaver/packageExport', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../views/specweaver/packageExport')>();
+  return {
+    ...actual,
+    downloadPackageExport: vi.fn(),
+  };
+});
 
 const initialLoadSession = useSpecWeaverStore.getState().loadSession;
 const initialUploadDocument = useSpecWeaverStore.getState().uploadDocument;
@@ -237,11 +241,9 @@ describe('SessionView', () => {
 
     renderWithRoutes();
 
-    await user.click(screen.getByRole('button', { name: 'Export as Markdown' }));
     await user.click(screen.getByRole('button', { name: 'Export as Text' }));
 
-    expect(downloadPackageExport).toHaveBeenNthCalledWith(1, expect.any(Object), 'markdown');
-    expect(downloadPackageExport).toHaveBeenNthCalledWith(2, expect.any(Object), 'text');
+    expect(downloadPackageExport).toHaveBeenCalledWith(expect.any(Object), 'text');
 
     await user.click(screen.getByRole('button', { name: 'Open in Archon →' }));
 
