@@ -2,8 +2,8 @@
 
 Understands the structured payload shapes produced by each Axiom pillar:
 
-  ARCHON:     architecture_design (components, style), adl_rules, fmea_risks,
-              trade_offs, characteristics, scenarios, weaknesses,
+  ARCHON:     architecture_design (components, style), adl_rules, adl_blocks,
+              fmea_risks, trade_offs, characteristics, tactics, weaknesses,
               buy_vs_build_analysis, governance_score
   SPECWEAVER: requirements, functional_requirements, non_functional_requirements,
               gaps, conflicts, assumptions, constraints, readiness_score
@@ -11,8 +11,16 @@ Understands the structured payload shapes produced by each Axiom pillar:
               structuralAnalysis, risks, recommendations, overallRating,
               executiveSummary
 
-LLM-backed extraction in distiller.py handles prose-heavy content the
-deterministic extractor cannot classify.
+Design decisions:
+- Pillar-specific extractors run first and consume all their fields.
+- Generic walk only processes UNMAPPED top-level fields and never touches
+  structured Archon/Lens/SpecWeaver fields again.
+- Bare characteristic names without any description/level/target are
+  enriched from the tactics list or skipped entirely — a name alone is not
+  a useful memory entry.
+- ADL governance rules are always typed DECISION regardless of keyword content.
+- LLM-backed extraction in distiller.py handles prose-heavy content that the
+  deterministic extractor cannot classify.
 """
 
 from __future__ import annotations
@@ -21,6 +29,7 @@ import re
 from typing import Any
 
 from app.models.contracts import MemoryCandidate
+
 
 # ---------------------------------------------------------------------------
 # Type hint maps
@@ -31,12 +40,12 @@ FIELD_TYPE_HINTS: dict[str, str] = {
     "decisions": "DECISION",
     "architecture_decisions": "DECISION",
     "adl_rules": "DECISION",
+    "adl_blocks": "DECISION",
     "adl_document": "DECISION",
     "trade_offs": "DECISION",
     "buy_vs_build_analysis": "DECISION",
     "style_selection": "DECISION",
     "architecture_style": "DECISION",
-    "tactics": "DECISION",
     "components": "DECISION",
     "requirements": "REQUIREMENT",
     "functional_requirements": "REQUIREMENT",
@@ -44,6 +53,7 @@ FIELD_TYPE_HINTS: dict[str, str] = {
     "scenarios": "REQUIREMENT",
     "characteristics": "REQUIREMENT",
     "quality_attributes": "REQUIREMENT",
+    "tactics": "REQUIREMENT",
     "risks": "RISK",
     "fmea_risks": "RISK",
     "weaknesses": "RISK",
@@ -66,24 +76,55 @@ FIELD_TYPE_HINTS: dict[str, str] = {
 }
 
 TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "DECISION": ("decision", "decided", "choose", "chosen", "selected", "adopt", "adopted", "use "),
-    "REQUIREMENT": ("requirement", "must", "shall", "needs to", "should"),
-    "RISK": ("risk", "failure", "threat", "vulnerability", "gap", "weakness", "concern"),
-    "QUALITY_SCORE": ("score", "rating", "waf", "sei", "atam", "quality", "governance"),
+    "DECISION": (
+        "decision", "decided", "choose", "chosen", "selected",
+        "adopt", "adopted",
+    ),
+    "REQUIREMENT": (
+        "requirement", "must", "shall", "needs to",
+    ),
+    "RISK": (
+        "risk", "failure", "threat", "vulnerability", "gap",
+        "weakness", "concern",
+    ),
+    "QUALITY_SCORE": (
+        "score", "rating", "waf", "sei", "atam", "quality", "governance",
+    ),
     "ASSUMPTION": ("assumption", "assume", "assuming"),
     "CONSTRAINT": ("constraint", "cannot", "limited", "bound", "compliance"),
 }
 
-# Keys handled by pillar-specific extractors — skip in the generic walk
+# Minimum length for a generic prose fragment to be extracted.
+# Short fragments extracted from unstructured text are almost always noise.
+_MIN_TEXT_STATEMENT_LEN = 40
+
+# Keys fully handled by pillar-specific extractors.
+# The generic walk skips these entirely — they must NOT be re-processed.
 _HANDLED_KEYS: frozenset[str] = frozenset({
-    "architecture_design", "adl_rules", "adl_document", "trade_offs",
-    "fmea_risks", "weaknesses", "characteristics", "scenarios",
-    "buy_vs_build_analysis", "tactics", "governance_score", "structured_output",
+    # Archon top-level
+    "architecture_design", "adl_rules", "adl_blocks", "adl_document",
+    "adl_source", "trade_offs", "fmea_risks", "fmea_critical_risks",
+    "weaknesses", "weakness_summary", "characteristics", "scenarios",
+    "buy_vs_build_analysis", "buy_vs_build_summary", "tactics",
+    "tactics_summary", "governance_score", "governance_score_confidence",
+    "governance_score_breakdown", "improvement_recommendations",
+    "structured_output", "diagrams", "mermaid_component_diagram",
+    "mermaid_sequence_diagram", "review_findings", "review_constraints",
+    "characteristic_conflicts", "architecture_style_scores",
+    "parsed_entities", "missing_requirements", "ambiguities",
+    "hidden_assumptions", "architecture_override", "buy_vs_build_preferences",
+    "clarifying_questions", "similar_past_designs", "pipeline_gaps",
+    "token_usage", "conflicts",
+    # Lens
     "azurewafscorecard", "atamanalysis", "seianalysis", "structuralanalysis",
     "risks", "recommendations", "executivesummary", "insufficientinfofindings",
     "overallrating", "overall_rating",
+    # SpecWeaver
     "requirements", "functional_requirements", "non_functional_requirements",
-    "gaps", "conflicts", "assumptions", "constraints", "readiness_score",
+    "gaps", "assumptions", "constraints", "readiness_score",
+    # Metadata / noise
+    "component_diagram", "sequence_diagram", "requires_tooling",
+    "codegen_prompt", "tension_summary", "trade_off_dominant_tension",
 })
 
 
@@ -93,12 +134,16 @@ async def extract_facts(
 ) -> list[MemoryCandidate]:
     candidates: list[MemoryCandidate] = []
     payload = session_payload or {}
-    # Pillar-specific extractors run first
-    candidates.extend(_extract_archon(payload))
-    candidates.extend(_extract_lens(payload))
-    candidates.extend(_extract_specweaver(payload))
 
-    # Generic walk for any remaining unmapped fields
+    # Pillar-specific extractors consume all structured fields first.
+    archon = _extract_archon(payload)
+    lens = _extract_lens(payload)
+    specweaver = _extract_specweaver(payload)
+    candidates.extend(archon)
+    candidates.extend(lens)
+    candidates.extend(specweaver)
+
+    # Generic walk handles only unmapped top-level fields not claimed above.
     for key, value in payload.items():
         key_norm = _normalise_key(key)
         if key_norm in _HANDLED_KEYS:
@@ -106,8 +151,10 @@ async def extract_facts(
         hinted_type = FIELD_TYPE_HINTS.get(key_norm) or _field_type_hint(key)
         candidates.extend(_extract_from_value(value, hinted_type, key))
 
+    # Session summary: add a summary entry and extract labelled sentences from it.
     if session_summary and session_summary.strip():
-        candidates.extend(_extract_from_text(session_summary))
+        extracted_from_summary = _extract_from_text(session_summary)
+        candidates.extend(extracted_from_summary)
         candidates.append(
             MemoryCandidate(
                 memory_type="SESSION_SUMMARY",
@@ -126,17 +173,24 @@ async def extract_facts(
 
 
 # ---------------------------------------------------------------------------
-# Pillar-specific extractors
+# Archon extractor
 # ---------------------------------------------------------------------------
 
 def _extract_archon(payload: dict) -> list[MemoryCandidate]:
-    """Extract from Archon structured_output shape."""
+    """
+    Extract memory candidates from Archon pipeline output.
+
+    The payload is the normalised snake_case dict produced by
+    ArchonMemoriaClient.normaliseArchonPayload(). Top-level keys:
+      architecture_design, adl_rules, fmea_risks, trade_offs,
+      characteristics, weaknesses, governance_score, buy_vs_build_analysis.
+    """
     candidates: list[MemoryCandidate] = []
 
-    # Archon wraps output under structured_output or at root
+    # Archon may wrap output under 'structured_output' or present it at root.
     structured = payload.get("structured_output") or payload
 
-    # Architecture design — components and style
+    # ── Architecture design ────────────────────────────────────────────────
     arch = structured.get("architecture_design") or {}
     if isinstance(arch, dict):
         style = str(arch.get("style") or arch.get("architecture_style") or "").strip()
@@ -144,11 +198,13 @@ def _extract_archon(payload: dict) -> list[MemoryCandidate]:
             candidates.append(MemoryCandidate(
                 memory_type="DECISION",
                 content=f"Architecture style: {style}",
-                rationale=(arch.get("style_rationale") or arch.get("rationale") or
-                            "Selected architecture style from Archon pipeline."),
+                rationale=(
+                    arch.get("style_rationale") or arch.get("rationale") or
+                    "Selected architecture style from Archon pipeline."
+                ),
                 confidence="HIGH",
                 source_excerpt=style[:200],
-                tags=["architecture-style", style.lower().replace(" ", "-")[:30]],
+                tags=["architecture-style", _slug(style)[:30]],
             ))
         for comp in _as_list(arch.get("components")):
             if not isinstance(comp, dict):
@@ -160,16 +216,21 @@ def _extract_archon(payload: dict) -> list[MemoryCandidate]:
                 candidates.append(MemoryCandidate(
                     memory_type="DECISION",
                     content=f"Component {name}: {resp}",
-                    rationale=(comp.get("rationale") or
-                                "Architecture component defined in Archon session."),
+                    rationale=(
+                        comp.get("rationale") or
+                        "Architecture component defined in Archon session."
+                    ),
                     confidence="HIGH",
                     source_excerpt=f"{name}: {resp}"[:200],
-                    tags=["component", name.lower().replace(" ", "-")[:30], comp_type],
+                    tags=["component", _slug(name)[:30], comp_type],
                 ))
 
-    # ADL rules
+    # ── ADL rules ──────────────────────────────────────────────────────────
+    # Always typed DECISION regardless of keyword content.
+    # ADL rules express governance constraints — they are architectural
+    # decisions about what the system MUST and MUST NOT do.
     for rule in _as_list(structured.get("adl_rules")):
-        if isinstance(rule, str) and len(rule) > 20:
+        if isinstance(rule, str) and len(rule.strip()) > 20:
             candidates.append(MemoryCandidate(
                 memory_type="DECISION",
                 content=_compact(rule),
@@ -179,29 +240,44 @@ def _extract_archon(payload: dict) -> list[MemoryCandidate]:
                 tags=["adl", "governance"],
             ))
         elif isinstance(rule, dict):
-            subject = str(rule.get("subject") or rule.get("rule") or
-                          rule.get("statement") or "").strip()
-            rationale = str(rule.get("rationale") or rule.get("description") or "").strip()
-            category = str(rule.get("category") or "").lower()
-            if subject:
+            # Archon ADL rule dicts use: subject, rule, statement, adl_source
+            # Deliberately avoid 'requirement' and other misleading field names.
+            subject = str(
+                rule.get("subject") or
+                rule.get("rule") or
+                rule.get("statement") or
+                rule.get("adl_source") or
+                ""
+            ).strip()
+            rationale = str(
+                rule.get("rationale") or
+                rule.get("description") or
+                ""
+            ).strip()
+            category = str(rule.get("category") or rule.get("enforcement_level") or "").lower()
+            if subject and len(subject) > 10:
                 candidates.append(MemoryCandidate(
                     memory_type="DECISION",
-                    content=subject,
+                    content=_compact(subject),
                     rationale=rationale or "ADL governance rule from Archon pipeline.",
                     confidence="HIGH",
                     source_excerpt=subject[:200],
                     tags=["adl", "governance"] + ([category] if category else []),
                 ))
 
-    # Trade-offs
+    # ── Trade-offs ──────────────────────────────────────────────────────────
     for tradeoff in _as_list(structured.get("trade_offs")):
         if not isinstance(tradeoff, dict):
             continue
-        name = str(tradeoff.get("decision") or tradeoff.get("name") or
-                   tradeoff.get("title") or "").strip()
-        rec = str(tradeoff.get("recommendation") or tradeoff.get("description") or "").strip()
-        sacrifices = str(tradeoff.get("sacrifices_characteristics") or
-                         tradeoff.get("tradeoffs") or "").strip()
+        name = str(
+            tradeoff.get("decision") or tradeoff.get("name") or tradeoff.get("title") or ""
+        ).strip()
+        rec = str(
+            tradeoff.get("recommendation") or tradeoff.get("description") or ""
+        ).strip()
+        sacrifices = str(
+            tradeoff.get("sacrifices_characteristics") or tradeoff.get("tradeoffs") or ""
+        ).strip()
         if name and rec:
             content = f"Trade-off — {name}: {rec}"
             if sacrifices:
@@ -209,14 +285,16 @@ def _extract_archon(payload: dict) -> list[MemoryCandidate]:
             candidates.append(MemoryCandidate(
                 memory_type="DECISION",
                 content=_compact(content),
-                rationale=str(tradeoff.get("rationale") or
-                              "Architectural trade-off from Archon pipeline."),
+                rationale=str(
+                    tradeoff.get("rationale") or
+                    "Architectural trade-off from Archon pipeline."
+                ),
                 confidence="HIGH",
                 source_excerpt=_compact(content, 200),
                 tags=["trade-off", "decision"],
             ))
 
-    # FMEA risks
+    # ── FMEA risks ─────────────────────────────────────────────────────────
     for fmea in _as_list(structured.get("fmea_risks")):
         if not isinstance(fmea, dict):
             continue
@@ -224,26 +302,34 @@ def _extract_archon(payload: dict) -> list[MemoryCandidate]:
         effect = str(fmea.get("effect") or fmea.get("description") or "").strip()
         rpn = fmea.get("rpn") or fmea.get("risk_priority_number")
         comp = str(fmea.get("component") or fmea.get("area") or "").strip()
-        mitigation = str(fmea.get("mitigation") or fmea.get("recommendation") or "").strip()
+        mitigation = str(
+            fmea.get("mitigation") or fmea.get("recommendation") or ""
+        ).strip()
         if mode:
             content = f"FMEA risk — {mode}"
             if effect:
                 content += f": {effect}"
             if comp:
                 content += f" (component: {comp})"
+            tags = ["fmea", "risk"]
+            if comp:
+                tags.append(_slug(comp))
             candidates.append(MemoryCandidate(
                 memory_type="RISK",
                 content=_compact(content),
-                rationale=(mitigation or (f"FMEA failure mode. RPN: {rpn}." if rpn else
-                            "FMEA failure mode from Archon pipeline.")),
+                rationale=(
+                    mitigation or
+                    (f"FMEA failure mode. RPN: {rpn}." if rpn else
+                     "FMEA failure mode from Archon pipeline.")
+                ),
                 confidence="HIGH",
                 source_excerpt=_compact(content, 200),
-                tags=["fmea", "risk"] + ([comp.lower().replace(" ", "-")] if comp else []),
+                tags=tags,
             ))
 
-    # Weaknesses
+    # ── Weaknesses ─────────────────────────────────────────────────────────
     for weakness in _as_list(structured.get("weaknesses")):
-        if isinstance(weakness, str) and len(weakness) > 20:
+        if isinstance(weakness, str) and len(weakness.strip()) > 20:
             candidates.append(MemoryCandidate(
                 memory_type="RISK",
                 content=_compact(weakness),
@@ -253,55 +339,108 @@ def _extract_archon(payload: dict) -> list[MemoryCandidate]:
                 tags=["weakness", "risk"],
             ))
         elif isinstance(weakness, dict):
-            title = str(weakness.get("title") or weakness.get("weakness") or
-                        weakness.get("description") or "").strip()
-            rec = str(weakness.get("recommendation") or weakness.get("mitigation") or "").strip()
-            severity = str(weakness.get("severity") or weakness.get("score") or "").strip()
+            title = str(
+                weakness.get("title") or
+                weakness.get("weakness") or
+                weakness.get("description") or
+                ""
+            ).strip()
+            rec = str(
+                weakness.get("recommendation") or weakness.get("mitigation") or ""
+            ).strip()
+            severity = str(
+                weakness.get("severity") or weakness.get("score") or ""
+            ).strip()
             if title:
                 content = f"Weakness — {title}"
                 if rec:
                     content += f". Recommendation: {rec}"
+                tags = ["weakness", "risk"]
+                if severity:
+                    tags.append(f"severity-{severity.lower()}")
                 candidates.append(MemoryCandidate(
                     memory_type="RISK",
                     content=_compact(content),
-                    rationale=f"Severity: {severity}." if severity else
-                               "Architectural weakness from Archon pipeline.",
+                    rationale=(
+                        f"Severity: {severity}." if severity else
+                        "Architectural weakness from Archon pipeline."
+                    ),
                     confidence="MEDIUM",
                     source_excerpt=_compact(content, 200),
-                    tags=["weakness", "risk"] +
-                          ([f"severity-{severity.lower()}"] if severity else []),
+                    tags=tags,
                 ))
 
-    # Characteristics
+    # ── Characteristics ────────────────────────────────────────────────────
+    # Build a lookup from tactic data to enrich bare characteristic names.
+    # Tactics contain 'characteristic_name' + 'description' + 'concrete_application'
+    # which give context for characteristics that only carry a name.
+    tactic_context: dict[str, list[str]] = {}
+    for tactic in _as_list(structured.get("tactics")):
+        if not isinstance(tactic, dict):
+            continue
+        char_name = str(
+            tactic.get("characteristic_name") or tactic.get("characteristic") or ""
+        ).strip().lower()
+        desc = str(tactic.get("description") or tactic.get("concrete_application") or "").strip()
+        if char_name and desc:
+            tactic_context.setdefault(char_name, []).append(desc)
+
     for char in _as_list(structured.get("characteristics")):
         if not isinstance(char, dict):
             continue
-        name = str(char.get("name") or char.get("characteristic") or "").strip()
-        desc = str(char.get("description") or char.get("definition") or "").strip()
-        level = str(char.get("level") or char.get("importance") or "").strip()
-        if name:
-            content = f"Quality attribute — {name}"
-            if desc:
-                content += f": {desc}"
-            if level:
-                content += f" (importance: {level})"
-            candidates.append(MemoryCandidate(
-                memory_type="REQUIREMENT",
-                content=_compact(content),
-                rationale="Quality attribute from Archon pipeline.",
-                confidence="HIGH",
-                source_excerpt=_compact(content, 200),
-                tags=["quality-attribute", name.lower().replace(" ", "-")[:30]],
-            ))
+        name = str(
+            char.get("name") or char.get("characteristic") or char.get("title") or ""
+        ).strip()
+        if not name:
+            continue
+        desc = str(
+            char.get("description") or char.get("definition") or char.get("detail") or ""
+        ).strip()
+        level = str(
+            char.get("level") or char.get("importance") or char.get("priority") or ""
+        ).strip()
+        target = str(
+            char.get("target") or char.get("metric") or char.get("measure") or
+            char.get("value") or ""
+        ).strip()
 
-    # Governance score
+        # If no description available, try to enrich from tactics
+        if not desc and not target and not level:
+            enrichment = tactic_context.get(name.lower(), [])
+            if enrichment:
+                desc = enrichment[0][:200]
+            else:
+                # A bare characteristic name with no context is not useful.
+                # Skip it — the LLM extraction pass may find richer context.
+                continue
+
+        content_parts = [f"Quality attribute — {name}"]
+        if desc:
+            content_parts.append(f": {desc}")
+        if target:
+            content_parts.append(f" (target: {target})")
+        if level:
+            content_parts.append(f" (importance: {level})")
+
+        candidates.append(MemoryCandidate(
+            memory_type="REQUIREMENT",
+            content=_compact("".join(content_parts)),
+            rationale="Quality attribute characteristic from Archon pipeline.",
+            confidence="HIGH",
+            source_excerpt=_compact("".join(content_parts), 200),
+            tags=["quality-attribute", _slug(name)[:30]],
+        ))
+
+    # ── Governance score ───────────────────────────────────────────────────
     gov_score = structured.get("governance_score")
     gov_confidence = str(structured.get("governance_score_confidence") or "").strip()
     if gov_score is not None:
         candidates.append(MemoryCandidate(
             memory_type="QUALITY_SCORE",
-            content=(f"Archon governance score: {gov_score}/100"
-                     + (f" (confidence: {gov_confidence})" if gov_confidence else "")),
+            content=(
+                f"Archon governance score: {gov_score}/100" +
+                (f" (confidence: {gov_confidence})" if gov_confidence else "")
+            ),
             rationale="Automated governance assessment from Archon pipeline review stage.",
             confidence="HIGH",
             source_excerpt=f"governance_score={gov_score}",
@@ -310,6 +449,10 @@ def _extract_archon(payload: dict) -> list[MemoryCandidate]:
 
     return candidates
 
+
+# ---------------------------------------------------------------------------
+# Lens extractor
+# ---------------------------------------------------------------------------
 
 def _extract_lens(payload: dict) -> list[MemoryCandidate]:
     """Extract from Lens review report shape (camelCase keys)."""
@@ -330,29 +473,41 @@ def _extract_lens(payload: dict) -> list[MemoryCandidate]:
                 gaps = _as_list(pillar_data.get("gaps"))
                 findings = _as_list(pillar_data.get("findings"))
                 if score is not None:
-                    content = (f"Azure WAF {pillar_name.replace('_', ' ').title()}: "
-                               f"score {score}/5")
+                    content = (
+                        f"Azure WAF {pillar_name.replace('_', ' ').title()}: score {score}/5"
+                    )
                     if gaps:
                         content += f". Gaps: {'; '.join(str(g) for g in gaps[:3])}"
                     candidates.append(MemoryCandidate(
                         memory_type="QUALITY_SCORE",
                         content=_compact(content),
-                        rationale=f"Azure Well-Architected Framework {pillar_name} assessment.",
+                        rationale=(
+                            f"Azure Well-Architected Framework "
+                            f"{pillar_name} assessment."
+                        ),
                         confidence="HIGH",
                         source_excerpt=_compact(content, 200),
-                        tags=["azure-waf", pillar_name.lower().replace("_", "-"),
-                               "quality-score"],
+                        tags=[
+                            "azure-waf",
+                            pillar_name.lower().replace("_", "-"),
+                            "quality-score",
+                        ],
                     ))
                 for finding in findings:
                     if isinstance(finding, str) and len(finding) > 20:
                         candidates.append(MemoryCandidate(
                             memory_type="RISK",
                             content=_compact(finding),
-                            rationale=f"Azure WAF {pillar_name} finding from Lens review.",
+                            rationale=(
+                                f"Azure WAF {pillar_name} finding from Lens review."
+                            ),
                             confidence="HIGH",
                             source_excerpt=finding[:200],
-                            tags=["azure-waf", pillar_name.lower().replace("_", "-"),
-                                   "finding"],
+                            tags=[
+                                "azure-waf",
+                                pillar_name.lower().replace("_", "-"),
+                                "finding",
+                            ],
                         ))
 
     # Risks
@@ -362,24 +517,30 @@ def _extract_lens(payload: dict) -> list[MemoryCandidate]:
         title = str(risk.get("title") or "").strip()
         desc = str(risk.get("description") or "").strip()
         severity = str(risk.get("severity") or "").strip()
-        mitigation = str(risk.get("mitigationStrategy") or
-                         risk.get("mitigation_strategy") or "").strip()
-        framework = str(risk.get("frameworkReference") or
-                        risk.get("framework_reference") or "").strip()
+        mitigation = str(
+            risk.get("mitigationStrategy") or risk.get("mitigation_strategy") or ""
+        ).strip()
+        framework = str(
+            risk.get("frameworkReference") or risk.get("framework_reference") or ""
+        ).strip()
         if title:
             content = f"Risk — {title}"
             if desc:
                 content += f": {desc}"
+            tags = ["risk", "lens-review"]
+            if severity:
+                tags.append(f"severity-{severity.lower()}")
             candidates.append(MemoryCandidate(
                 memory_type="RISK",
                 content=_compact(content),
-                rationale=(mitigation or
-                            (f"Lens review risk. Framework: {framework}." if framework
-                             else "Risk from Lens architecture review.")),
+                rationale=(
+                    mitigation or
+                    (f"Lens review risk. Framework: {framework}." if framework else
+                     "Risk from Lens architecture review.")
+                ),
                 confidence="HIGH",
                 source_excerpt=_compact(content, 200),
-                tags=["risk", f"severity-{severity.lower()}" if severity else "risk",
-                       "lens-review"],
+                tags=tags,
             ))
 
     # Recommendations
@@ -390,16 +551,20 @@ def _extract_lens(payload: dict) -> list[MemoryCandidate]:
         desc = str(rec.get("description") or "").strip()
         priority = str(rec.get("priority") or "").strip()
         if title and desc:
-            content = (f"Recommendation ({priority}) — {title}: {desc}" if priority
-                       else f"Recommendation — {title}: {desc}")
+            content = (
+                f"Recommendation ({priority}) — {title}: {desc}" if priority
+                else f"Recommendation — {title}: {desc}"
+            )
+            tags = ["recommendation", "lens-review"]
+            if priority:
+                tags.append(f"priority-{priority.lower()}")
             candidates.append(MemoryCandidate(
                 memory_type="DECISION",
                 content=_compact(content),
                 rationale=f"Priority {priority} recommendation from Lens review.",
                 confidence="MEDIUM",
                 source_excerpt=_compact(content, 200),
-                tags=["recommendation", "lens-review",
-                       f"priority-{priority.lower()}" if priority else "recommendation"],
+                tags=tags,
             ))
 
     # SEI analysis
@@ -413,10 +578,14 @@ def _extract_lens(payload: dict) -> list[MemoryCandidate]:
                 rating = str(attr_data.get("rating") or "").strip()
                 tactics_missing = _as_list(attr_data.get("tactics_missing"))
                 if rating:
-                    missing_str = ("; ".join(str(t) for t in tactics_missing[:3])
-                                   if tactics_missing else "none")
-                    content = (f"SEI {attr_name.title()}: {rating}. "
-                               f"Tactics missing: {missing_str}")
+                    missing_str = (
+                        "; ".join(str(t) for t in tactics_missing[:3])
+                        if tactics_missing else "none"
+                    )
+                    content = (
+                        f"SEI {attr_name.title()}: {rating}. "
+                        f"Tactics missing: {missing_str}"
+                    )
                     candidates.append(MemoryCandidate(
                         memory_type="QUALITY_SCORE",
                         content=_compact(content),
@@ -433,25 +602,36 @@ def _extract_lens(payload: dict) -> list[MemoryCandidate]:
         candidates.append(MemoryCandidate(
             memory_type="QUALITY_SCORE",
             content=f"Lens architecture review overall rating: {rating}",
-            rationale=_compact(summary, 400) if summary else
-                       "Overall rating from Lens architecture review.",
+            rationale=(
+                _compact(summary, 400) if summary else
+                "Overall rating from Lens architecture review."
+            ),
             confidence="HIGH",
             source_excerpt=f"overallRating={rating}",
-            tags=["lens-review", "overall-rating", "quality-score",
-                   rating.lower().replace("_", "-")],
+            tags=[
+                "lens-review", "overall-rating", "quality-score",
+                rating.lower().replace("_", "-"),
+            ],
         ))
 
     return candidates
 
 
+# ---------------------------------------------------------------------------
+# SpecWeaver extractor
+# ---------------------------------------------------------------------------
+
 def _extract_specweaver(payload: dict) -> list[MemoryCandidate]:
     """Extract from SpecWeaver requirements package shape."""
     candidates: list[MemoryCandidate] = []
 
-    for req_field in ("requirements", "functional_requirements",
-                      "non_functional_requirements"):
+    for req_field in (
+        "requirements",
+        "functional_requirements",
+        "non_functional_requirements",
+    ):
         for req in _as_list(payload.get(req_field)):
-            if isinstance(req, str) and len(req) > 20:
+            if isinstance(req, str) and len(req.strip()) > 20:
                 candidates.append(MemoryCandidate(
                     memory_type="REQUIREMENT",
                     content=_compact(req),
@@ -468,43 +648,54 @@ def _extract_specweaver(payload: dict) -> list[MemoryCandidate]:
                 category = str(req.get("category") or req.get("type") or "").strip()
                 confidence = str(req.get("confidence") or "HIGH").upper()
                 source = str(req.get("source") or "").strip()
-                if statement:
+                if statement and len(statement) > 10:
                     content = f"[{category}] {statement}" if category else statement
                     candidates.append(MemoryCandidate(
                         memory_type="REQUIREMENT",
                         content=_compact(content),
-                        rationale=f"Source: {source}" if source else
-                                   "Requirement from SpecWeaver distillation.",
-                        confidence=(confidence if confidence in
-                                    {"HIGH", "MEDIUM", "LOW", "INFERRED"} else "MEDIUM"),
+                        rationale=(
+                            f"Source: {source}" if source else
+                            "Requirement from SpecWeaver distillation."
+                        ),
+                        confidence=(
+                            confidence
+                            if confidence in {"HIGH", "MEDIUM", "LOW", "INFERRED"}
+                            else "MEDIUM"
+                        ),
                         source_excerpt=statement[:200],
-                        tags=["requirement"] +
-                              ([category.lower().replace(" ", "-")] if category else []),
+                        tags=["requirement"] + (
+                            [_slug(category)] if category else []
+                        ),
                     ))
 
     for gap in _as_list(payload.get("gaps")):
         if not isinstance(gap, dict):
             continue
         area = str(gap.get("area") or gap.get("category") or "").strip()
-        desc = str(gap.get("description") or gap.get("content") or gap.get("gap") or "").strip()
+        desc = str(
+            gap.get("description") or gap.get("content") or gap.get("gap") or ""
+        ).strip()
         why = str(gap.get("why_it_matters") or gap.get("rationale") or "").strip()
-        if desc:
-            content = (f"Requirements gap — {area}: {desc}" if area
-                       else f"Requirements gap: {desc}")
+        if desc and len(desc) > 10:
+            content = (
+                f"Requirements gap — {area}: {desc}" if area else
+                f"Requirements gap: {desc}"
+            )
             candidates.append(MemoryCandidate(
                 memory_type="RISK",
                 content=_compact(content),
                 rationale=why or "Missing requirement identified by SpecWeaver.",
                 confidence="MEDIUM",
                 source_excerpt=_compact(content, 200),
-                tags=["gap", "requirement-gap"] +
-                      ([area.lower().replace(" ", "-")] if area else []),
+                tags=["gap", "requirement-gap"] + ([_slug(area)] if area else []),
             ))
 
     for conflict in _as_list(payload.get("conflicts")):
         if not isinstance(conflict, dict):
             continue
-        desc = str(conflict.get("description") or conflict.get("conflict") or "").strip()
+        desc = str(
+            conflict.get("description") or conflict.get("conflict") or ""
+        ).strip()
         req_a = str(conflict.get("requirement_a") or conflict.get("side_a") or "").strip()
         req_b = str(conflict.get("requirement_b") or conflict.get("side_b") or "").strip()
         if desc or (req_a and req_b):
@@ -512,16 +703,17 @@ def _extract_specweaver(payload: dict) -> list[MemoryCandidate]:
             candidates.append(MemoryCandidate(
                 memory_type="RISK",
                 content=_compact(content),
-                rationale=str(conflict.get("resolution") or
-                              "Requirements conflict identified by SpecWeaver."),
+                rationale=str(
+                    conflict.get("resolution") or
+                    "Requirements conflict identified by SpecWeaver."
+                ),
                 confidence="MEDIUM",
                 source_excerpt=_compact(content, 200),
                 tags=["conflict", "requirement-conflict"],
             ))
 
     for assumption in _as_list(payload.get("assumptions")):
-        content = _dict_or_str(assumption,
-                               ("content", "statement", "assumption", "description"))
+        content = _dict_or_str(assumption, ("content", "statement", "assumption", "description"))
         if content and len(content) > 10:
             candidates.append(MemoryCandidate(
                 memory_type="ASSUMPTION",
@@ -533,8 +725,7 @@ def _extract_specweaver(payload: dict) -> list[MemoryCandidate]:
             ))
 
     for constraint in _as_list(payload.get("constraints")):
-        content = _dict_or_str(constraint,
-                               ("content", "statement", "constraint", "description"))
+        content = _dict_or_str(constraint, ("content", "statement", "constraint", "description"))
         if content and len(content) > 10:
             candidates.append(MemoryCandidate(
                 memory_type="CONSTRAINT",
@@ -560,7 +751,7 @@ def _extract_specweaver(payload: dict) -> list[MemoryCandidate]:
 
 
 # ---------------------------------------------------------------------------
-# Generic extraction helpers (used for unmapped fields)
+# Generic extraction helpers (for unmapped fields only)
 # ---------------------------------------------------------------------------
 
 def _extract_from_value(
@@ -568,6 +759,10 @@ def _extract_from_value(
     hinted_type: str | None,
     source_key: str,
 ) -> list[MemoryCandidate]:
+    """
+    Generic extractor for unmapped fields. Conservative: requires longer
+    content and explicit type signals to avoid storing noise.
+    """
     if value is None:
         return []
     if isinstance(value, list):
@@ -577,23 +772,20 @@ def _extract_from_value(
         return candidates
     if isinstance(value, dict):
         memory_type = hinted_type or _infer_type(
-            " ".join(str(v) for v in value.values())) or "SESSION_SUMMARY"
+            " ".join(str(v) for v in value.values() if isinstance(v, str))
+        )
+        if not memory_type:
+            return []  # Don't store unmapped dicts with no clear type signal
         content = _first_text(
             value,
-            ("content", "decision", "requirement", "risk", "statement",
-             "title", "name", "description", "summary"))
-        if not content:
-            nested: list[MemoryCandidate] = []
-            for child_key, child_value in value.items():
-                nested.extend(_extract_from_value(
-                    child_value,
-                    FIELD_TYPE_HINTS.get(_normalise_key(child_key)) or hinted_type,
-                    child_key,
-                ))
-            return nested
-        rationale = (_first_text(
-            value, ("rationale", "reason", "context", "evidence", "impact"))
-            or f"Extracted from {source_key}.")
+            ("content", "decision", "statement", "title", "description", "summary"),
+        )
+        if not content or len(content) < 20:
+            return []  # Skip short or empty content
+        rationale = (
+            _first_text(value, ("rationale", "reason", "context", "evidence", "impact"))
+            or f"Extracted from {source_key}."
+        )
         return [MemoryCandidate(
             memory_type=memory_type,
             content=_compact(content),
@@ -603,7 +795,10 @@ def _extract_from_value(
             tags=_tags(value, memory_type, source_key),
         )]
     if isinstance(value, str):
-        return _extract_from_text(value, hinted_type)
+        # Only extract from strings if a hint is provided — bare strings
+        # from unknown fields are almost always noisy fragments.
+        if hinted_type:
+            return _extract_from_text(value, hinted_type)
     return []
 
 
@@ -611,11 +806,31 @@ def _extract_from_text(
     text: str,
     hinted_type: str | None = None,
 ) -> list[MemoryCandidate]:
+    """
+    Extract labelled sentences from prose text.
+
+    Only extracts sentences that either:
+    - Carry an explicit label prefix (Decision:, Requirement:, Risk: etc.), OR
+    - Have a hinted_type AND meet a minimum length threshold.
+
+    This prevents noise from short keyword-matching fragments.
+    """
     candidates: list[MemoryCandidate] = []
     for statement in _statements(text):
-        memory_type = _label_type(statement) or hinted_type or _infer_type(statement)
-        if not memory_type:
-            continue
+        label = _label_type(statement)
+        if label:
+            # Explicit label always wins
+            memory_type = label
+        elif hinted_type and len(statement) >= _MIN_TEXT_STATEMENT_LEN:
+            memory_type = hinted_type
+        else:
+            # Keyword match without a hint or label: require longer content
+            if len(statement) < _MIN_TEXT_STATEMENT_LEN:
+                continue
+            memory_type = _infer_type(statement)
+            if not memory_type:
+                continue
+
         candidates.append(MemoryCandidate(
             memory_type=memory_type,
             content=_strip_label(statement),
@@ -628,9 +843,9 @@ def _extract_from_text(
 
 
 def _infer_type(text: str) -> str | None:
-    label_type = _label_type(text)
-    if label_type:
-        return label_type
+    label = _label_type(text)
+    if label:
+        return label
     normalized = text.lower()
     for memory_type, keywords in TYPE_KEYWORDS.items():
         if any(keyword in normalized for keyword in keywords):
@@ -639,10 +854,9 @@ def _infer_type(text: str) -> str | None:
 
 
 def _label_type(text: str) -> str | None:
-    normalized = text.lower()
     m = re.match(
         r"^\s*(decision|requirement|risk|assumption|constraint|quality score)\s*[:\-]",
-        normalized,
+        text.lower(),
     )
     return m.group(1).upper().replace(" ", "_") if m else None
 
@@ -691,11 +905,12 @@ def _tags(value: dict, memory_type: str | None, source_key: str) -> list[str]:
 
 def _keyword_tags(text: str, memory_type: str | None) -> list[str]:
     norm_type = (memory_type or _infer_type(text) or "session-summary")
-    tags = {norm_type.lower().replace("_", "-")}
+    tags: set[str] = {norm_type.lower().replace("_", "-")}
     for token in re.findall(r"[A-Za-z][A-Za-z0-9-]{3,}", text.lower()):
         if token not in {
             "this", "that", "with", "from", "have", "will", "must", "should",
-            "architecture", "system", "service", "component",
+            "architecture", "system", "service", "component", "based", "when",
+            "that", "which", "they", "their", "there", "here", "such",
         }:
             tags.add(token)
         if len(tags) >= 8:
@@ -705,7 +920,10 @@ def _keyword_tags(text: str, memory_type: str | None) -> list[str]:
 
 def _compact(value: str, limit: int = 1000) -> str:
     normalized = re.sub(r"\s+", " ", value).strip()
-    return normalized if len(normalized) <= limit else normalized[:limit - 3].rstrip() + "..."
+    return (
+        normalized if len(normalized) <= limit
+        else normalized[:limit - 3].rstrip() + "..."
+    )
 
 
 def _as_list(value: Any) -> list:
@@ -714,15 +932,19 @@ def _as_list(value: Any) -> list:
     return value if isinstance(value, list) else [value]
 
 
+def _slug(value: str) -> str:
+    """Convert a display name to a lowercase kebab-case tag."""
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
 def _normalise_key(key: str) -> str:
-    """Normalise camelCase or kebab-case key to snake_case for lookup."""
-    # Insert underscore before uppercase letters, then lowercase everything
+    """Normalise camelCase / kebab-case / space-separated key to snake_case."""
     snake = re.sub(r"(?<!^)(?=[A-Z])", "_", key).lower()
     return re.sub(r"[^a-z0-9_]", "_", snake)
 
 
 def _field_type_hint(key: str) -> str | None:
-    """Legacy helper — strips all non-alphanumeric chars for broad matching."""
+    """Broad matching by stripping all non-alphanumeric characters."""
     normalized = re.sub(r"[^a-z0-9]", "", key.lower())
     return FIELD_TYPE_HINTS.get(normalized)
 
@@ -732,6 +954,13 @@ def _to_snake(name: str) -> str:
 
 
 def _dedupe(candidates: list[MemoryCandidate]) -> list[MemoryCandidate]:
+    """
+    Deduplicate by (memory_type, content[:200]).
+
+    Because pillar-specific extractors always run before the generic walk,
+    the first occurrence for any content key is always the typed, high-quality
+    one. The generic walk's lower-quality duplicates are discarded.
+    """
     seen: set[tuple[str, str]] = set()
     unique: list[MemoryCandidate] = []
     for candidate in candidates:
