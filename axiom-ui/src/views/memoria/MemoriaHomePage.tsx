@@ -433,7 +433,11 @@ export function MemoriaWorkspacePage() {
   const [linkSessionsAvailable, setLinkSessionsAvailable] = useState(true);
   const [linkingSession, setLinkingSession] = useState(false);
   const [isDistillingAll, setIsDistillingAll] = useState(false);
-  const [distillingSessionId, setDistillingSessionId] = useState<string | null>(null);
+  // Keyed by link.id (unique ProjectSessionLink record) — NOT link.sessionId.
+  // Using link.sessionId caused false "Distilling..." state on other cards when
+  // two links share the same session UUID (e.g. same session linked under two
+  // pillars, or coincidental UUID collision).
+  const [distillingLinkId, setDistillingLinkId] = useState<string | null>(null);
   const [lastJob, setLastJob] = useState<DistillationJob | null>(null);
 
   const selectedProject = useMemo(
@@ -712,11 +716,13 @@ export function MemoriaWorkspacePage() {
     }
   }
 
-  async function handleDistillSession(pillar: Pillar, sessionId: string) {
-    if (!token || !selectedProjectId || distillingSessionId) return;
-    setDistillingSessionId(sessionId);
+  // linkId is the unique ProjectSessionLink.id — distinct per (pillar, sessionId) pair.
+  // This ensures the "Distilling..." state only applies to the card that was clicked.
+  async function handleDistillSession(link: SessionLink) {
+    if (!token || !selectedProjectId || distillingLinkId !== null) return;
+    setDistillingLinkId(link.id);
     try {
-      const result = await distillSingleSession(token, selectedProjectId, pillar, sessionId);
+      const result = await distillSingleSession(token, selectedProjectId, link.pillar, link.sessionId);
       emitToast(
         `Distilled: ${result.entriesCreated} entries added, ${result.entriesSuperseded} superseded`,
         'success',
@@ -725,7 +731,7 @@ export function MemoriaWorkspacePage() {
     } catch (error) {
       emitToast((error as Error).message, 'error');
     } finally {
-      setDistillingSessionId(null);
+      setDistillingLinkId(null);
     }
   }
 
@@ -830,26 +836,32 @@ export function MemoriaWorkspacePage() {
                         {isDistillingAll ? 'Distilling...' : 'Distill all'}
                       </button>
                     </div>
-                    {links.map((link) => (
-                      <div key={link.id} className="rounded-md border border-slate-200 p-2 text-xs">
-                        <div className="font-semibold text-slate-700">{label(link.pillar)}</div>
-                        <div className="mt-1 flex items-center gap-1 text-slate-500">
-                          <Link to={sourceHref(link.pillar, link.sessionId)} className="min-w-0 truncate hover:underline">{link.sessionId}</Link>
-                          <CopyButton text={link.sessionId} title={`Copy ${label(link.pillar)} session ID`} />
+                    {links.map((link) => {
+                      const isThisLinkDistilling = distillingLinkId === link.id;
+                      const anyDistilling = distillingLinkId !== null;
+                      return (
+                        <div key={link.id} className="rounded-md border border-slate-200 p-2 text-xs">
+                          <div className="font-semibold text-slate-700">{label(link.pillar)}</div>
+                          <div className="mt-1 flex items-center gap-1 text-slate-500">
+                            <Link to={sourceHref(link.pillar, link.sessionId)} className="min-w-0 truncate hover:underline">{link.sessionId}</Link>
+                            <CopyButton text={link.sessionId} title={`Copy ${label(link.pillar)} session ID`} />
+                          </div>
+                          <div className="mt-2 flex gap-2">
+                            <button
+                              type="button"
+                              className="rounded-md border border-[var(--color-pillar-memoria-text)] px-2 py-1 text-xs font-semibold text-[var(--color-pillar-memoria-text)] hover:bg-[var(--color-pillar-memoria-bg)] disabled:opacity-40"
+                              onClick={() => void handleDistillSession(link)}
+                              // Disable only the active card while distilling; others remain clickable
+                              // but the handler guard (distillingLinkId !== null) prevents double-fire.
+                              disabled={isThisLinkDistilling || !selectedProjectId}
+                            >
+                              {isThisLinkDistilling ? 'Distilling...' : anyDistilling ? 'Distill' : 'Distill'}
+                            </button>
+                            <button type="button" className="text-rose-700 hover:underline text-xs" onClick={() => void handleRemoveLink(link.id)}>Remove</button>
+                          </div>
                         </div>
-                        <div className="mt-2 flex gap-2">
-                          <button
-                            type="button"
-                            className="rounded-md border border-[var(--color-pillar-memoria-text)] px-2 py-1 text-xs font-semibold text-[var(--color-pillar-memoria-text)] hover:bg-[var(--color-pillar-memoria-bg)] disabled:opacity-40"
-                            onClick={() => void handleDistillSession(link.pillar, link.sessionId)}
-                            disabled={distillingSessionId === link.sessionId || !selectedProjectId}
-                          >
-                            {distillingSessionId === link.sessionId ? 'Distilling...' : 'Distill'}
-                          </button>
-                          <button type="button" className="text-rose-700 hover:underline text-xs" onClick={() => void handleRemoveLink(link.id)}>Remove</button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </>
                 )}
               </div>
