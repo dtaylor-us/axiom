@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useArchDoc } from '../hooks/useArchDoc';
+import { resolveAdlEnforcement, type RawAdlRule, useArchDoc } from '../hooks/useArchDoc';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { MarkdownExportActions, downloadMarkdown } from '../components/StructuredData';
 
@@ -23,10 +23,16 @@ export function ArchDocView() {
     riskMarkdown,
     fullPackageMarkdown,
     exportFilename,
+    systemTitle,
+    allAdlRules,
     loading,
     error,
     hasData,
   } = useArchDoc();
+
+  const hardAdlCount = (allAdlRules as RawAdlRule[])
+    .filter((rule) => resolveAdlEnforcement(rule).toLowerCase() === 'hard')
+    .length;
 
   function getTabContent(): string {
     switch (activeTab) {
@@ -125,7 +131,12 @@ export function ArchDocView() {
     <div className="flex flex-col h-full" data-testid="arch-doc-view">
       {/* Top bar */}
       <div className="border-b border-gray-200 bg-white px-6 py-4 sticky top-0 flex items-center justify-between gap-4">
-        <h1 className="text-lg font-semibold text-gray-900">Arch Docs</h1>
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold text-gray-900 truncate">{systemTitle}</h1>
+          {hardAdlCount > 0 && (
+            <p className="text-xs text-gray-500 mt-0.5">{hardAdlCount} hard ADL rules</p>
+          )}
+        </div>
         <button
           onClick={handleExportFullPackage}
           disabled={!hasData}

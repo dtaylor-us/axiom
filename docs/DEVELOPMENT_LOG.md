@@ -303,3 +303,35 @@ Phase 4 adds curated project context assembly and best-effort context injection 
 
 - PASS: `cd memoria-api && mvn test -q -Dtest=DistillationServiceTest,PillarMemoriaClientTest,BatchDistillationServiceTest`
 - NOTE: The client tests require local socket binding for MockWebServer and were run outside the filesystem/network sandbox.
+
+# ArchDocView Documentation Quality Fixes
+
+## Work Notes
+
+- 2026-07-25: Fixed ArchDoc title and export naming:
+  - `useArchDoc` now resolves `systemTitle` from session title first, then `style + " System"`, never UUID fragments.
+  - Export filename now uses `systemTitle` instead of raw `conversationId`.
+- 2026-07-25: Added deployment diagram retrieval for Allocation View:
+  - Added `getDiagramByType(sessionId, type, token)` in `axiom-ui/src/api/architecture.ts`.
+  - `useArchDoc` now fetches deployment Mermaid from `/diagram/deployment` and uses table fallback only when unavailable.
+- 2026-07-25: Improved data fallbacks and rendering quality across all five tabs:
+  - ADL helpers now support both legacy and `adl_blocks` rule shapes; `resolveAdlEnforcement` is exported and reused.
+  - ADL IDs now use stable fallbacks derived from rule content; `ADR-unknown` output is eliminated.
+  - Stakeholder characteristics now derive from tactics, trade-offs, ADL categories, and FMEA presence, with style-based defaults.
+  - Glossary now prefers richer component definitions and adds ADL subject/rationale terms instead of repeating element catalog rows.
+  - SLO targets now derive from critical tactics, then trade-off rationale, then style-implied placeholders.
+  - QA scenarios now map to concrete component names when tactic/application text references them.
+  - C&C Runtime Element Catalog and Risk Analysis now show explicit placeholders when interactions/FMEA are unavailable.
+  - Allocation Work Assignment now deduplicates near-duplicate component names via normalized keys.
+  - Allocation Build Sequence now includes phase heuristics that work even when interaction data is sparse.
+  - Risk Register now shows a meaningful placeholder when both weakness and FMEA data are absent.
+  - Module View technology values now fall back to buy-vs-build recommended solutions for `various`/`TBD`/empty values.
+- 2026-07-25: Updated `ArchDocView` header:
+  - Displays resolved `systemTitle`.
+  - Displays a hard ADL rule count computed via shared `resolveAdlEnforcement` logic.
+
+## Verification Log
+
+- FAIL (pre-existing): `cd axiom-ui && npx vitest run`
+  - Existing failure in `src/test/SessionView.test.tsx` due mock missing `buildPackageMarkdown` export from `../views/specweaver/packageExport`.
+- PASS: `cd axiom-ui && npm run build --silent`
