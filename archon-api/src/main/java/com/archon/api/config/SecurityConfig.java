@@ -1,6 +1,7 @@
 package com.archon.api.config;
 
 import com.archon.api.security.GatewayHeaderAuthFilter;
+import com.archon.api.security.InternalSecretAuthFilter;
 import com.archon.api.security.JwtAuthFilter;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
@@ -21,17 +22,19 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Authentication configuration for archon-api.
  *
- * Two modes controlled by AXIOM_GATEWAY_BYPASS:
+ * <p>Three auth paths in priority order:</p>
  *
- * BYPASS=false (production default):
- *   Expects X-Axiom-User-Id header forwarded by axiom-api.
- *   Rejects protected requests without this header with 401.
- *   JWT is NOT validated here — axiom-api already did it.
- *
- * BYPASS=true (local development):
- *   Falls back to direct JWT validation.
- *   Allows testing archon-api without axiom-api running.
- *   Never enable in production.
+ * <ol>
+ *   <li><b>Internal service secret</b> — requests carrying X-Internal-Secret matching
+ *       {@code axiom.gateway.internal-secret} are granted ROLE_INTERNAL_SERVICE and bypass
+ *       user auth entirely. Used by Memoria (and other pillars) for service-to-service reads
+ *       of architecture output, session packages, etc. without a user JWT.</li>
+ *   <li><b>Gateway header</b> (BYPASS=false, production default) — expects X-Axiom-User-Id
+ *       forwarded by axiom-api. Rejects protected requests without this header with 401.
+ *       JWT is NOT validated here — axiom-api already did it.</li>
+ *   <li><b>Direct JWT</b> (BYPASS=true, local development) — falls back to JWT validation.
+ *       Allows testing archon-api without axiom-api running. Never enable in production.</li>
+ * </ol>
  */
 @Configuration
 @EnableWebSecurity
@@ -40,18 +43,14 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
+    private final InternalSecretAuthFilter internalSecretAuthFilter;
 
     @Value("${axiom.gateway.bypass:false}")
     private boolean gatewayBypass;
 
-    /**
-     * Configures the security filter chain for HTTP requests.
-     * Sets up stateless session management, authorization rules, and JWT filtering.
-     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
-            // Use stateless sessions for JWT-based authentication
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Allow async dispatches (SseEmitter completion) without re-auth
@@ -61,21 +60,17 @@ public class SecurityConfig {
                         "/api/v1/auth/reset-password",
                         "/api/v1/auth/reset-password/validate"
                 ).permitAll()
-                // Public authentication endpoints
                 .requestMatchers("/api/v1/auth/**").permitAll()
-                // Public actuator and health endpoints
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/health").permitAll()
-                // All other API v1 endpoints require authentication
                 .requestMatchers("/api/v1/**").authenticated()
-                // Allow all other requests
                 .anyRequest().permitAll())
-            // Handle authentication failures with 401 Unauthorized
             .exceptionHandling(e -> e
-                .authenticationEntryPoint(
-                        new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-            // Trusted gateway/service identity is valid in every mode. Local bypass
-            // additionally accepts direct JWTs for standalone UI development.
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+            // Internal service authentication takes precedence over user authentication.
+            .addFilterBefore(internalSecretAuthFilter, GatewayHeaderAuthFilter.class)
+            // Trusted gateway identity is valid in every mode. Local bypass additionally
+            // accepts direct JWTs for standalone UI development.
             .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
         if (gatewayBypass) {
             http.addFilterBefore(jwtAuthFilter, GatewayHeaderAuthFilter.class);
@@ -83,9 +78,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /**
-     * Creates a BCrypt password encoder bean for password hashing.
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

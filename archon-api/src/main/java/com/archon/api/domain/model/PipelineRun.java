@@ -45,7 +45,8 @@ public class PipelineRun {
     private String lastStageCompleted;
     private Integer governanceScore;
     private String governanceConfidence;
-    private Boolean hasGaps;
+    @Builder.Default
+    private Boolean hasGaps = false;
     private String gapSummary;
     private String errorStage;
     private String errorMessage;
@@ -58,5 +59,12 @@ public class PipelineRun {
     @OrderBy("sequenceNum ASC")
     @Builder.Default
     private List<PipelineEvent> events = new ArrayList<>();
+
+    @PrePersist
+    void prePersist() {
+        if (startedAt == null) {
+            startedAt = Instant.now();
+        }
+    }
 }
 
