@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = TestProtectedController.class,
         properties = {
                 "axiom.gateway.bypass=true",
+                "axiom.gateway.internal-secret=test-internal-secret",
                 "security.jwt.secret=super-secret-dev-key-change-in-prod-must-be-at-least-32-bytes"
         })
 @Import({SecurityConfig.class, JwtAuthFilter.class, JwtService.class, GatewayHeaderAuthFilter.class})
@@ -35,6 +36,17 @@ class JwtBypassAuthModeIntegrationTest {
 
         mockMvc.perform(get("/api/v1/protected/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(content().string("jwt-user"));
+    }
+
+    @Test
+    void bypassTrue_validJwtWithUiIdentityHeader_authenticatesRequest() throws Exception {
+        String token = jwtService.generateToken("jwt-user");
+
+        mockMvc.perform(get("/api/v1/protected/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .header("X-Axiom-User-Id", "jwt-user"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("jwt-user"));
     }

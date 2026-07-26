@@ -577,7 +577,7 @@ def _extract_from_value(
         return candidates
     if isinstance(value, dict):
         memory_type = hinted_type or _infer_type(
-            " ".join(str(v) for v in value.values()))
+            " ".join(str(v) for v in value.values())) or "SESSION_SUMMARY"
         content = _first_text(
             value,
             ("content", "decision", "requirement", "risk", "statement",

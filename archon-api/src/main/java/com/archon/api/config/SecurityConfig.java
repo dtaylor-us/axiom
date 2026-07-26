@@ -74,10 +74,12 @@ public class SecurityConfig {
             .exceptionHandling(e -> e
                 .authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-            // In production mode, trust gateway identity headers; in local bypass mode, validate JWTs directly.
-            .addFilterBefore(
-                    gatewayBypass ? jwtAuthFilter : gatewayHeaderAuthFilter,
-                    UsernamePasswordAuthenticationFilter.class);
+            // Trusted gateway/service identity is valid in every mode. Local bypass
+            // additionally accepts direct JWTs for standalone UI development.
+            .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        if (gatewayBypass) {
+            http.addFilterBefore(jwtAuthFilter, GatewayHeaderAuthFilter.class);
+        }
         return http.build();
     }
 

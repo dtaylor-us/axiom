@@ -6,6 +6,8 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Duration;
 import java.util.Map;
@@ -15,8 +17,8 @@ import java.util.UUID;
 /**
  * Fetches SpecWeaver session package for Memoria distillation.
  *
- * <p>Uses X-Axiom-Internal-Secret for service-to-service auth.
- * Does NOT use RequestContextHolder — that fails in batch threads.</p>
+ * <p>Uses X-Axiom-Internal-Secret for service-to-service auth and forwards
+ * the current caller identity for pillar APIs running in local JWT-bypass mode.</p>
  *
  * <p>The SpecWeaver package endpoint is GET /api/v1/sessions/{id}/package.
  * This endpoint returns 404 if the package has not been generated yet.
@@ -29,6 +31,7 @@ public class SpecWeaverMemoriaClient {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
     private static final String INTERNAL_SECRET_HEADER = "X-Axiom-Internal-Secret";
+    private static final String AXIOM_USER_ID_HEADER = "X-Axiom-User-Id";
 
     private final WebClient webClient;
     private final String internalSecret;
@@ -100,6 +103,18 @@ public class SpecWeaverMemoriaClient {
     private void applyInternalHeaders(HttpHeaders headers) {
         if (!internalSecret.isBlank()) {
             headers.set(INTERNAL_SECRET_HEADER, internalSecret);
+        }
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs == null) {
+            return;
+        }
+        String authorization = attrs.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
+        if (authorization != null && !authorization.isBlank()) {
+            headers.set(HttpHeaders.AUTHORIZATION, authorization);
+        }
+        String userId = attrs.getRequest().getHeader(AXIOM_USER_ID_HEADER);
+        if (userId != null && !userId.isBlank()) {
+            headers.set(AXIOM_USER_ID_HEADER, userId);
         }
     }
 }

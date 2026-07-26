@@ -152,6 +152,7 @@ services:
       # Gateway bypass: true in local dev so the UI hits archon-api directly.
       # Set to false only when running with axiom-api (--profile platform).
       AXIOM_GATEWAY_BYPASS: "true"
+      AXIOM_INTERNAL_SECRET: ${AXIOM_INTERNAL_SECRET:-dev-secret-change-in-prod}
     ports: ["8081:8081"]
     depends_on:
       postgres:
@@ -204,6 +205,7 @@ services:
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_BUCKET=specweaver-documents
       - AXIOM_GATEWAY_BYPASS=true
+      - AXIOM_INTERNAL_SECRET=${AXIOM_INTERNAL_SECRET:-dev-secret-change-in-prod}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
       - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
     depends_on:

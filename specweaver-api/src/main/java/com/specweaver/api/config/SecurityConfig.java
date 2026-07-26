@@ -53,9 +53,10 @@ public class SecurityConfig {
                         .anyRequest().permitAll())
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .addFilterBefore(
-                        gatewayBypass ? jwtAuthFilter : gatewayHeaderAuthFilter,
-                        UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        if (gatewayBypass) {
+            http.addFilterBefore(jwtAuthFilter, GatewayHeaderAuthFilter.class);
+        }
         return http.build();
     }
 }
