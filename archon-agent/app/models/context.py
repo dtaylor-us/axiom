@@ -394,8 +394,18 @@ class ArchitectureContext(BaseModel):
 
     @property
     def is_final_iteration(self) -> bool:
-        """True when the pipeline must not re-iterate (max 2 iterations: 0 and 1)."""
-        return self.iteration >= 1
+        """Always returns True — auto-reiteration is disabled.
+
+        The pipeline previously re-ran automatically when the governance score
+        fell below threshold (should_reiterate=True). This doubled cost and
+        latency with marginal quality improvement on first-pass analyses.
+
+        Re-iteration remains available as an explicit user action by sending
+        a follow-up message after reviewing the governance score and
+        improvement recommendations. The should_reiterate flag is preserved
+        in the COMPLETE payload so the UI can surface the recommendation.
+        """
+        return True
 
     def get_diagram(self, diagram_type: DiagramType) -> str:
         """Return the mermaid_source for the first diagram of the given type.
