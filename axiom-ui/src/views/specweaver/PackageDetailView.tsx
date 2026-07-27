@@ -235,7 +235,12 @@ export function PackageDetailView() {
 
   const handleSendToArchon = async () => {
     const briefText = await sendToArchon(token, sessionId);
-      navigate('/archon', {
+    // Navigate directly to /archon/chat so the prefill message lands in the
+    // ChatView input immediately — without requiring the user to click the
+    // "New Architecture Analysis" button on the Archon home page.
+    // ChatView reads location.state.prefillMessage on mount, populates the
+    // textarea, and shows an info banner explaining the source.
+    navigate('/archon/chat', {
       state: {
         prefillMessage: briefText,
         source: 'specweaver',
