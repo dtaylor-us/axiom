@@ -20,16 +20,14 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: specweaver-agent
     spec:
+      tolerations:
+        {{- include "ai-architect.tolerations" . | nindent 8 }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.agent.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.agent.tolerations }}
-      tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
@@ -51,8 +49,11 @@ spec:
                   key: openai-api-key
             - name: OPENAI_MODEL
               value: "gpt-4o"
+            # Must match the Kubernetes service name for the Qdrant StatefulSet.
+            # The service is named ai-architect-qdrant (Helm release prefix + qdrant).
+            # Using the short name "qdrant" fails DNS resolution in this namespace.
             - name: QDRANT_URL
-              value: "http://qdrant:6333"
+              value: "http://ai-architect-qdrant:6333"
             - name: STORAGE_TYPE
               value: "azure-blob"
             - name: AZURE_STORAGE_CONNECTION_STRING
@@ -63,8 +64,8 @@ spec:
                   optional: true
             - name: AZURE_BLOB_CONTAINER
               value: "specweaver-documents"
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: ""
+            - name: OTEL_SDK_DISABLED
+              value: "true"
           resources:
             {{- toYaml .Values.specweaverAgent.resources | nindent 12 }}
           readinessProbe:
