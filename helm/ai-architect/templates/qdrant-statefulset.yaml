@@ -21,6 +21,8 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: qdrant
     spec:
+      tolerations:
+        {{- include "ai-architect.tolerations" . | nindent 8 }}
       containers:
         - name: qdrant
           image: "{{ .Values.qdrant.image.repository }}:{{ .Values.qdrant.image.tag }}"
@@ -46,6 +48,8 @@ spec:
           requests:
             storage: {{ .Values.qdrant.storage.size }}
 ---
+# Headless service — required by the StatefulSet for stable pod DNS
+# (ai-architect-qdrant-0.ai-architect-qdrant.ai-architect.svc.cluster.local)
 apiVersion: v1
 kind: Service
 metadata:
@@ -55,6 +59,33 @@ metadata:
     app.kubernetes.io/component: qdrant
 spec:
   clusterIP: None
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: qdrant
+  ports:
+    - port: {{ .Values.qdrant.service.httpPort }}
+      targetPort: {{ .Values.qdrant.service.httpPort }}
+      protocol: TCP
+      name: http
+    - port: {{ .Values.qdrant.service.grpcPort }}
+      targetPort: {{ .Values.qdrant.service.grpcPort }}
+      protocol: TCP
+      name: grpc
+---
+# ClusterIP service — used by agent pods to reach Qdrant via kube-proxy.
+# The headless service above is not routable across nodes when agent pods
+# are on a different node than the Qdrant pod. This service provides a
+# stable virtual IP that routes correctly across node boundaries.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-qdrant-clusterip
+  labels:
+    {{- include "ai-architect.labels" . | nindent 4 }}
+    app.kubernetes.io/component: qdrant
+spec:
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: {{ .Chart.Name }}
     app.kubernetes.io/instance: {{ .Release.Name }}
