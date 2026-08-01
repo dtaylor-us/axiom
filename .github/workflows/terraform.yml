@@ -9,6 +9,12 @@ on:
       - "terraform/**"
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      confirm_apply:
+        description: "Type 'apply' to allow Terraform apply"
+        required: false
+        default: ""
 
 jobs:
   terraform-plan:
@@ -24,6 +30,34 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.7.0
+
+      - name: Validate Terraform CI configuration
+        env:
+          TF_VAR_location: ${{ secrets.TF_VAR_LOCATION }}
+          TF_VAR_project: ${{ secrets.TF_VAR_PROJECT }}
+          TF_VAR_environment: ${{ secrets.TF_VAR_ENVIRONMENT }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${TF_VAR_location}" ]]; then
+            echo "::error::Missing secret: TF_VAR_LOCATION"
+            exit 1
+          fi
+
+          if [[ -z "${TF_VAR_project}" ]]; then
+            echo "::error::Missing secret: TF_VAR_PROJECT"
+            exit 1
+          fi
+
+          if [[ -z "${TF_VAR_environment}" ]]; then
+            echo "::error::Missing secret: TF_VAR_ENVIRONMENT"
+            exit 1
+          fi
+
+          echo "Terraform CI target:"
+          echo "  location=${TF_VAR_location}"
+          echo "  project=${TF_VAR_project}"
+          echo "  environment=${TF_VAR_environment}"
 
       - name: Terraform init
         working-directory: terraform
@@ -48,6 +82,9 @@ jobs:
         working-directory: terraform
         env:
           TF_VAR_subscription_id: ${{ secrets.TF_VAR_SUBSCRIPTION_ID }}
+          TF_VAR_location: ${{ secrets.TF_VAR_LOCATION }}
+          TF_VAR_project: ${{ secrets.TF_VAR_PROJECT }}
+          TF_VAR_environment: ${{ secrets.TF_VAR_ENVIRONMENT }}
           TF_VAR_deployer_object_id: ${{ secrets.TF_VAR_DEPLOYER_OBJECT_ID }}
           TF_VAR_openai_api_key: ${{ secrets.TF_VAR_OPENAI_API_KEY }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.TF_VAR_SUBSCRIPTION_ID }}
@@ -81,7 +118,7 @@ jobs:
     name: Terraform Apply
     runs-on: ubuntu-latest
     needs: terraform-plan
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_apply == 'apply'
     environment: terraform
     steps:
       - uses: actions/checkout@v4
@@ -93,6 +130,34 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.7.0
+
+      - name: Validate Terraform CI configuration
+        env:
+          TF_VAR_location: ${{ secrets.TF_VAR_LOCATION }}
+          TF_VAR_project: ${{ secrets.TF_VAR_PROJECT }}
+          TF_VAR_environment: ${{ secrets.TF_VAR_ENVIRONMENT }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${TF_VAR_location}" ]]; then
+            echo "::error::Missing secret: TF_VAR_LOCATION"
+            exit 1
+          fi
+
+          if [[ -z "${TF_VAR_project}" ]]; then
+            echo "::error::Missing secret: TF_VAR_PROJECT"
+            exit 1
+          fi
+
+          if [[ -z "${TF_VAR_environment}" ]]; then
+            echo "::error::Missing secret: TF_VAR_ENVIRONMENT"
+            exit 1
+          fi
+
+          echo "Terraform CI target:"
+          echo "  location=${TF_VAR_location}"
+          echo "  project=${TF_VAR_project}"
+          echo "  environment=${TF_VAR_environment}"
 
       - name: Terraform init
         working-directory: terraform
@@ -117,6 +182,9 @@ jobs:
         working-directory: terraform
         env:
           TF_VAR_subscription_id: ${{ secrets.TF_VAR_SUBSCRIPTION_ID }}
+          TF_VAR_location: ${{ secrets.TF_VAR_LOCATION }}
+          TF_VAR_project: ${{ secrets.TF_VAR_PROJECT }}
+          TF_VAR_environment: ${{ secrets.TF_VAR_ENVIRONMENT }}
           TF_VAR_deployer_object_id: ${{ secrets.TF_VAR_DEPLOYER_OBJECT_ID }}
           TF_VAR_openai_api_key: ${{ secrets.TF_VAR_OPENAI_API_KEY }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.TF_VAR_SUBSCRIPTION_ID }}
