@@ -33,7 +33,6 @@ resource "azurerm_kubernetes_cluster" "main" {
     enable_auto_scaling = true
     min_count           = var.min_node_count
     max_count           = var.max_node_count
-    node_count          = var.node_count
 
     # Managed OS disks are used here because Ephemeral OS requires a VM cache
     # larger than the OS disk (128 GB). D2s_v3 cache is only 53 GB, so Ephemeral

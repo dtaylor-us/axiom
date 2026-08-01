@@ -1,255 +1,266 @@
-# Archon
+# Axiom — Architecture Intelligence Platform
 
-An AI-powered architecture governance and design assistant that helps software teams generate, evaluate, and refine system architectures through an interactive conversational interface.
+Axiom is a four-pillar AI-powered platform that helps software teams design, refine, and review system architectures through an interactive conversational interface.
 
-Given a set of requirements, the assistant runs a multi-stage pipeline that parses requirements, challenges assumptions, models scenarios, infers quality characteristics, detects conflicts, generates architecture designs with diagrams, and performs automated review — all streamed back in real time.
-
-## Deployed Instance
-
-The current development deployment is live at:
-
-**<https://axiom-dev.eastus2.cloudapp.azure.com/>**
+The platform is live at: **<https://axiom-dev.eastus2.cloudapp.azure.com/>**
 
 ---
 
-## Architecture Overview
+## Platform Overview
 
-The system is composed of two services, two databases, and a Docker Compose orchestration layer:
+Axiom is organised as a gateway plus four active pillars. Each pillar is a pair of services: a Spring Boot API and a Python/FastAPI agent.
 
 ```
-┌────────────┐   SSE (text/event-stream)   ┌──────────────────┐   NDJSON   ┌─────────────────────┐
-│   Client   │ ◄──────────────────────────► │  ai-architect-api │ ─────────►│  ai-architect-agent  │
-│            │   POST /api/v1/chat/stream   │  (Spring Boot)    │           │  (FastAPI/LangGraph) │
-└────────────┘                              └────────┬─────────┘           └──────────┬──────────┘
-                                                     │                                │
-                                              ┌──────▼──────┐                 ┌───────▼───────┐
-                                              │  PostgreSQL  │                │    Qdrant     │
-                                              │  (sessions)  │                │  (vectors)    │
-                                              └─────────────┘                └───────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        axiom-ui  :3000                           │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │ HTTPS
+┌───────────────────────────▼──────────────────────────────────────┐
+│               axiom-api  :8080  (platform gateway)               │
+│          JWT validation · pillar routing · health aggregation    │
+└──────────┬──────────────┬───────────────┬──────────────┬─────────┘
+           │              │               │              │
+  ┌────────▼───────┐ ┌────▼─────────┐ ┌───▼───────┐ ┌───▼────────┐
+  │  archon-api    │ │specweaver-api│ │ lens-api  │ │memoria-api │
+  │  :8081         │ │ :8082        │ │ :8083     │ │ :8084      │
+  └────────┬───────┘ └────┬─────────┘ └───┬───────┘ └───┬────────┘
+           │              │               │             │
+  ┌────────▼───────┐ ┌────▼─────────┐ ┌───▼───────┐ ┌───▼────────┐
+  │ archon-agent   │ │specweaver-   │ │lens-agent │ │memoria-    │
+  │  :8001         │ │agent :8085   │ │ :8086     │ │agent :8087 │
+  └────────────────┘ └──────────────┘ └───────────┘ └────────────┘
 ```
 
-| Service | Language | Framework | Port | Responsibility |
-|---|---|---|---|---|
-| **ai-architect-api** | Java 21 | Spring Boot 3.3.4 | 8080 | API gateway — auth, session management, SSE streaming, agent bridge |
-| **ai-architect-agent** | Python 3.11 | FastAPI + LangGraph | 8001 | LLM orchestration — pipeline execution, tool dispatch, streaming |
+| Service | Stack | Port | Responsibility |
+|---------|-------|------|----------------|
+| **axiom-ui** | React 18 + TypeScript + Vite | 3000 | Unified UI shell — all pillars |
+| **axiom-api** | Spring Boot 3.x / Java 21 | 8080 | Platform gateway — auth, JWT validation, pillar routing |
+| **archon-api** | Spring Boot 3.x / Java 21 | 8081 | Architecture reasoning — conversation management, run state |
+| **archon-agent** | FastAPI + LangGraph / Python 3.11 | 8001 | 14-stage architecture reasoning pipeline |
+| **specweaver-api** | Spring Boot 3.x / Java 21 | 8082 | Requirements intelligence — session management, document ingestion |
+| **specweaver-agent** | FastAPI + LangGraph / Python 3.11 | 8085 | Requirements extraction, consolidation, gap analysis, conflict detection |
+| **lens-api** | Spring Boot 3.x / Java 21 | 8083 | Architecture review — session management, gap elicitation, report storage |
+| **lens-agent** | FastAPI + LangGraph / Python 3.11 | 8086 | 10-stage architecture review pipeline |
+| **memoria-api** | Spring Boot 3.x / Java 21 | 8084 | Project memory — project management, session linking, ADR register, context assembly |
+| **memoria-agent** | FastAPI + LangGraph / Python 3.11 | 8087 | Session distillation, fact extraction, conflict detection, embedding generation |
 
-### Pipeline Stages
+---
 
-The agent runs an 11-stage architecture pipeline on every request:
+## Pillars
 
-1. **Requirement Parsing** — extract structured requirements from natural language
-2. **Requirement Challenge** — question assumptions and identify gaps
-3. **Scenario Modeling** — generate usage and failure scenarios
-4. **Characteristic Inference** — reason about quality attributes (scalability, security, etc.)
-5. **Conflict Analysis** — detect trade-offs between competing characteristics
-6. **Architecture Generation** — produce architecture design with component descriptions
-7. **Diagram Generation** — create visual architecture diagrams
-8. **ADL Generation** — produce Architecture Definition Language output
-9. **Weakness Analysis** — identify architectural weaknesses *(parallel with 10)*
-10. **FMEA Analysis** — failure mode and effects analysis *(parallel with 9)*
-11. **Architecture Review** — automated governance review with optional re-iteration
+### Archon — Architecture Reasoning
+
+Given a set of requirements, Archon runs a 14-stage pipeline that parses requirements, challenges assumptions, models scenarios, infers quality characteristics, recommends architecture tactics, resolves conflicts, generates architecture designs with diagrams, performs trade-off and ADL analysis, runs FMEA, and produces an automated governance review — all streamed in real time.
+
+### SpecWeaver — Requirements Intelligence
+
+Accepts messy stakeholder input (meeting notes, emails, PDFs, informal bullets) and transforms it into a structured, traceable, architecture-ready requirements package. Extracts, deduplicates, classifies, detects gaps and conflicts, scores readiness, and generates a brief for Archon.
+
+### Lens — Architecture Review Intelligence
+
+Evaluates existing architectures against the Azure Well-Architected Framework (five pillars), SEI ATAM, SEI quality attribute principles, and structural health principles. Conducts iterative gap elicitation — asking targeted questions until sufficient information is gathered — then generates a structured review report with a risk register and prioritised recommendations. The system never blocks the user: unresolved gaps become findings in the report.
+
+### Memoria — Project Memory
+
+Maintains a persistent, structured knowledge store for each project.
+Draws from SpecWeaver sessions (requirements, gaps), Archon conversations
+(architecture decisions, trade-offs, risks), and Lens reviews (WAF scores,
+ATAM findings, risk register). Stores knowledge in three tiers: working
+memory (in-session, ephemeral), episodic memory (TTL-aware facts with
+vector search), and semantic memory (ADR register, never expires, human-confirmed).
+
+Pillar APIs call memoria-api at session start to inject relevant project context
+and at session close to trigger distillation of the session into memory entries.
+Stale, superseded, and archived entries are never injected into LLM context —
+only active decisions and requirements flow into the context package.
+
+---
 
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) v2+
-- An **OpenAI API key** or **Azure OpenAI** deployment
+- An **OpenAI API key** (or Ollama running locally)
+
+---
 
 ## Quick Start
 
 ### 1. Clone and configure
 
 ```bash
-git clone <repository-url>
-cd ai-architect
+git clone https://github.com/dtaylor-us/axiom.git
+cd axiom
 cp .env.example .env
 ```
 
 Edit `.env` and add your LLM credentials:
 
 ```dotenv
-# Choose provider: "openai" or "azure"
 LLM_PROVIDER=openai
-
-# OpenAI
 OPENAI_API_KEY=sk-...
-
-# Azure OpenAI (if LLM_PROVIDER=azure)
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_KEY=...
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
 ```
 
-### 2. Start all services
+### 2. Choose your startup mode
+
+Axiom supports five startup modes depending on what you are working on:
+
+#### Archon only (fastest — default)
 
 ```bash
 docker compose up --build
 ```
 
-This starts four containers:
+Access at: <http://localhost:3000>
 
-| Container | Image | Purpose |
-|---|---|---|
-| `archon-postgres` | `postgres:16-alpine` | Conversation & message persistence |
-| `archon-qdrant` | `qdrant/qdrant:v1.13.2` | Vector memory for architecture patterns |
-| `archon-agent` | Built from `ai-architect-agent/` | LLM pipeline service |
-| `archon-api` | Built from `ai-architect-api/` | REST/SSE API gateway |
-
-### 3. Send a request
+#### SpecWeaver pillar added
 
 ```bash
-curl -N http://localhost:8080/api/v1/chat/stream \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Design a payment processing system with Stripe integration"}'
+docker compose --profile specweaver up --build
 ```
 
-The response streams back as Server-Sent Events with stage progress and architecture output.
-
-## API Endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/v1/chat/stream` | Stream an architecture conversation (SSE) |
-| `GET` | `/api/v1/sessions/{id}/messages` | Retrieve conversation history |
-| `GET` | `/api/v1/sessions/{id}/architecture` | Get generated architecture output |
-| `GET` | `/api/v1/sessions/{id}/diagram` | Get generated architecture diagram |
-| `GET` | `/actuator/health` | API health check |
-
-## Environment Variables
-
-### Required
-
-| Variable | Description |
-|---|---|
-| `LLM_PROVIDER` | `openai` or `azure` |
-| `OPENAI_API_KEY` | OpenAI API key (when `LLM_PROVIDER=openai`) |
-
-### Azure OpenAI (when `LLM_PROVIDER=azure`)
-
-| Variable | Description |
-|---|---|
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource endpoint |
-| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key |
-| `AZURE_OPENAI_DEPLOYMENT` | Deployment name (default: `gpt-4o`) |
-
-### Optional
-
-| Variable | Default | Description |
-|---|---|---|
-| `POSTGRES_PASSWORD` | `localdev` | PostgreSQL password |
-| `INTERNAL_SECRET` | `dev-secret-change-in-prod` | Service-to-service auth secret |
-| `JWT_SECRET` | `dev-jwt-secret-minimum-32-chars-here` | JWT signing secret |
-| `LOG_LEVEL` | `INFO` | Agent log level |
-
-## Development
-
-### Agent (Python)
+#### Lens pillar added
 
 ```bash
-cd ai-architect-agent
-python -m venv .venv && source .venv/bin/activate
-pip install uv && uv pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Run with auto-reload (requires Qdrant running)
-uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+docker compose --profile lens up --build
 ```
 
-### API (Java)
+Adds: `lens-api`, `lens-agent`
+
+#### Memoria pillar added
 
 ```bash
-cd ai-architect-api
-
-# Run tests (requires Docker for Testcontainers)
-./mvnw test
-
-# Run locally (requires PostgreSQL + Agent running)
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+docker compose --profile memoria up --build
 ```
 
-### Hot Reload (Docker)
+Adds: `memoria-api`, `memoria-agent`
 
-The `docker-compose.override.yml` mounts the agent source directory and enables uvicorn `--reload` for live development:
+#### Full Axiom platform (all pillars + gateway)
 
 ```bash
-docker compose up --build
-# Edit files in ai-architect-agent/ — changes reflect immediately
+docker compose --profile platform up --build
 ```
 
-## Testing
+Adds: `axiom-api` (gateway), `specweaver-api`, `specweaver-agent`,
+`lens-api`, `lens-agent`, `memoria-api`, `memoria-agent`, `minio`
 
-### Agent
+Access at: <http://localhost:3000> (traffic routes through axiom-api on :8080)
 
-```bash
-cd ai-architect-agent
-pytest                     # all tests
-pytest tests/unit/         # unit tests only
-pytest --cov=app           # with coverage (80% minimum enforced)
-```
+> **Note:** In `platform` mode the gateway validates JWTs and routes all
+> `/api/v1/archon/**`, `/api/v1/specweaver/**`, `/api/v1/lens/**`,
+> and `/api/v1/memoria/**`
+> traffic. In the other modes each pillar API handles auth directly
+> (`AXIOM_GATEWAY_BYPASS=true`).
 
-### API
+---
 
-```bash
-cd ai-architect-api
-./mvnw test                # unit + integration tests (Testcontainers)
-./mvnw verify              # includes JaCoCo coverage check (80% line coverage)
-```
+## Archon Pipeline Stages
+
+The Archon agent runs a 14-stage pipeline on every request:
+
+1. **Requirement Parsing** — extract structured requirements from natural language
+2. **Requirement Challenge** — question assumptions and identify gaps
+3. **Scenario Modeling** — generate usage and failure scenarios
+4. **Characteristic Inference** — reason about quality attributes
+5. **Tactics Recommendation** — BCK catalog tactics per quality attribute
+6. **Conflict Analysis** — detect trade-offs between competing characteristics
+7. **Architecture Generation** — produce architecture design with component descriptions
+8. **Buy vs Build Analysis** — named product recommendations per component
+9. **Diagram Generation** — C4 and sequence diagrams in Mermaid
+10. **Trade-off Analysis** — structured trade-off record
+11. **ADL Generation** — Architecture Definition Language rules and fitness functions
+12. **Weakness Analysis** — identify architectural weaknesses
+13. **FMEA Analysis** — failure mode and effects analysis with Risk Priority Numbers
+14. **Architecture Review** — governance scoring across five dimensions (0–100)
+
+## Lens Pipeline Stages
+
+The Lens agent runs a 10-stage review pipeline:
+
+1. **Evidence Parsing** — parse submitted architecture into structured representation
+2. **Azure WAF Analysis** — evaluate against five Azure Well-Architected pillars
+3. **ATAM Analysis** — SEI quality attribute scenarios, sensitivity points, tradeoffs, risks
+4. **SEI Analysis** — modifiability, performance, availability, security, integrability
+5. **Structural Analysis** — coupling, cohesion, dependency direction, boundary clarity
+6. **Risk Identification** — unified risk register (max 20 risks)
+7. **Recommendation Generation** — prioritised actionable recommendations (max 15)
+8. **Executive Summary** — 3-5 paragraph summary with overall rating
+9. **Report Assembly** — final structured review report
+10. **Review Complete** — emit COMPLETE event
+
+---
+
+## Development Agent Workflow
+
+This project uses a three-agent development workflow:
+
+| Agent | Where | Best for |
+|-------|-------|----------|
+| **Claude** | claude.ai / Claude Desktop | Architecture, planning, debugging, cross-service decisions |
+| **Copilot** | GitHub Issues → PRs | Async background implementation, Playwright QA |
+| **Codex** | Terminal (`codex`) | Local interactive work, when Copilot quota is low |
+
+See **[docs/AGENTS.md](docs/AGENTS.md)** for the full agent workflow guide including:
+- How to create agent-ready GitHub issues
+- How to run Playwright QA sessions via Copilot
+- How to switch between agents when quota runs low
+- Claude Desktop MCP server configuration
+- Token conservation strategy
+
+---
+
+## Architecture Governance
+
+This project uses [ARCHITECTURE.md](ARCHITECTURE.md) and [ADL.md](ADL.md) as
+authoritative governance documents. All contributions must conform to the rules
+defined there. Key invariants:
+
+- **Two services per pillar** — one Spring Boot API, one FastAPI agent. No exceptions.
+- **No LLM calls in API services** — all LLM interaction lives in agent services.
+- **No PostgreSQL access in agent services** — all persistence belongs in API services.
+- **JWT validation in axiom-api only** — pillar APIs trust the `X-Axiom-User-Id` header.
+- **No cross-pillar imports** — pillars communicate via HTTP through axiom-api only.
+- **All external traffic through axiom-api** — in production and platform mode.
+- **Flyway only** — `ddl-auto` is always `validate`.
+- **Key Vault CSI for all secrets** — never Terraform-managed secret values in production.
+
+See [ADL.md](ADL.md) for executable fitness functions for each rule.
+
+---
 
 ## Project Structure
 
 ```
-ai-architect/
-├── docker-compose.yml              # Full stack orchestration
-├── docker-compose.override.yml     # Dev overrides (hot reload)
-├── .env.example                    # Environment template
-├── ARCHITECTURE.md                 # Architecture governance rules
+axiom/
+├── docker-compose.yml          # Full stack — use profiles to select pillars
+├── .env.example                # Environment template
+├── ARCHITECTURE.md             # Platform architecture governance
+├── ADL.md                      # Architecture Definition Language rules
 │
-├── ai-architect-api/               # Java/Spring Boot API gateway
-│   ├── Dockerfile
-│   ├── pom.xml
-│   └── src/
-│       ├── main/java/com/aiarchitect/api/
-│       │   ├── api/                # REST controllers
-│       │   ├── domain/model/       # JPA entities
-│       │   ├── dto/                # Request/response DTOs
-│       │   ├── exception/          # Error handling
-│       │   ├── repository/         # Spring Data JPA repos
-│       │   ├── security/           # JWT + security config
-│       │   └── service/            # Business logic + agent bridge
-│       └── main/resources/
-│           ├── application.yml
-│           └── db/migration/       # Flyway SQL migrations
+├── axiom-ui/                   # React 18 + TypeScript UI shell
+├── axiom-api/                  # Spring Boot platform gateway
 │
-└── ai-architect-agent/             # Python/FastAPI LLM pipeline
-    ├── Dockerfile
-    ├── pyproject.toml
-    └── app/
-        ├── main.py                 # FastAPI app + lifespan
-        ├── api/agent.py            # /agent/stream endpoint
-        ├── llm/client.py           # OpenAI/Azure LLM client
-        ├── memory/store.py         # Qdrant vector memory
-        ├── models/context.py       # ArchitectureContext state
-        ├── pipeline/               # LangGraph pipeline definition
-        │   ├── graph.py            # Graph compilation
-        │   ├── nodes.py            # Stage node functions
-        │   └── formatter.py        # Response formatting
-        ├── prompts/                # Jinja2 prompt templates (.j2)
-        └── tools/                  # Pipeline tool implementations
-            ├── registry.py         # Tool registry
-            └── *.py                # Individual tools per stage
+├── archon-api/                 # Spring Boot — Archon pillar API
+├── archon-agent/               # FastAPI + LangGraph — Archon pipeline
+│
+├── specweaver-api/             # Spring Boot — SpecWeaver pillar API
+├── specweaver-agent/           # FastAPI + LangGraph — SpecWeaver pipeline
+│
+├── lens-api/                   # Spring Boot — Lens pillar API
+├── lens-agent/                 # FastAPI + LangGraph — Lens pipeline
+│
+├── memoria-api/                # Spring Boot — Memoria pillar API
+├── memoria-agent/              # FastAPI + LangGraph — Memoria distillation pipeline
+│
+├── helm/                       # Helm chart for AKS deployment
+├── terraform/                  # Azure infrastructure
+├── observability/              # Prometheus, Grafana, Jaeger config
+└── docs/                       # Extended documentation
+    ├── AGENTS.md               # Multi-agent development workflow guide
+    ├── DEPLOYMENT.md           # Production deployment guide
+    ├── RUNNING.md              # Local development guide
+    ├── SPECWEAVER_NETERU_SCENARIO.md # SpecWeaver E2E test scenario
+    └── SUPPORT.md              # Troubleshooting guide
 ```
-
-## Architecture Governance
-
-This project uses an [ARCHITECTURE.md](ARCHITECTURE.md) file as its authoritative governance document. All code contributions must conform to the rules defined there. Key invariants:
-
-- **Data isolation**: The API talks only to PostgreSQL; the Agent talks only to Qdrant
-- **Unidirectional flow**: Data flows client → API → Agent only, never Agent → API
-- **Schema management**: Flyway only — `ddl-auto` is always `validate`
-- **No LLM calls in the API**: All LLM interaction lives in the Agent service
-- **Streaming contract**: SSE (client↔API) and NDJSON (API↔Agent) are stable protocol contracts
-- **Secrets from environment**: No hardcoded keys — all secrets via environment variables
 
 ## License
 

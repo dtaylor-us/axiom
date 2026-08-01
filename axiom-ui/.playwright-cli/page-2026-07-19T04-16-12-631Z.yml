@@ -1,0 +1,25 @@
+- generic [ref=e2]:
+  - button "Switch to light mode" [ref=e6]
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - heading "Axiom" [level=1] [ref=e16]
+      - paragraph [ref=e17]: Sign in to your account
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21]: Email
+          - textbox "Email" [ref=e22]:
+            - /placeholder: you@example.com
+        - generic [ref=e23]:
+          - generic [ref=e24]: Password
+          - textbox "Password" [ref=e25]:
+            - /placeholder: ••••••••
+        - link "Forgot your password?" [ref=e27] [cursor=pointer]:
+          - /url: /forgot-password
+        - paragraph [ref=e40]: "Auth failed: 403"
+        - button "Sign in" [ref=e28]
+      - generic [ref=e29]: or
+      - button "Continue as Guest" [ref=e34]
+    - paragraph [ref=e35]:
+      - text: Don't have an account?
+      - button "Sign up" [ref=e36]

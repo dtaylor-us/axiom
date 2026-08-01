@@ -43,6 +43,26 @@ output "db_fqdn" {
   value       = module.database.fqdn
 }
 
+output "db_server_name" {
+  description = "Name of the PostgreSQL Flexible Server. Use for AZURE_DB_SERVER_NAME in GitHub Actions."
+  value       = module.database.server_name
+}
+
+output "specweaver_db_name" {
+  description = "SpecWeaver PostgreSQL database name"
+  value       = "specweaver"
+}
+
+output "axiom_platform_db_name" {
+  description = "Axiom platform gateway PostgreSQL database name"
+  value       = "axiom_platform"
+}
+
+output "specweaver_documents_container_name" {
+  description = "Azure Blob container for SpecWeaver source documents"
+  value       = azurerm_storage_container.specweaver_documents.name
+}
+
 output "get_credentials_command" {
   description = "Run this command to configure kubectl for the AKS cluster after apply."
   value = join(" ", [

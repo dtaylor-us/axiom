@@ -1,0 +1,112 @@
+server:
+  port: ${AXIOM_API_PORT:8080}
+
+spring:
+  application:
+    name: axiom-api
+  cloud:
+    gateway:
+      globalcors:
+        # Gateway route handlers apply their own CORS checks on actual requests.
+        # Configure route-level CORS so POST /api/v1/auth/token is not rejected
+        # after successful preflight.
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowed-origin-patterns:
+              - ${AXIOM_ALLOWED_ORIGIN_1:http://localhost:3000}
+              - ${AXIOM_ALLOWED_ORIGIN_2:https://axiom-dev.eastus2.cloudapp.azure.com}
+            allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+            allowed-headers: '*'
+            exposed-headers: Authorization
+            allow-credentials: true
+      routes:
+        - id: archon
+          uri: ${ARCHON_API_BASE_URL:http://archon-api:8081}
+          predicates:
+            - Path=/api/v1/archon/**
+          filters:
+            - RewritePath=/api/v1/archon/(?<segment>.*), /api/v1/${segment}
+            - AddRequestHeader=X-Axiom-Pillar, archon
+        - id: specweaver
+          uri: ${SPECWEAVER_API_BASE_URL:http://specweaver-api:8082}
+          predicates:
+            - Path=/api/v1/specweaver/**
+          filters:
+            - RewritePath=/api/v1/specweaver/(?<segment>.*), /api/v1/${segment}
+            - AddRequestHeader=X-Axiom-Pillar, specweaver
+        - id: lens
+          uri: ${LENS_API_BASE_URL:http://lens-api:8083}
+          predicates:
+            - Path=/api/v1/lens/**
+          filters:
+            - StripPrefix=0
+            - AddRequestHeader=X-Axiom-Pillar, lens
+        - id: memoria
+          uri: ${MEMORIA_API_BASE_URL:http://memoria-api:8084}
+          predicates:
+            - Path=/api/v1/memoria/**
+          filters:
+            - StripPrefix=0
+            - name: AddRequestHeader
+              args:
+                name: X-Axiom-Pillar
+                value: memoria
+        - id: auth
+          uri: ${ARCHON_API_BASE_URL:http://archon-api:8081}
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+            # Auth routes are NOT stripped — archon-api serves /api/v1/auth/**
+            # at those exact paths. No X-Axiom-Pillar header is required.
+            # RemoveRequestHeader=Origin is applied via default-filters.
+
+      default-filters:
+        - name: UserContextForwarding
+        # Strip the browser Origin header before forwarding to any internal
+        # pillar service. Pillar services (archon-api, specweaver-api) are
+        # Spring Boot MVC apps with no CORS configuration. If they receive an
+        # Origin header, DefaultCorsProcessor rejects the request with
+        # 403 Invalid CORS request. CORS for browser clients is the sole
+        # responsibility of this gateway.
+        - RemoveRequestHeader=Origin
+      httpclient:
+        response-timeout: 600s
+        connect-timeout: 10000
+
+axiom:
+  platform:
+    name: Axiom
+    version: 1.0.0
+  internal:
+    secret: ${AXIOM_INTERNAL_SECRET:}
+  pillars:
+    archon:
+      base-url: ${ARCHON_API_BASE_URL:http://archon-api:8081}
+      enabled: true
+      health-path: /actuator/health
+    specweaver:
+      base-url: ${SPECWEAVER_API_BASE_URL:http://specweaver-api:8082}
+      enabled: true
+      health-path: /actuator/health
+    lens:
+      base-url: ${LENS_API_BASE_URL:http://lens-api:8083}
+      enabled: true
+      health-path: /actuator/health
+    memoria:
+      base-url: ${MEMORIA_API_BASE_URL:http://memoria-api:8084}
+      enabled: true
+      health-path: /actuator/health
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiry-hours: ${JWT_EXPIRY_HOURS:24}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  health:
+    show-details: always

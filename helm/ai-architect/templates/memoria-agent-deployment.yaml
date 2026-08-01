@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memoria-agent
+  labels:
+    {{- include "ai-architect.labels" . | nindent 4 }}
+    app.kubernetes.io/component: memoria-agent
+spec:
+  replicas: {{ .Values.memoriaAgent.replicaCount }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: memoria-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: memoria-agent
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: memoria-agent
+          image: {{ include "ai-architect.image" (dict "global" .Values.global "image" .Values.memoriaAgent.image) }}
+          imagePullPolicy: {{ .Values.memoriaAgent.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.memoriaAgent.service.port }}
+              protocol: TCP
+          env:
+            - name: MEMORIA_AGENT_PORT
+              value: "8087"
+            - name: LLM_PROVIDER
+              value: "openai"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: openai-api-key
+            - name: OPENAI_MODEL
+              value: "gpt-4o"
+            - name: INTERNAL_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: archon-secrets
+                  key: internal-secret
+            - name: OTEL_SDK_DISABLED
+              value: "true"
+          resources:
+            {{- toYaml .Values.memoriaAgent.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.memoriaAgent.service.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.memoriaAgent.service.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          {{- if .Values.keyVault.enabled }}
+          volumeMounts:
+            - name: secrets-store
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+          {{- end }}
+      {{- if .Values.keyVault.enabled }}
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ .Release.Name }}-secrets
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memoria-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: memoria-agent
+    chart: {{ .Chart.Name }}
+    release: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: memoria-agent
+  ports:
+    - name: http
+      port: {{ .Values.memoriaAgent.service.port }}
+      targetPort: {{ .Values.memoriaAgent.service.port }}
+      protocol: TCP

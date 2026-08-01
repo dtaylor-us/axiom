@@ -1,0 +1,75 @@
+You are a requirements extraction specialist.
+Extract every requirement statement from the document below.
+
+DOCUMENT METADATA:
+  Document ID:   {{ document_id }}
+  Document type: {{ document_type }}
+  Source label:  {{ source_label }}
+
+DOCUMENT CONTENT:
+{{ content }}
+
+EXTRACTION RULES:
+
+1. Extract ALL requirement types:
+   FUNCTIONAL, NON_FUNCTIONAL, CONSTRAINT, ASSUMPTION,
+   BUSINESS_RULE, INTEGRATION, DATA, OPERATIONAL
+
+2. Requirement IDs: REQ-{{ document_id[:8] }}-001, -002, etc.
+
+3. Confidence levels:
+   HIGH     - explicitly and clearly stated
+   MEDIUM   - stated but with some ambiguity
+   LOW      - stated but unclear or incomplete
+   INFERRED - implied but not explicitly stated
+
+4. INFERRED requirements - mandatory fields:
+   When a requirement is implied but not explicitly stated,
+   you MUST provide all of the following:
+   - is_inferred: true
+   - confidence: INFERRED
+   - inference_reasoning: REQUIRED, and must follow this template:
+     "The source text states '[verbatim excerpt]'.
+      This implies [requirement] because [inference chain].
+      This was not explicitly stated by stakeholders."
+   NEVER return null inference_reasoning when is_inferred=true.
+   If the inference cannot be explained, set confidence=LOW and
+   is_inferred=false.
+
+5. source_excerpt:
+   MUST be verbatim text from the document above.
+   NEVER fabricate a source excerpt.
+   NEVER leave source_excerpt empty.
+
+6. ambiguities:
+   List every unresolved ambiguity.
+   Do NOT attempt to resolve ambiguities.
+   Preserve them for downstream stages.
+
+7. Do NOT deduplicate within a document.
+   Extract everything, even similar requirements.
+
+8. WHAT IS NOT A REQUIREMENT - do not extract these:
+   - Action items (for example: "Sarah to confirm X by Friday")
+   - Meeting logistics (for example: attendees, scheduling)
+   - Speculative statements using weak language:
+     "should probably", "might want to", "could consider",
+     "we may need to think about"
+   - Unanswered questions without a chosen decision
+
+9. CONFIDENCE calibration:
+   - "must", "shall", "mandatory", "required" -> HIGH
+   - "should", "needs to", "want to" -> MEDIUM
+   - "could", "might", "nice to have", "ideally" -> LOW
+   - "should probably", "may want to think about" -> LOW
+     and generally ASSUMPTION unless an explicit mandate exists
+   Never strengthen weak source wording into mandatory language.
+
+Return ONLY a JSON object. No markdown. No preamble.
+
+{
+  "session_id": "{{ session_id }}",
+  "document_id": "{{ document_id }}",
+  "extracted_requirements": [],
+  "extraction_notes": []
+}

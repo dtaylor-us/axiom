@@ -37,7 +37,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}-api
+                name: axiom-api
                 port:
                   number: 8080
           - path: /

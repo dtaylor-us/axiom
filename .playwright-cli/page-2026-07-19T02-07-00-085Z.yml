@@ -1,0 +1,45 @@
+- generic [ref=e2]:
+  - button "Switch to dark mode" [ref=e3]
+  - generic [ref=e34]:
+    - complementary [ref=e35]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: Axiom
+        - generic [ref=e44]: Architecture Intelligence
+      - generic [ref=e45]:
+        - navigation "Platform pillars" [ref=e46]:
+          - paragraph [ref=e48]: Platform pillars
+          - generic [ref=e49]:
+            - link "SpecWeaver Requirements Intelligence" [ref=e50] [cursor=pointer]:
+              - /url: /specweaver
+              - generic [ref=e57]:
+                - generic [ref=e58]: SpecWeaver
+                - generic [ref=e59]: Requirements Intelligence
+            - link "Archon Architecture Reasoning" [ref=e60] [cursor=pointer]:
+              - /url: /archon
+              - generic [ref=e68]:
+                - generic [ref=e69]: Archon
+                - generic [ref=e70]: Architecture Reasoning
+            - link "Lens Architecture Review Intelligence" [ref=e71] [cursor=pointer]:
+              - /url: /lens
+              - generic [ref=e77]:
+                - generic [ref=e78]: Lens
+                - generic [ref=e79]: Architecture Review Intelligence
+            - link "Memoria Project Memory" [ref=e80] [cursor=pointer]:
+              - /url: /memoria
+              - generic [ref=e86]:
+                - generic [ref=e87]: Memoria
+                - generic [ref=e88]: Project Memory
+        - button "New chat" [ref=e90]
+        - navigation [ref=e93]:
+          - button "Home" [ref=e94]
+          - button "Chat" [ref=e97]
+          - button "Workshop" [ref=e100]
+        - generic [ref=e103]:
+          - heading "History" [level=3] [ref=e104]
+          - generic [ref=e105]: No chats yet
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - generic [ref=e108]: G
+          - generic [ref=e110]: Guest
+        - button "Sign out" [ref=e111]
+    - main [ref=e114]

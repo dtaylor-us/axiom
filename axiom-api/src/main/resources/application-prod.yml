@@ -1,0 +1,9 @@
+# Production profile for in-cluster routing.
+# Keep pillar base URLs aligned with gateway route environment variables to
+# avoid namespace-specific drift across clusters/releases.
+axiom:
+  pillars:
+    archon:
+      base-url: ${ARCHON_API_BASE_URL:http://archon-api:8081}
+    specweaver:
+      base-url: ${SPECWEAVER_API_BASE_URL:http://specweaver-api:8082}

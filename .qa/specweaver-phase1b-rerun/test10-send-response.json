@@ -1,0 +1,7 @@
+{
+  "type": "urn:specweaver:package-not-found",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Package not generated",
+  "instance": "/api/v1/sessions/91457aa4-b216-4008-93cf-39d35aec1796/package/send-to-archon"
+}

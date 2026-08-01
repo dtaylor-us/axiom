@@ -1,0 +1,65 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - img "Axiom" [ref=e7]
+      - navigation [ref=e8]:
+        - button "SpecWeaver" [ref=e9]
+        - button "Archon" [ref=e10]
+        - button "Lens" [ref=e11]
+      - button "Sign in" [ref=e12]
+  - generic [ref=e13]:
+    - generic [ref=e14]:
+      - generic [ref=e15]: Axiom
+      - heading "From requirements to review, every step augmented by AI." [level=1] [ref=e19]
+      - paragraph [ref=e20]: Axiom is a four-pillar platform that transforms messy stakeholder input into governed, traceable architecture decisions. Start with requirements. Design your architecture. Review it against evidence. Enforce it as your codebase evolves.
+      - generic [ref=e21]:
+        - button "Start with requirements ->" [ref=e22]
+        - button "Go to Archon" [ref=e23]
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]: "13"
+        - generic [ref=e27]: Pipeline stagesper analysis
+      - generic [ref=e28]:
+        - generic [ref=e29]: "7"
+        - generic [ref=e30]: Output artifacttypes
+      - generic [ref=e31]:
+        - generic [ref=e32]: "4"
+        - generic [ref=e33]: Intelligencepillars
+    - generic [ref=e34]:
+      - generic [ref=e37]:
+        - heading "the three pillars" [level=2] [ref=e38]
+        - paragraph [ref=e39]: Each pillar owns a distinct phase of the architecture lifecycle.
+      - generic [ref=e40]:
+        - generic [ref=e41] [cursor=pointer]:
+          - heading "SpecWeaver" [level=3] [ref=e48]
+          - paragraph [ref=e49]: Requirements Intelligence
+          - paragraph [ref=e50]: Transform messy stakeholder documents into clean, structured, architecture-ready requirements.
+          - paragraph [ref=e51]: Open SpecWeaver ->
+        - generic [ref=e52] [cursor=pointer]:
+          - heading "Archon" [level=3] [ref=e60]
+          - paragraph [ref=e61]: Architecture Reasoning
+          - paragraph [ref=e62]: Turn requirements into a full architecture analysis in minutes.
+          - paragraph [ref=e63]: Open Archon ->
+        - generic [ref=e64] [cursor=pointer]:
+          - heading "Lens" [level=3] [ref=e70]
+          - paragraph [ref=e71]: Architecture Review Intelligence
+          - paragraph [ref=e72]: Evaluate existing architecture decisions against established review frameworks.
+          - paragraph [ref=e73]: Open Lens ->
+    - generic [ref=e74]:
+      - generic [ref=e75]: The Workflow
+      - heading "How the pillars connect" [level=2] [ref=e79]
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]: "1"
+          - heading "SpecWeaver" [level=3] [ref=e83]
+          - paragraph [ref=e84]: Upload requirements docs. Get a structured, traceable package.
+        - generic [ref=e85]: "->"
+        - generic [ref=e86]:
+          - generic [ref=e87]: "2"
+          - heading "Archon" [level=3] [ref=e88]
+          - paragraph [ref=e89]: Run the 13-stage pipeline. Get architecture decisions and governance rules.
+        - generic [ref=e90]: "->"
+        - generic [ref=e91]:
+          - generic [ref=e92]: "3"
+          - heading "Lens" [level=3] [ref=e93]
+          - paragraph [ref=e94]: Review architectures against evidence. Gaps become findings, never blockers.

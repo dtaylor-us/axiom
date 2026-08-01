@@ -30,14 +30,14 @@ You (browser)
      │  HTTP  (chat message)
      ▼
 ┌─────────────────────┐
-│  ai-architect-ui    │  React web application — the page you see in your browser
+│  axiom-ui    │  React web application — the page you see in your browser
 │  (TypeScript/React) │
 └────────┬────────────┘
          │
          │  HTTP/SSE  (streaming response)
          ▼
 ┌─────────────────────┐
-│  ai-architect-api   │  Java web server — the front door; handles sessions & auth
+│  archon-api   │  Java web server — the front door; handles sessions & auth
 │  (Spring Boot)      │
 └────────┬────────────┘
          │  ┌─────────────┐
@@ -47,7 +47,7 @@ You (browser)
          │  HTTP/NDJSON  (streams AI output)
          ▼
 ┌─────────────────────┐
-│  ai-architect-agent │  Python AI service — the brain; runs the LLM pipeline
+│  archon-agent │  Python AI service — the brain; runs the LLM pipeline
 │  (FastAPI/LangGraph)│
 └────────┬────────────┘
          │  ┌─────────────┐
@@ -62,7 +62,7 @@ off to the next.
 
 ## The Four Services
 
-### 1. ai-architect-ui — The Web Interface
+### 1. axiom-ui — The Web Interface
 
 | Property | Value |
 |---|---|
@@ -88,7 +88,7 @@ indicators, the final design document.
 
 ---
 
-### 2. ai-architect-api — The API Gateway (Java/Spring Boot)
+### 2. archon-api — The API Gateway (Java/Spring Boot)
 
 | Property | Value |
 |---|---|
@@ -127,7 +127,7 @@ It owns your **conversation history** — every message, every session.
 
 ---
 
-### 3. ai-architect-agent — The AI Brain (Python/FastAPI)
+### 3. archon-agent — The AI Brain (Python/FastAPI)
 
 | Property | Value |
 |---|---|
@@ -281,7 +281,7 @@ In production, the containers run in the cloud on **Azure Kubernetes Service (AK
 | **Azure** | Microsoft's cloud platform — provides the servers, networking, and managed services |
 | **AKS (Azure Kubernetes Service)** | Runs the Docker containers in a managed Kubernetes cluster |
 | **Kubernetes** | An orchestration system that keeps containers running, restarts failed ones, scales them, and routes traffic between them |
-| **Helm** | A "package manager" for Kubernetes. The Helm chart in `helm/ai-architect/` describes all the Kubernetes resources (deployments, services, ingress) for the whole application |
+| **Helm** | A "package manager" for Kubernetes. The Helm chart in `helm/axiom/` describes all the Kubernetes resources (deployments, services, ingress) for the whole application |
 | **Terraform** | Infrastructure-as-code tool. The `terraform/` folder defines all the Azure resources (the Kubernetes cluster, database, container registry, key vault) as code, so the infrastructure can be created and destroyed reproducibly |
 | **Azure Container Registry (ACR)** | Stores the Docker images so AKS can pull them when deploying |
 | **Azure Key Vault** | Secure storage for secrets (API keys, database passwords) so they are never stored in code |

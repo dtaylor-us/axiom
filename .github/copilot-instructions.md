@@ -1,395 +1,186 @@
-# Copilot instructions for Archon
+# Copilot Coding Agent Instructions
 
-Before generating any code in this repository, read ARCHITECTURE.md at the
-workspace root. That file is the authoritative architecture governance document.
+## AGENT MODE — READ THIS FIRST
 
-Every code suggestion must conform to the rules in ARCHITECTURE.md.
-If a suggestion would violate any ASSERT or REQUIRE rule, do not make it.
-Instead, explain which rule it would violate and suggest a compliant alternative.
+When operating as a coding agent (triggered from a GitHub issue):
 
-Key rules to check on every generation:
-- ddl-auto must always be "validate" — never create, update, or create-drop
-- Never use RestTemplate — always WebClient
-- Never put LLM calls in ai-architect-api
-- Never set open-in-view to true
-- Never hardcode secrets
-- Always add default values to new ArchitectureContext fields
-- Always emit STAGE_START and STAGE_COMPLETE events in every pipeline stage
+1. **Read before writing** — always read the files listed in the issue
+   under "Files to read first" before touching any code
+2. **Scope discipline** — only change what the issue asks for
+3. **Branch** — create a branch named `copilot/issue-{number}-{short-description}`
+4. **PR** — open a PR targeting `main` with the issue number in the title
+5. **Deviation summary** — fill in the deviation summary table in the
+   issue before closing it
+6. **Never merge** — open the PR and stop; do not merge it yourself
 
----
-
-## CODE QUALITY STANDARDS
-
-These rules apply to every file generated or modified, in every phase,
-without exception. Do not consider any task complete until all rules
-in this section are satisfied.
+When Copilot quota is exhausted, the same prompts work identically
+in Codex CLI (`codex` in terminal from repo root).
 
 ---
 
-### RULE Q-1 — Code must be commented at the right level of abstraction
+## Output Discipline
+- Do not emit full diffs unless explicitly requested.
+- Summarize file changes in bullets.
+- Do not paste full logs.
+- For failures, include only:
+  - failing command
+  - failing test or step
+  - likely cause
+  - proposed fix
 
-Comment why, not what. A comment that restates what the code does is
-noise. A comment that explains why a decision was made is signal.
+## Validation Discipline
+- During implementation, run the smallest targeted test possible.
+- Do not repeat full `mvn verify` loops during iteration.
+- Run full verification only once before final response.
 
-#### Java
-- Every public class must have a Javadoc comment explaining its
-  responsibility in one or two sentences. Include @author if the
-  class is non-trivial.
-- Every public method must have a Javadoc comment if its purpose
-  is not immediately obvious from its name and signature alone.
-  Include @param, @return, and @throws where relevant.
-- Non-obvious logic blocks inside methods must have an inline comment
-  explaining the reasoning. Examples: timeout values, retry counts,
-  magic numbers, workarounds, and deliberate design decisions.
-- Do not comment self-evident code:
-    // Save the message  ← bad
-    messageRepo.save(message);
-- Do comment decisions that have context behind them:
-    // Limit to 20 messages to avoid exceeding the LLM context window.
-    // Increase this only if the model and token budget allow.
-    getRecentMessages(id, 20)
-
-#### Python
-- Every module must have a module-level docstring explaining what
-  it contains and its role in the system.
-- Every class must have a class-level docstring.
-- Every public function and method must have a docstring. Use the
-  following format consistently:
-    """
-    One sentence summary.
-
-    Longer explanation if needed.
-
-    Args:
-        param_name: description
-    Returns:
-        description
-    Raises:
-        ExceptionType: condition
-    """
-- Inline comments follow the same rule as Java: explain why, not what.
-
-#### TypeScript / React
-- Every exported function, hook, and component must have a JSDoc
-  comment explaining its purpose and props/parameters.
-- Complex state transitions, non-obvious hook dependencies, and
-  workarounds must have inline comments.
-- Do not add comments to JSX markup unless the structure is
-  genuinely non-obvious.
+## Session Discipline
+- Keep work scoped to the requested milestone.
+- Recommend a new session before starting unrelated docs, tests, refactors, or cleanup.
 
 ---
 
-### RULE Q-2 — Naming must be unambiguous and consistent
+## MANDATORY PRE-GENERATION CHECKS
 
-- Names must describe what a thing is or does, not how it is
-  implemented. manager, helper, util, handler are almost always
-  wrong. processor, validator, renderer, bridge are usually right.
-- Boolean variables and functions must read as a yes/no question:
-    isStreaming, hasToken, shouldReiterate — correct
-    streaming, token, reiterate — incorrect
-- Collections must be plural: stages, messages, rules — not stageList.
-- Constants must be SCREAMING_SNAKE_CASE in Java and Python.
-  TypeScript constants at module scope follow the same convention.
-- Avoid abbreviations unless the abbreviation is universally
-  understood in the domain: url, id, jwt, llm, sse are fine.
-  msg, req, res, ctx are acceptable in short-lived local variables
-  only — never in class fields, method signatures, or public APIs.
+Before writing any code, verify the change does not violate:
 
----
+**ADL rules** — run mentally against every suggestion:
+- ADL-001: Two services per pillar maximum (API + agent only)
+- ADL-023: No JWT in localStorage or sessionStorage
+- ADL-071: JWT validation in axiom-api only — never in pillar services
+- ADL-xxx: No LLM calls in API services — agents only
+- ADL-xxx: No PostgreSQL access in agent services — APIs only
+- ADL-xxx: No cross-pillar shared libraries or in-process calls
 
-### RULE Q-3 — Functions and methods must do one thing
-
-- A method that does more than one conceptual thing must be split.
-  The test is: if you need the word "and" to describe what a method
-  does, it should be two methods.
-- Maximum line count guidance (not a hard limit, but a trigger
-  for review): 30 lines for Python functions, 40 lines for Java
-  methods, 60 lines for React components. If you exceed these,
-  add a comment explaining why extraction was not appropriate,
-  or extract.
-- No method should have more than three levels of nesting.
-  Extract inner logic into named helper methods instead.
+If a suggestion violates any ADL rule, refuse it, name the rule,
+and offer a compliant alternative.
 
 ---
 
-### RULE Q-4 — Error handling must be explicit and informative
-
-#### Java
-- Never catch Exception or Throwable unless you are at a
-  boundary (controller advice, top-level handler). Catch the
-  most specific type available.
-- Every catch block must either rethrow, log with context, or
-  both. An empty catch block or a catch block with only a comment
-  is never acceptable.
-- Log messages must include relevant context:
-    log.error("Failed to persist ADL rules conversation={}",
-              conversationId, e)   ← correct
-    log.error("Error", e)          ← never acceptable
-
-#### Python
-- Never use bare except:. Always catch a specific exception type.
-- Log all caught exceptions with enough context to diagnose the
-  failure in production without access to a debugger.
-- Functions that are designed to be fault-tolerant (like
-  MemoryStore methods) must document this in their docstring and
-  log a WARNING, never silently swallow exceptions.
-
-#### TypeScript
-- API call functions must distinguish between network errors,
-  HTTP errors, and parse errors. Do not treat all failures as
-  a generic "something went wrong".
-- Promises must be caught. No floating promises anywhere in
-  the codebase. Use void operator with a comment only when a
-  fire-and-forget pattern is genuinely intentional.
+## ALWAYS — every file generated or modified
+- [ ] ddl-auto: validate — never create/update/create-drop
+- [ ] No RestTemplate — always WebClient
+- [ ] No hardcoded secrets — always environment variables
+- [ ] No magic numbers — extract to named constants with comments
+- [ ] No wildcard imports
+- [ ] No dead code or commented-out blocks
+- [ ] No bare `except:` in Python / no `catch(Exception)` in Java
+  unless at a boundary handler
+- [ ] Tests written in the same session as the code
+- [ ] Coverage gate: `mvn verify` / `pytest --cov-fail-under=80` /
+  `npx vitest run --coverage`
+- [ ] No stub implementations — no `return []`, `return {}`, `pass`,
+  `Mono.empty()`, `raise NotImplementedError` in production code
 
 ---
 
-### RULE Q-5 — No magic numbers or strings
+## PLATFORM TOPOLOGY (quick reference)
 
-Any literal value that encodes a business rule, limit, or
-configuration must be extracted to a named constant with a comment
-explaining what it represents and why it has that value.
+| Service            | Port | Stack                   | Status |
+|--------------------|------|-------------------------|--------|
+| axiom-ui           | 3000 | React 18 + Vite         | Active |
+| axiom-api          | 8080 | Spring Boot WebFlux     | Active |
+| archon-api         | 8081 | Spring Boot             | Active |
+| archon-agent       | 8001 | FastAPI + LangGraph     | Active |
+| specweaver-api     | 8082 | Spring Boot             | Active |
+| specweaver-agent   | 8085 | FastAPI + LangGraph     | Active |
+| lens-api           | 8083 | Spring Boot             | Active |
+| lens-agent         | 8086 | FastAPI + LangGraph     | Active |
+| memoria-api        | 8084 | Spring Boot             | Active |
+| memoria-agent      | 8087 | FastAPI + LangGraph     | Active |
 
-Examples of what must be extracted:
-  Java:   private static final int MAX_HISTORY_MESSAGES = 20;
-          // Limit context window sent to LLM — increase only if
-          // token budget and model context length allow.
-
-  Python: MAX_CLARIFYING_QUESTIONS = 8
-          # More than 8 questions is noise. The LLM is instructed
-          # to return at most 8; this is a defensive trim.
-
-  TS:     const MAX_MESSAGE_LENGTH = 32_000
-          // Spring Boot validation limit on ChatRequest.message.
-
----
-
-### RULE Q-6 — Imports must be clean and ordered
-
-#### Java
-- No wildcard imports (import com.example.*).
-- Remove all unused imports before submitting.
-- Order: Java standard library, then third-party, then internal.
-
-#### Python
-- No star imports (from module import *) except in __init__.py
-  re-exports where this is deliberate.
-- Order: standard library, third-party, internal. Separated by
-  blank lines. Use isort conventions.
-
-#### TypeScript
-- No unused imports.
-- Order: React, third-party libraries, internal types, internal
-  modules. Separated by blank lines.
+All external traffic enters through axiom-api.
+Each pillar owns its own PostgreSQL database.
+See ARCHITECTURE.md for full topology and constraints.
 
 ---
 
-### RULE Q-7 — No dead code
+## LENS-SPECIFIC RULES
 
-- Do not leave commented-out code in committed files. If code
-  is removed, remove it entirely. Version control preserves history.
-- Do not leave TODO comments that describe unimplemented
-  functionality unless they are linked to a known future phase.
-  Acceptable: // TODO Phase 6: replace with real identity provider
-  Not acceptable: // TODO: fix this later
-
----
-
-## TESTING REQUIREMENTS
-
-These rules apply at the end of every phase and whenever new code
-is generated. Do not consider a phase complete until all rules in
-this section pass.
+- Gap elicitation never blocks the user from proceeding.
+- After `MAX_ROUNDS = 5`, `canProceed` is always `True`.
+- Unresolved gaps become `INSUFFICIENT_INFORMATION` findings.
+- Risk register is capped at `MAX_RISKS = 20`.
+- Recommendations are capped at `MAX_RECOMMENDATIONS = 15`.
+- `azure_waf_analysis` evaluates evidence coverage for the five Azure WAF
+  pillars only: Reliability, Security, Cost, Operational Excellence,
+  Performance Efficiency.
+- Do not assume compliance. Missing evidence is a gap, not a pass.
+- Do not reference specific Azure services or products in the assessment.
 
 ---
 
-### RULE T-1 — Write tests alongside code, not after
+## MEMORIA-SPECIFIC RULES
 
-Every new class, function, or endpoint generated in a phase must
-have corresponding tests written in the same session, before moving
-on. Never defer tests to a cleanup task.
+- Memory entries are NEVER deleted — only superseded (status=SUPERSEDED
+  with a superseded_by pointer) or archived (status=ARCHIVED).
+  Deletion of MemoryEntry is a hard violation — see ADL-100.
+- Only ACTIVE DECISION and REQUIREMENT entries are injected into LLM context.
+  STALE, SUPERSEDED, ARCHIVED, and SESSION_SUMMARY entries are always excluded
+  from the context assembly — see ADL-099.
+- Human confirmation is required before promoting an episodic memory
+  entry to an ADR. No automatic promotion.
+- gen_random_uuid() is used for UUIDs. pgcrypto is NOT allow-listed
+  on Azure PostgreSQL Flexible Server — never use CREATE EXTENSION pgcrypto.
+- pgvector is used for semantic search. The memory_entries.embedding column
+  type is vector(1536) with an ivfflat index.
+- memoria-agent is called only by memoria-api. Pillar agents
+  (archon-agent, specweaver-agent, lens-agent) must never call
+  memoria-agent directly — see ADL-103 and ADL-104.
+- The distillation pipeline is triggered by a webhook from each pillar API
+  POST /api/v1/memoria/internal/distill — not by the pillar agent.
 
-If Copilot generates a class without tests, immediately follow up
-with: "Now write the tests for that class following the testing
-rules in copilot-instructions.md."
+## PIPELINE STAGE ADDITIONS — Lens checklist
 
----
-
-### RULE T-2 — Test quality standards
-
-These rules apply to every test file in every language.
-
-#### What every test must do
-- Test one behaviour per test function. If the test name needs
-  "and" in it, split it into two tests.
-- Assert something specific about the output, return value, or
-  side effect. A test that only asserts no exception was thrown
-  is not a test — it is a placeholder.
-- Use descriptive names that read as a sentence describing the
-  behaviour under test:
-      saveMessage_persistsRoleAndContent        ← correct
-      run_trimsClarifyingQuestionsToEight       ← correct
-      test1 / testMethod / shouldWork           ← never acceptable
-- Arrange, Act, Assert structure. Blank lines between the three
-  sections. No blank lines within a section.
-
-#### What every test must never do
-- Never mock the class under test. Only mock its dependencies.
-- Never use real secrets, API keys, or external service calls.
-  Use placeholder values ("test-key", "test-secret") or mocks.
-- Never skip tests with @Disabled, @pytest.mark.skip, or
-  similar unless accompanied by a comment referencing a known
-  issue and the phase in which it will be resolved.
-- Never use Thread.sleep() or asyncio.sleep() to handle timing
-  in tests. Use proper async/await patterns or test doubles.
-
-#### Language-specific conventions
-Java:
-  - Unit tests: @ExtendWith(MockitoExtension.class). Never start
-    the Spring context for a test that only needs a single class.
-  - Integration tests: @SpringBootTest with Testcontainers for
-    PostgreSQL. Mock external HTTP calls with MockWebServer.
-  - Name test classes {ClassName}Test for units,
-    {ClassName}IntegrationTest for integration tests.
-
-Python:
-  - Use pytest with pytest-asyncio. Mark async tests with
-    @pytest.mark.asyncio.
-  - Mock LLM calls with unittest.mock.AsyncMock. Never make
-    real LLM API calls in any test.
-  - Place unit tests in tests/unit/, integration tests in
-    tests/integration/. Shared fixtures in tests/conftest.py.
-
-TypeScript:
-  - Use Vitest with @testing-library/react for component tests.
-  - Mock fetch and external APIs — never make real HTTP calls.
-  - Test user-visible behaviour, not implementation details.
-    Prefer queries by role, label, and text over test IDs.
-
----
-
-### RULE T-3 — Coverage requirements
-
-A coverage gate must pass before any phase is declared complete.
-Coverage is a build gate, not a suggestion.
-
-#### Spring Boot — JaCoCo
-Minimum line coverage: 80% per package.
-Excludes: main application class, domain model classes, DTOs,
-and simple exception classes that contain no logic.
-
-Run: mvn verify
-Report: target/site/jacoco/index.html
-The build fails automatically if coverage falls below threshold.
-
-#### Python — pytest-cov
-Minimum line coverage: 80%.
-Excludes: app/prompts/ directory, conftest.py files.
-
-Run: pytest --cov=app --cov-report=term-missing --cov-fail-under=80
-Exits with code 1 if below threshold.
-
-#### TypeScript — Vitest
-Minimum line coverage: 80%.
-Excludes: src/types/, src/main.tsx.
-
-Run: npx vitest run --coverage
-Fails if below threshold.
-
----
-
-### RULE T-4 — End-of-phase checklist
-
-Run every command below and confirm it passes before declaring
-a phase complete. Do not move to the next phase with any
-failing command.
-
-#### Spring Boot (run if phase touches ai-architect-api)
-  mvn test                          # unit tests
-  mvn verify                        # integration tests + coverage
-
-#### Python (run if phase touches ai-architect-agent)
-  pytest tests/unit/ -v             # unit tests
-  pytest tests/integration/ -v      # integration tests
-  pytest --cov=app \
-    --cov-report=term-missing \
-    --cov-fail-under=80             # coverage gate
-
-#### TypeScript (run if phase touches ai-architect-ui)
-  npx vitest run                    # all tests
-  npx vitest run --coverage         # coverage gate
-
-If a command fails, fix all failures before proceeding.
-Do not suppress failures by modifying coverage thresholds,
-adding skip annotations, or excluding additional files from
-coverage without an explicit justification comment.
-
----
-
-### RULE T-5 — Fix test regressions before proceeding
-
-When a new feature changes a count, shape, or contract that
-existing tests assert, update those tests immediately — in the
-same session, before running any other feature work.
-
-Do not leave broken tests in the repository with a note saying
-"will fix later". A red test suite blocks the next developer who
-pulls the branch.
-
-Common sources of regressions in this codebase:
-- Adding or removing a pipeline stage changes ORDERED_STAGES
-  length assertions in test_pipeline_reiteration.py and stage
-  count assertions in StageProgress.test.tsx and
-  useConversation.test.ts.
-- Adding a new API endpoint changes route count assertions in
-  integration tests.
-- Adding a field to ArchitectureContext with no default value
-  breaks any test that constructs the model explicitly.
-
----
-
-### RULE T-6 — Integration tests must use Testcontainers for PostgreSQL
-
-Never configure integration tests to use an in-memory database
-(H2). All integration tests that touch repository or service
-layers must start a real PostgreSQL instance via Testcontainers.
-
-This ensures Flyway migrations are exercised and JSONB column
-types behave identically in tests and production.
-
-The base configuration lives in AbstractIntegrationTest.java.
-Every integration test class must extend it.
-
----
-
-### RULE T-7 — Pipeline stage additions require atomic updates across all layers
-
-When adding a new pipeline stage, every location that encodes the
-stage list must be updated in the same commit. A partial update
-will break tests in a different layer and confuse downstream
-consumers.
-
-Checklist for adding a pipeline stage:
+Adding a Lens stage requires updating all of these in the same change:
 
 | File | What to update |
 |------|----------------|
-| `ai-architect-agent/app/pipeline/graph.py` | Add stage name to `ORDERED_STAGES` |
-| `ai-architect-agent/app/pipeline/nodes.py` | Implement the stage node function |
-| `ai-architect-agent/app/tools/registry.py` | Register the tool used by the stage |
-| `ai-architect-ui/src/types/api.ts` | Add stage name to `PIPELINE_STAGES` |
-| `ai-architect-ui/src/components/StageProgress.tsx` | Add label to `STAGE_LABELS` |
-| `ai-architect/ARCHITECTURE.md` | Add stage to PIPELINE DEFINITION STAGES list |
-| `tests/unit/test_pipeline_reiteration.py` | Update `len(ORDERED_STAGES)` assertion |
-| `tests/unit/test_pipeline_nodes.py` | Add mock and test for the new node |
-| `src/test/StageProgress.test.tsx` | Update stage count assertion |
-| `src/test/useConversation.test.ts` | Update stage count assertion |
+| `lens-agent/app/pipeline/graph.py` | Add to `ORDERED_STAGES` |
+| `lens-agent/app/pipeline/nodes.py` | Implement the stage node |
+| `lens-agent/app/tools/` | Add supporting tool files |
+| `axiom-ui/src/components/StageProgress.tsx` | Add the Lens stage label |
+| `ARCHITECTURE.md` | Update the Lens pipeline definition |
+| `ADL.md` | Update governance rules if policy changes |
+| `tests/unit/test_pipeline_graph.py` | Update stage count and sequencing |
 
-The stage name must be identical (exact snake_case string) in every
-location. A mismatch between the Python name and the TypeScript name
-will cause the UI progress bar to silently skip the stage.
+---
 
-After adding a stage, run all three test suites before declaring
-the work complete:
-  pytest tests/unit/ -v
-  npm test
-  mvn test
+## SECRETPROVIDERCLASS CHANGES
+
+When adding a Key Vault secret:
+1. Add via `az keyvault secret set`
+2. Add to `objects` array in Helm SecretProviderClass template
+3. Add to `secretObjects.data` array in the same template
+4. Add to `.env.example` with a comment
+5. YAML must use spaces — never tabs
+
+---
+
+## AGENT PATTERNS — reference implementations
+
+When implementing a new Spring Boot service, follow the existing pattern:
+- **API service**: `specweaver-api` — SessionService, EvidenceService,
+  controllers, WebClient-based agent client
+- **Agent service**: `specweaver-agent` — LangGraph pipeline, tool modules,
+  LLM client wrapper, FastAPI routes
+
+When implementing a new React page, follow:
+- **Pillar home page**: `axiom-ui/src/views/specweaver/SpecWeaverHomePage.tsx`
+- **Session page**: `axiom-ui/src/views/specweaver/SpecWeaverSessionPage.tsx`
+- **API client**: `axiom-ui/src/api/specweaver.ts`
+
+---
+
+## END OF SESSION
+
+Produce this table before closing:
+
+| Check | Result | Note |
+|-------|--------|------|
+| ADL rules verified | PASS / VIOLATION | name the rule if violated |
+| Tests written | PASS / DEFERRED | reason if deferred |
+| Coverage gate | PASS / SKIP / FAIL | |
+| No hardcoded secrets | PASS / VIOLATION | |
+| No dead code | PASS / VIOLATION | |
+| No stub implementations | PASS / VIOLATION | |
+| PR opened | YES / NO | PR number if yes |

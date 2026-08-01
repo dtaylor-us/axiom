@@ -1,0 +1,163 @@
+- generic [ref=e2]:
+  - button "Switch to dark mode" [ref=e3]
+  - generic [ref=e34]:
+    - complementary [ref=e35]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: Axiom
+        - generic [ref=e44]: Architecture Intelligence
+      - generic [ref=e45]:
+        - navigation "Platform pillars" [ref=e46]:
+          - paragraph [ref=e48]: Platform pillars
+          - generic [ref=e49]:
+            - link "SpecWeaver Requirements Intelligence" [ref=e50] [cursor=pointer]:
+              - /url: /specweaver
+              - generic [ref=e57]:
+                - generic [ref=e58]: SpecWeaver
+                - generic [ref=e59]: Requirements Intelligence
+            - link "Archon Architecture Reasoning" [ref=e60] [cursor=pointer]:
+              - /url: /archon
+              - generic [ref=e68]:
+                - generic [ref=e69]: Archon
+                - generic [ref=e70]: Architecture Reasoning
+            - link "Lens Architecture Review Intelligence" [ref=e71] [cursor=pointer]:
+              - /url: /lens
+              - generic [ref=e77]:
+                - generic [ref=e78]: Lens
+                - generic [ref=e79]: Architecture Review Intelligence
+            - link "Memoria Project Memory" [ref=e80] [cursor=pointer]:
+              - /url: /memoria
+              - generic [ref=e86]:
+                - generic [ref=e87]: Memoria
+                - generic [ref=e88]: Project Memory
+        - button "New architecture review" [ref=e116]
+        - navigation [ref=e93]:
+          - button "Reviews" [ref=e117]
+        - generic [ref=e103]:
+          - heading "Reviews" [level=3] [ref=e120]
+          - generic [ref=e105]:
+            - button "Untitled review EVIDENCE COLLECTION" [ref=e274]:
+              - generic [ref=e275]: Untitled review
+              - generic [ref=e277]: EVIDENCE COLLECTION
+            - button "Untitled review COMPLETE" [ref=e278]:
+              - generic [ref=e279]: Untitled review
+              - generic [ref=e281]: COMPLETE
+            - button "Untitled review COMPLETE" [ref=e282]:
+              - generic [ref=e283]: Untitled review
+              - generic [ref=e285]: COMPLETE
+            - button "Untitled review GAP ELICITATION" [ref=e286]:
+              - generic [ref=e287]: Untitled review
+              - generic [ref=e290]: GAP ELICITATION
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - generic [ref=e108]: G
+          - generic [ref=e110]: Guest
+        - button "Sign out" [ref=e111]
+    - main [ref=e114]:
+      - generic [ref=e191]:
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - generic [ref=e194]: Lens
+            - heading "Untitled review" [level=1] [ref=e199]
+            - paragraph [ref=e200]: Lens gap elicitation never blocks progress. Unresolved gaps become findings.
+            - generic [ref=e201]:
+              - generic [ref=e202]: Session 518ee822-1c71-4b9c-a072-4eb1a4e63142
+              - button "Copy Lens session ID" [ref=e203]:
+                - generic [ref=e207]: Copy session ID
+              - button "Link to Memoria" [ref=e208]
+          - generic [ref=e209]: GAP_ELICITATION
+        - generic [ref=e249]: Session details saved.
+        - generic [ref=e210]:
+          - generic [ref=e211]:
+            - generic [ref=e212]:
+              - text: Session title
+              - textbox [ref=e213]: Untitled review
+            - generic [ref=e214]:
+              - text: System description
+              - textbox [ref=e215]
+            - button "Save details" [disabled] [ref=e217]
+            - generic [ref=e291]:
+              - generic [ref=e292]:
+                - generic [ref=e293]:
+                  - generic [ref=e294]: TEXT_DESCRIPTION
+                  - generic [ref=e295]: manual test
+                - button "Delete" [ref=e296]
+              - paragraph [ref=e297]: Architecture uses API gateway, service boundaries, and observability. Reliability and security controls are partially implemented with known gaps in DR and threat detection.
+            - generic [ref=e221]:
+              - button "Add Evidence" [ref=e222]
+              - button "Generate gap questions" [ref=e223]
+          - generic [ref=e266]:
+            - generic [ref=e267]:
+              - heading "Gap elicitation" [level=2] [ref=e268]
+              - generic [ref=e269]: Round 1 of 5
+            - generic [ref=e298]:
+              - generic [ref=e299]:
+                - generic [ref=e300]:
+                  - generic [ref=e301]: SECURITY
+                  - button "Skip" [ref=e302]
+                - paragraph [ref=e303]: What authentication mechanism is used for service-to-service communication?
+                - group [ref=e304]:
+                  - generic "Rationale" [ref=e305] [cursor=pointer]
+                - textbox "Answer this question or skip it." [ref=e306]
+              - generic [ref=e307]:
+                - generic [ref=e308]:
+                  - generic [ref=e309]: PERFORMANCE
+                  - button "Skip" [ref=e310]
+                - paragraph [ref=e311]: What are the performance requirements and how are they measured?
+                - group [ref=e312]:
+                  - generic "Rationale" [ref=e313] [cursor=pointer]
+                - textbox "Answer this question or skip it." [ref=e314]
+              - generic [ref=e315]:
+                - generic [ref=e316]:
+                  - generic [ref=e317]: MODIFIABILITY
+                  - button "Skip" [ref=e318]
+                - paragraph [ref=e319]: How is the architecture designed to accommodate future changes or scaling?
+                - group [ref=e320]:
+                  - generic "Rationale" [ref=e321] [cursor=pointer]
+                - textbox "Answer this question or skip it." [ref=e322]
+              - generic [ref=e323]:
+                - generic [ref=e324]:
+                  - generic [ref=e325]: INTEGRABILITY
+                  - button "Skip" [ref=e326]
+                - paragraph [ref=e327]: What integration points exist with external systems and how are they managed?
+                - group [ref=e328]:
+                  - generic "Rationale" [ref=e329] [cursor=pointer]
+                - textbox "Answer this question or skip it." [ref=e330]
+              - generic [ref=e331]:
+                - generic [ref=e332]:
+                  - generic [ref=e333]: DATA
+                  - button "Skip" [ref=e334]
+                - paragraph [ref=e335]: How is data consistency and integrity maintained across services?
+                - group [ref=e336]:
+                  - generic "Rationale" [ref=e337] [cursor=pointer]
+                - textbox "Answer this question or skip it." [ref=e338]
+              - generic [ref=e339]:
+                - generic [ref=e340]:
+                  - generic [ref=e341]: STRUCTURAL
+                  - button "Skip" [ref=e342]
+                - paragraph [ref=e343]: What architectural patterns are employed to ensure structural health?
+                - group [ref=e344]:
+                  - generic "Rationale" [ref=e345] [cursor=pointer]
+                - textbox "Answer this question or skip it." [ref=e346]
+              - generic [ref=e347]:
+                - generic [ref=e348]:
+                  - generic [ref=e349]: GOVERNANCE
+                  - button "Skip" [ref=e350]
+                - paragraph [ref=e351]: What governance policies are in place to ensure compliance and best practices?
+                - group [ref=e352]:
+                  - generic "Rationale" [ref=e353] [cursor=pointer]
+                - textbox "Answer this question or skip it." [ref=e354]
+              - generic [ref=e355]:
+                - generic [ref=e356]:
+                  - generic [ref=e357]: RELIABILITY
+                  - button "Skip" [ref=e358]
+                - paragraph [ref=e359]: What specific disaster recovery strategies are in place to address the known gaps?
+                - group [ref=e360]:
+                  - generic "Rationale" [ref=e361] [cursor=pointer]
+                - textbox "Answer this question or skip it." [ref=e362]: DR is planned with active-passive failover and quarterly recovery drills.
+            - generic [ref=e270]:
+              - button "Submit answers" [ref=e271]
+              - button "Assess gaps" [ref=e272]
+              - button "Proceed anyway" [ref=e273]
+        - generic [ref=e224]:
+          - heading "Status and report" [level=2] [ref=e225]
+          - generic [ref=e227]: The completed report appears here after review finalization.

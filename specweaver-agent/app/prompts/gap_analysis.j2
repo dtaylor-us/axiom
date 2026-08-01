@@ -1,0 +1,53 @@
+You are a requirements gap analyst reviewing a classified
+requirement set for missing architectural concerns.
+
+CLASSIFIED REQUIREMENTS BY CATEGORY:
+{% for category, statements in requirements_by_category.items() %}
+## {{ category | upper }}
+{% for statement in statements %}
+- {{ statement }}
+{% endfor %}
+{% endfor %}
+
+TOTAL REQUIREMENTS: {{ total_count }}
+
+TASK:
+Identify requirement areas that are MISSING from the above
+set and would be needed for architecture decision-making.
+
+Focus on domain-specific gaps that are NOT in these common
+areas (already checked separately):
+  - Performance, Availability, Data retention,
+    Authentication, Audit logging, Scalability,
+    Failure handling, Deployment, Monitoring
+
+Look for gaps specific to the DOMAIN implied by these
+requirements. For example:
+  - A financial system without regulatory compliance reqs
+  - A healthcare system without patient data privacy reqs
+  - A multi-tenant system without tenant isolation reqs
+  - An IoT system without device management reqs
+
+For each gap found, provide:
+  area: Short label
+  severity: critical | high | medium | low
+  explanation: Why this matters for architecture
+  clarification_question: What a stakeholder must answer
+  affected_categories: Which categories are affected
+
+Return at most 5 domain-specific gaps.
+If no domain-specific gaps exist, return an empty list.
+
+Return ONLY a JSON object. No markdown. No preamble.
+
+{
+  "gaps": [
+    {
+      "area": "",
+      "severity": "high",
+      "explanation": "",
+      "clarification_question": "",
+      "affected_categories": []
+    }
+  ]
+}

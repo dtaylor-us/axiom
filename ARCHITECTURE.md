@@ -1,3 +1,105 @@
+# Axiom — Architecture Intelligence Platform
+## Architecture Reference
+
+## Deployed Services
+
+### Platform
+
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| axiom-ui | React 18 + TypeScript + Vite | 3000 | Unified UI shell |
+| axiom-api | Spring Boot 3.x / Java 21 | 8080 | Platform gateway — auth routing, JWT validation, pillar routing, health aggregation |
+
+### Archon — Architecture Reasoning
+
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| archon-api | Spring Boot 3.x / Java 21 | 8081 | Conversation management, session storage, ADL governance |
+| archon-agent | FastAPI + LangGraph / Python 3.11 | 8001 | 13-stage architecture reasoning pipeline |
+
+### SpecWeaver — Requirements Intelligence
+
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| specweaver-api | Spring Boot 3.x / Java 21 | 8082 | Session management, document ingestion, package generation |
+| specweaver-agent | FastAPI + LangGraph / Python 3.11 | 8085 | Extraction, consolidation, classification, gap analysis, conflict detection |
+
+### Lens — Architecture Review Intelligence
+
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| lens-api | Spring Boot 3.x / Java 21 | 8083 | Review sessions, evidence storage, gap elicitation, review reports |
+| lens-agent | FastAPI + LangGraph / Python 3.11 | 8086 | Evidence parsing, framework analysis, risk synthesis, report generation |
+
+### Memoria — Project Memory
+
+| Service | Technology | Port | Purpose |
+|---------|-----------|------|---------|
+| memoria-api | Spring Boot 3.x / Java 21 | 8084 | Project management, session linking, memory CRUD, ADR register, context assembly |
+| memoria-agent | FastAPI + LangGraph / Python 3.11 | 8087 | Session distillation, fact extraction, conflict detection, embedding generation |
+
+### Future pillars
+
+| Pillar | API Port | Agent Port | Status |
+|--------|----------|------------|--------|
+| Scout — Repository Intelligence | 8083 | 8086 | Not on roadmap |
+| Forge — Architecture Enforcement | 8084 | 8087 | Not on roadmap |
+
+### Service topology
+
+```text
+Browser
+  → axiom-api:8080 (platform gateway — auth + JWT validation + routing)
+    → archon-api:8081 (Archon pillar API)
+      → archon-agent:8001 (Archon reasoning pipeline)
+    → specweaver-api:8082 (SpecWeaver pillar API)
+      → specweaver-agent:8085 (SpecWeaver extraction pipeline)
+    → lens-api:8083 (Lens pillar API)
+      → lens-agent:8086 (Lens review pipeline)
+    → memoria-api:8084 (Memoria pillar API)
+      → memoria-agent:8087 (Memoria distillation pipeline)
+```
+
+### Two-service rule
+
+Each pillar has exactly two services: one API service
+(Spring Boot) and one agent service (Python FastAPI).
+No pillar may have more than two services.
+This is enforced by ADL.
+
+FOREACH $X IN {archon, specweaver, lens, memoria} DO
+  ASSERT($X CONTAINS AT MOST MAX_SERVICES_PER_PILLAR SERVICES)
+END
+
+### Cross-pillar communication
+
+Pillars communicate via HTTP only. There are no shared
+databases, no shared in-process objects, and no shared
+libraries containing business logic between pillars.
+Pillar APIs call memoria-api via HTTP webhook when a session closes.
+Only memoria-api calls memoria-agent.
+
+### Pillar implementation status
+
+| Pillar | Status | Notes |
+|--------|--------|-------|
+| Archon | Production-capable | Full 13-stage pipeline + QAW |
+| SpecWeaver | Phase 1 active | Extraction + classification |
+| Lens | Active | Architecture reviews and gap elicitation |
+| Memoria | Phase 1 — scaffolding | Project CRUD and session linking. Distillation not yet active. |
+
+### Platform service boundaries
+
+ASSERT platform-boundaries {
+  axiom-api must not contain JPA entities or Flyway migrations
+  axiom-api must not call the LLM directly
+  axiom-api must not import archon-api classes
+  archon-api trusts X-Axiom-User-Id when AXIOM_GATEWAY_BYPASS=false
+  archon-api must not be reachable externally when bypass=false
+}
+
+---
+
 # Architecture Guidlines for Copilot
 # Version: 1.0
 # Owner: Architecture Team
@@ -15,29 +117,31 @@
 ## SYSTEM DEFINITION
 
 DEFINE system ArchonAssistant {
-  RESPONSIBILITY: "AI-powered architecture governance and design assistant"
-  SERVICES: [ai-architect-api, ai-architect-agent, ai-architect-ui]
-  DATABASES: [PostgreSQL, Qdrant]
-  COMMUNICATION: [HTTP/SSE between client and api, HTTP/NDJSON between api and agent]
+  RESPONSIBILITY: "AI-powered architecture and requirements intelligence platform"
+  SERVICES: [axiom-api, archon-api, archon-agent, specweaver-api, specweaver-agent, lens-api, lens-agent, memoria-api, memoria-agent, axiom-ui]
+  DATABASES: [PostgreSQL, memoria PostgreSQL, Qdrant, object storage]
+  COMMUNICATION: [HTTP from client to axiom-api, HTTP/SSE between axiom-api and pillar APIs, HTTP/NDJSON between pillar APIs and agents, HTTP webhook from pillar APIs to memoria-api on session close]
   DEPLOYMENT: Docker Compose (local), AKS (production)
 }
 
 
 ---
 
-## SERVICE: ai-architect-api (Spring Boot)
+## SERVICE: archon-api (Spring Boot)
 
-DEFINE service ai-architect-api {
+DEFINE service archon-api {
   LANGUAGE: Java 21
   FRAMEWORK: Spring Boot 3.3.4
-  RESPONSIBILITY: "API gateway — auth, session management, SSE streaming, agent bridge"
+  RESPONSIBILITY: "Archon pillar API — auth, session management, SSE streaming, agent bridge"
   OWNS: [Conversation, Message, ConversationStatus, MessageRole, ArchitectureOutput]
   DOES_NOT_OWN: [ArchitectureContext, pipeline logic, LLM calls, tool execution]
   EXPOSES: [
     POST /api/v1/chat/stream,
+    POST /api/v1/conversations,
     POST /api/v1/auth/forgot-password,
     POST /api/v1/auth/reset-password,
     GET /api/v1/auth/reset-password/validate,
+    GET /api/v1/conversations/{id}/pipeline-status,
     GET /api/v1/sessions/{id}/messages,
     GET /api/v1/sessions/{id}/architecture,
     GET /api/v1/sessions/{id}/diagram,
@@ -50,11 +154,11 @@ DEFINE service ai-architect-api {
     GET /api/v1/sessions/{id}/build-analysis/conflicts,
     GET /api/v1/conversations/{id}/usage
   ]
-  CALLS: [ai-architect-agent via AgentHttpClient]
-  ROOT_PACKAGE: com.aiarchitect.api
+  CALLS: [archon-agent via AgentHttpClient]
+  ROOT_PACKAGE: com.archon.api
 }
 
-ASSERT ai-architect-api {
+ASSERT archon-api {
   MUST use Flyway for all schema changes
     — ddl-auto MUST be "validate", never "create", "update", or "create-drop"
 
@@ -64,7 +168,7 @@ ASSERT ai-architect-api {
   MUST NOT contain pipeline logic
     — no stage orchestration, no tool invocation, no ArchitectureContext manipulation
 
-  MUST use WebClient (not RestTemplate) for all HTTP calls to ai-architect-agent
+  MUST use WebClient (not RestTemplate) for all HTTP calls to archon-agent
     — RestTemplate is blocking and will deadlock the SSE response thread
 
   MUST NOT enable open-in-view
@@ -89,7 +193,7 @@ ASSERT ai-architect-api {
     — @NotBlank and @Size constraints required on ChatRequest.message
 
   MUST authenticate service-to-service calls with X-Internal-Secret header
-    — AgentHttpClient MUST set this header on every request to ai-architect-agent
+    — AgentHttpClient MUST set this header on every request to archon-agent
 
   MUST NOT expose internal exceptions to API consumers
     — AgentCommunicationException MUST be caught and mapped to a safe error response
@@ -114,7 +218,7 @@ ASSERT ai-architect-api {
   }
 }
 
-REQUIRE ai-architect-api {
+REQUIRE archon-api {
   IF a new JPA entity is added
     THEN a corresponding Flyway migration MUST be created in db/migration/
     AND the migration filename MUST follow pattern V{n}__{description}.sql
@@ -134,9 +238,9 @@ REQUIRE ai-architect-api {
 
 ---
 
-## SERVICE: ai-architect-agent (Python / FastAPI)
+## SERVICE: archon-agent (Python / FastAPI)
 
-DEFINE service ai-architect-agent {
+DEFINE service archon-agent {
   LANGUAGE: Python 3.11
   FRAMEWORK: FastAPI + LangGraph (Phase 2+)
   RESPONSIBILITY: "LLM orchestration — pipeline execution, tool dispatch, streaming"
@@ -146,7 +250,7 @@ DEFINE service ai-architect-agent {
   ROOT_MODULE: app
 }
 
-ASSERT ai-architect-agent {
+ASSERT archon-agent {
   MUST validate X-Internal-Secret on every request to POST /agent/stream
     — return HTTP 401 if header is absent or does not match INTERNAL_SECRET env var
 
@@ -176,7 +280,7 @@ ASSERT ai-architect-agent {
     — never let an unhandled exception silently terminate the stream
     — always yield a final ERROR chunk before raising or returning
 
-  MUST NOT call Spring Boot or any ai-architect-api endpoint
+  MUST NOT call Spring Boot or any archon-api endpoint
     — data flows api → agent only, never agent → api
 
   MUST NOT store secrets in code
@@ -275,7 +379,7 @@ ASSERT tactics_advisor {
       written before stage 4b
 }
 
-REQUIRE ai-architect-agent {
+REQUIRE archon-agent {
   IF a new pipeline stage is added
     THEN it MUST be added as a LangGraph node (Phase 2+)
     AND it MUST read from and write to ArchitectureContext only
@@ -299,9 +403,9 @@ REQUIRE ai-architect-agent {
 
 ---
 
-## SERVICE: ai-architect-ui (React / Vite)
+## SERVICE: axiom-ui (React / Vite)
 
-DEFINE service ai-architect-ui {
+DEFINE service axiom-ui {
   LANGUAGE: TypeScript
   FRAMEWORK: React 18, Vite, Tailwind CSS
   RESPONSIBILITY: "Browser SPA — auth, streaming chat, architecture visualization, governance dashboard"
@@ -320,10 +424,10 @@ DEFINE service ai-architect-ui {
     GET /api/v1/sessions/{id}/tactics,
     GET /api/v1/sessions/{id}/tactics/summary
   ]
-  ROOT_DIR: ai-architect-ui/src
+  ROOT_DIR: axiom-ui/src
 }
 
-ASSERT ai-architect-ui {
+ASSERT axiom-ui {
   MUST use fetch + ReadableStream for the SSE streaming endpoint
     — EventSource MUST NOT be used (POST body is required)
 
@@ -350,7 +454,7 @@ ASSERT ai-architect-ui {
   MUST run as non-root user in the production Docker image
 }
 
-REQUIRE ai-architect-ui {
+REQUIRE axiom-ui {
   IF a new pipeline stage is added
     THEN PIPELINE_STAGES array in src/types/api.ts MUST be updated
     AND STAGE_LABELS in src/components/StageProgress.tsx MUST be updated
@@ -491,7 +595,7 @@ DEFINE COMPONENT OllamaContainer AS infrastructure {
   Local inference container running ollama/ollama:latest on port 11434.
   GPU passthrough is configured by Docker deploy.resources. Models are pulled
   by the ollama-init init container and stored in the named Docker volume
-  aiarchitect-ollama-models.
+  archon-ollama-models.
 }
 
 ASSERT llm_provider_abstraction {
@@ -644,11 +748,123 @@ DEFINE sub-graph ReviewAgent {
 
 ---
 
+## SERVICE: memoria-api (Spring Boot)
+
+DEFINE service memoria-api {
+  LANGUAGE: Java 21
+  FRAMEWORK: Spring Boot 3.3.x
+  RESPONSIBILITY: "Memoria pillar API — project memory management,
+    session linking, ADR register, context assembly for LLM injection"
+  OWNS: [Project, SessionLink, MemoryEntry, ArchitectureDecision]
+  DOES_NOT_OWN: [pipeline logic, LLM calls, embedding generation]
+  EXPOSES: [
+    POST   /api/v1/memoria/projects,
+    GET    /api/v1/memoria/projects,
+    GET    /api/v1/memoria/projects/{id},
+    PUT    /api/v1/memoria/projects/{id},
+    DELETE /api/v1/memoria/projects/{id},
+    POST   /api/v1/memoria/projects/{id}/sessions,
+    GET    /api/v1/memoria/projects/{id}/sessions,
+    DELETE /api/v1/memoria/projects/{id}/sessions/{sessionId},
+    POST   /api/v1/memoria/projects/{id}/memory,
+    GET    /api/v1/memoria/projects/{id}/memory,
+    PUT    /api/v1/memoria/projects/{id}/memory/{entryId},
+    DELETE /api/v1/memoria/projects/{id}/memory/{entryId},
+    POST   /api/v1/memoria/projects/{id}/memory/{entryId}/supersede,
+    GET    /api/v1/memoria/projects/{id}/adrs,
+    POST   /api/v1/memoria/projects/{id}/adrs,
+    PUT    /api/v1/memoria/projects/{id}/adrs/{adrId},
+    GET    /api/v1/memoria/projects/{id}/context,
+    POST   /api/v1/memoria/internal/distill
+  ]
+  CALLS: [memoria-agent via MemoriaAgentClient (WebClient)]
+  ROOT_PACKAGE: com.memoria.api
+}
+
+ASSERT memoria-api {
+  MUST use Flyway for all schema changes
+    — ddl-auto MUST be "validate"
+
+  MUST NOT contain LLM API calls
+    — no openai, azure-openai, or langchain dependencies
+
+  MUST use WebClient (not RestTemplate) for calls to memoria-agent
+
+  MUST NOT enable open-in-view
+    — spring.jpa.open-in-view MUST be false
+
+  MUST validate JWT via X-Axiom-User-Id header forwarded by
+  axiom-api — never parse JWT directly (AXIOM_GATEWAY_BYPASS=false)
+
+  MUST use pgvector for semantic search on memory entries
+    — embedding column type: vector(1536)
+    — index type: ivfflat with vector_cosine_ops
+
+  MUST implement TTL-aware staleness:
+    — a scheduled job MUST mark entries STALE when expires_at < NOW()
+    — STALE entries MUST NOT be included in context assembly
+
+  MUST never inject STALE, SUPERSEDED, ARCHIVED, or SESSION_SUMMARY
+  entries into the LLM context package
+
+  MUST require human confirmation before promoting an episodic
+  memory entry to an ADR — no automatic promotion
+
+  MUST NOT delete memory entries on supersession
+    — set status=SUPERSEDED and link superseded_by to the new entry
+
+  MUST expose GET /api/v1/memoria/projects/{id}/context
+    — returns ACTIVE DECISION and REQUIREMENT entries only
+    — used by pillar APIs to inject project context at session start
+}
+
+---
+
+## SERVICE: memoria-agent (Python / FastAPI)
+
+DEFINE service memoria-agent {
+  LANGUAGE: Python 3.11
+  FRAMEWORK: FastAPI + LangGraph
+  RESPONSIBILITY: "Session distillation — extract facts, decisions,
+    risks, and assumptions from completed pillar sessions"
+  OWNS: [distillation pipeline, conflict detection, embedding logic]
+  DOES_NOT_OWN: [memory persistence, project state, ADR records]
+  EXPOSES: [POST /distill, GET /health]
+  ROOT_MODULE: app
+}
+
+ASSERT memoria-agent {
+  MUST NOT connect to PostgreSQL directly
+    — all persistence goes through memoria-api
+
+  MUST NOT be called by pillar agents (archon-agent, specweaver-agent,
+  lens-agent) — only memoria-api may call memoria-agent
+
+  MUST validate X-Internal-Secret on every request to POST /distill
+    — return HTTP 401 if header is absent or incorrect
+
+  MUST return structured distillation output — list of candidate
+  memory entries with type, content, confidence, and rationale
+
+  MUST NOT persist anything — all writes go back to memoria-api
+  via the response payload, never via a direct DB call
+
+  MUST generate embeddings for each extracted fact before returning
+    — embedding model: text-embedding-3-small, dimension 1536
+
+  MUST detect conflicts between new facts and existing memory entries
+    — existing entries are passed in the request payload
+    — conflicts are flagged in the response, not resolved
+    — conflict resolution requires human review in the UI
+}
+
+---
+
 ## DATA LAYER
 
 DEFINE database PostgreSQL {
   OWNS: [conversations table, messages table, fmea_risks table, governance_reports table]
-  USED_BY: [ai-architect-api only]
+  USED_BY: [archon-api only]
   SCHEMA_MANAGEMENT: Flyway
 
   TABLE fmea_risks {
@@ -682,7 +898,7 @@ DEFINE database PostgreSQL {
 
 DEFINE database Qdrant {
   OWNS: [architecture pattern embeddings, past design vectors]
-  USED_BY: [ai-architect-agent only]
+  USED_BY: [archon-agent only]
   PURPOSE: "Semantic memory — retrieve similar past architectures at inference time"
   COLLECTION: architecture_patterns {
     EMBEDDING_MODEL: text-embedding-3-small
@@ -704,11 +920,47 @@ DEFINE component MemoryStore {
   INVARIANT: All public methods MUST catch exceptions and log warnings — never raise to caller
 }
 
+DEFINE database memoria {
+  OWNS: [projects, project_session_links, memory_entries,
+         architecture_decisions]
+  USED_BY: [memoria-api only]
+  SCHEMA_MANAGEMENT: Flyway
+
+  TABLE projects {
+    id UUID PK, name, description, status, created_at, updated_at
+  }
+
+  TABLE project_session_links {
+    id UUID PK, project_id FK, pillar (ARCHON|SPECWEAVER|LENS),
+    session_id UUID, linked_at
+    UNIQUE(pillar, session_id)
+  }
+
+  TABLE memory_entries {
+    id UUID PK, project_id FK, memory_type, tier,
+    content, rationale, source_pillar, source_session_id,
+    source_excerpt, confidence, status, superseded_by FK,
+    expires_at, last_accessed_at, access_count, tags text[],
+    embedding vector(1536), created_at, updated_at
+    INDEX: ivfflat on embedding (vector_cosine_ops)
+    INDEX: idx_memory_expires on (expires_at) WHERE expires_at IS NOT NULL
+  }
+
+  TABLE architecture_decisions {
+    id UUID PK, project_id FK, adr_number INT,
+    title, status (PROPOSED|ACCEPTED|SUPERSEDED|DEPRECATED),
+    context, decision, consequences, alternatives_considered,
+    source_pillar, source_session_id, superseded_by INT,
+    created_at
+    UNIQUE(project_id, adr_number)
+  }
+}
+
 ASSERT data-layer {
-  MUST NOT allow ai-architect-agent to connect to PostgreSQL directly
+  MUST NOT allow archon-agent to connect to PostgreSQL directly
     — agent has no PostgreSQL connection string in its environment
 
-  MUST NOT allow ai-architect-api to connect to Qdrant directly
+  MUST NOT allow archon-api to connect to Qdrant directly
     — api has no Qdrant connection string in its environment
 
   MUST store all structured agent outputs (ADL, trade-offs, weaknesses) as JSONB
@@ -719,6 +971,13 @@ ASSERT data-layer {
 
   MUST use UUID primary keys on all tables
     — no integer or serial primary keys
+
+  MUST NOT allow memoria-agent to connect to PostgreSQL directly
+    — agent has no PostgreSQL connection string in its environment
+
+  MUST use pgvector extension for memory_entries.embedding column
+    — gen_random_uuid() is used for UUIDs (not pgcrypto)
+    — pgcrypto is NOT allow-listed on Azure PostgreSQL Flexible Server
 }
 
 
@@ -728,7 +987,7 @@ ASSERT data-layer {
 
 DEFINE infrastructure Production {
   PLATFORM: Azure Kubernetes Service (AKS)
-  CHART: helm/ai-architect (Helm v3)
+  CHART: helm/axiom (Helm v3)
   OBSERVABILITY: OpenTelemetry → Jaeger (traces), Prometheus (metrics)
   SECRETS: Azure Key Vault via CSI SecretProviderClass
   INGRESS: NGINX Ingress Controller with TLS via cert-manager
@@ -790,7 +1049,7 @@ ASSERT cost-tracking {
 }
 
 ASSERT deployment {
-  MUST deploy to AKS via Helm chart in helm/ai-architect/
+  MUST deploy to AKS via Helm chart in helm/axiom/
     — values.yaml MUST parameterise all images, replica counts, resource limits,
       and secret references — no hardcoded cluster-specific values in templates
 
@@ -924,7 +1183,7 @@ When generating code for this project, Copilot MUST:
 
 1. Read this file before generating any code.
 
-2. Place new Java classes in the correct package under com.aiarchitect.api.
+2. Place new Java classes in the correct package under com.archon.api.
    Never create classes outside the root package.
 
 3. Never write raw SQL outside of Flyway migration files.
@@ -934,8 +1193,8 @@ When generating code for this project, Copilot MUST:
 
 5. Never use RestTemplate. Always use WebClient for HTTP calls.
 
-6. Never call the OpenAI or Azure OpenAI API from ai-architect-api.
-   All LLM calls belong exclusively in ai-architect-agent.
+6. Never call the OpenAI or Azure OpenAI API from archon-api.
+   All LLM calls belong exclusively in archon-agent.
 
 7. Never add pipeline logic to ChatService or AgentBridgeService.
    Those classes bridge HTTP only — they contain no domain logic.

@@ -25,7 +25,8 @@ terraform/*.tfstate.backup
 # ========================
 # Java / Maven
 # ========================
-ai-architect-api/target/
+target/
+archon-api/target/
 *.class
 *.jar
 *.war
@@ -74,3 +75,6 @@ docker-compose.override.yml
 # ========================
 .DS_Store
 Thumbs.db
+
+# Added by `forge init` — keep local Forge state and Python artifacts out of git.
+.forge/

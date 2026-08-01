@@ -90,6 +90,10 @@ pushd "${REPO_ROOT}/terraform" > /dev/null
   INGRESS_IP_ID="$(terraform output -raw ingress_public_ip_id 2>/dev/null || true)"
   RESOURCE_GROUP="$(terraform output -raw resource_group_name 2>/dev/null || true)"
   INGRESS_FQDN="$(terraform output -raw ingress_fqdn 2>/dev/null || true)"
+  KEY_VAULT_NAME="$(terraform output -raw key_vault_name 2>/dev/null || true)"
+  AXIOM_PLATFORM_DB_NAME="$(terraform output -raw axiom_platform_db_name 2>/dev/null || true)"
+  SPECWEAVER_DB_NAME="$(terraform output -raw specweaver_db_name 2>/dev/null || true)"
+  SPECWEAVER_DOCS_CONTAINER="$(terraform output -raw specweaver_documents_container_name 2>/dev/null || true)"
 popd > /dev/null
 
 if [[ -z "${INGRESS_IP}" ]]; then
@@ -297,3 +301,18 @@ echo "    git push origin main"
 echo ""
 echo "  The CI/CD pipeline will build and deploy your application automatically."
 echo ""
+
+echo -e "${BOLD}Phase 1 resources:${RESET}"
+echo "  ✓ PostgreSQL database: ${AXIOM_PLATFORM_DB_NAME:-axiom_platform}"
+echo "  ✓ PostgreSQL database: ${SPECWEAVER_DB_NAME:-specweaver}"
+echo "  ✓ Blob container:      ${SPECWEAVER_DOCS_CONTAINER:-specweaver-documents}"
+echo ""
+
+if [[ -n "${KEY_VAULT_NAME:-}" ]]; then
+  echo -e "${BOLD}Post-provisioning action required:${RESET}"
+  echo "  Set real values for the new Key Vault secret slots:"
+  echo ""
+  echo "    az keyvault secret set --vault-name ${KEY_VAULT_NAME} --name axiom-platform-jwt-secret --value \"<set-real-value>\""
+  echo "    az keyvault secret set --vault-name ${KEY_VAULT_NAME} --name specweaver-jwt-secret --value \"<set-real-value>\""
+  echo ""
+fi

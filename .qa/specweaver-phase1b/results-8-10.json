@@ -1,0 +1,29 @@
+{
+  "test8": {
+    "session": "c219c422-55e7-499e-a35e-44f02b73eff4",
+    "status": "PACKAGE_READY",
+    "elapsedPollSeconds": 10,
+    "wallMs": 30205,
+    "requirements": 9,
+    "gaps": 0,
+    "conflicts": 0,
+    "score": 0.0
+  },
+  "test9": {
+    "session": "c7ed85cb-270f-4955-bdef-76ba7cbdfae2",
+    "status": "PACKAGE_READY",
+    "beforeSpecweaver": [],
+    "afterSpecweaver": [],
+    "beforeCount": 1,
+    "afterCount": 1
+  },
+  "test10": {
+    "test5Session": "a57692c1-fe51-44e1-bef9-94df042e6465",
+    "sendResponse": {
+      "archonConversationId": "6bd88688-fa6b-41ad-a960-25a2576961bb"
+    },
+    "conversation": {
+      "error": "HTTP Error 404: "
+    }
+  }
+}
